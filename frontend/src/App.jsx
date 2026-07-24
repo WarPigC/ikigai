@@ -1,0 +1,5161 @@
+
+// src/App.jsx
+import React, { useEffect, useState } from "react";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Link,
+  useNavigate,
+  useParams,
+  useLocation,
+  Navigate,
+  Outlet,
+} from "react-router-dom";
+import Login from "./Login";
+import "./index.css";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import AdminEventParticipants from "./AdminEventParticipants";
+import ramsitaLogo from "./assets/ramsita-logo.png";
+
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
+export const ASSESSMENT_CRITERIA = [
+  "Presentation Quality & Clarity",
+  "Significance & Relevance of Problem",
+  "Appropriateness of Methodology",
+  "Validity of Results & Conclusions",
+  "How effectively questions were addressed",
+];
+
+
+/* ----------------------------- Shared Header ----------------------------- */
+function Header({ user, onLogout }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <header className="w-full bg-white/70 backdrop-blur-md border-b border-green-200 shadow-sm">
+      <div className="flex items-center justify-between px-4 md:px-6 py-3 md:h-20">
+
+        <div className="flex items-center gap-3 min-w-0">
+  {/* LOGO */}
+  <img
+    src={ramsitaLogo}
+    alt="RAMSITA 2026 Logo"
+    className="w-12 h-12 object-contain shrink-0"
+  />
+
+  {/* TITLE + SUBTITLE */}
+  <div className="flex flex-col min-w-0">
+    <h1 className="text-xl md:text-3xl font-extrabold text-green-700 leading-tight truncate">
+      RAMSITA 2026
+    </h1>
+
+    <span className="text-xs md:text-sm text-gray-600 leading-snug line-clamp-2 md:line-clamp-none">
+      Recent Advancement and Modernization in Sustainable Intelligent
+      Technologies & Applications
+    </span>
+  </div>
+</div>
+
+
+        <div className="relative">
+          <button
+            onClick={() => setOpen((v) => !v)}
+            className="flex items-center gap-2 rounded-full px-3 py-2 hover:bg-green-50"
+            aria-haspopup="true"
+            aria-expanded={open}
+          >
+            <div className="w-10 h-10 bg-green-600 text-white flex items-center justify-center rounded-full font-semibold">
+              {user.name[0].toUpperCase()}
+            </div>
+            <div className="hidden sm:flex flex-col text-left">
+              <span className="text-sm font-semibold">{user.name}</span>
+              <span className="text-xs text-green-700">{user.role}</span>
+            </div>
+          </button>
+
+          {open && (
+            <div className="absolute right-0 mt-2 w-36 bg-white border border-green-100 rounded-lg shadow-md">
+              <button
+                onClick={() => {
+                  setOpen(false);
+                  onLogout();
+                }}
+                className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-green-50"
+              >
+                Logout
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </header>
+  );
+}
+
+/* -------------------------------- Dashboard -------------------------------- */
+function Dashboard({ events, refreshEvents }) {
+  const [participantCounts, setParticipantCounts] = useState({});
+  const [sessionChairCounts, setSessionChairCounts] = useState({});
+
+  useEffect(() => {
+  fetch(`${API_BASE}/api/admin/events/participant-counts`)
+    .then((res) => res.json())
+    .then((data) => {
+      if (data.success) {
+        setParticipantCounts(data.counts || {});
+      }
+    });
+}, []);
+
+useEffect(() => {
+  fetch(`${API_BASE}/api/admin/events/session-chair-counts`)
+    .then((res) => res.json())
+    .then((data) => {
+      if (data.success) {
+        setSessionChairCounts(data.counts || {});
+      }
+    });
+}, []);
+
+  return (
+    <main className="flex-1 px-6 py-6 w-full">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-2xl font-bold text-gray-800">Events</h2>
+        <Link
+          to="/create"
+          className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md font-semibold"
+        >
+          Create Event
+        </Link>
+      </div>
+
+      <div className="space-y-4">
+        {!events || events.length === 0 ? (
+          <div className="p-6 bg-white/80 border border-green-200 rounded-lg text-gray-600">
+            No events yet. Click “Create Event” to start.
+          </div>
+        ) : (
+          events.map((ev) => {
+            const participantsCount = Object.values(
+              ev.participants || {}
+            ).reduce((acc, list) => acc + (list?.length || 0), 0);
+            return (
+              <div
+  key={ev._id || ev.id}
+  className="bg-white border border-green-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition"
+>
+  <div className="flex items-start justify-between gap-6">
+
+    {/* LEFT: Event Info */}
+    <div className="flex-1 min-w-0">
+      <h3 className="text-xl font-semibold text-green-700 truncate">
+        {ev.title}
+      </h3>
+
+      <p className="text-sm text-gray-600 mt-1 line-clamp-2 text-justify">
+        {ev.description || "No description available for this event."}
+      </p>
+
+      <p className="text-sm text-gray-500 mt-2">
+        Date: {ev.date || "—"}
+      </p>
+    </div>
+
+    {/* RIGHT: Stats + Actions */}
+    <div className="flex flex-col items-end gap-4 shrink-0">
+
+      {/* STATS */}
+      <div className="flex items-center gap-6">
+        <div className="text-center">
+          <div className="text-xs uppercase tracking-wide text-gray-500">
+            Tracks
+          </div>
+          <div className="text-lg font-semibold text-gray-800">
+            {ev.tracks?.length || 0}
+          </div>
+        </div>
+
+        <div className="text-center">
+          <div className="text-xs uppercase tracking-wide text-gray-500">
+            Chairs
+          </div>
+          <div className="text-lg font-semibold text-gray-800">
+            {sessionChairCounts[ev._id || ev.id] || 0}
+          </div>
+        </div>
+
+        <div className="text-center">
+          <div className="text-xs uppercase tracking-wide text-gray-500">
+            Participants
+          </div>
+          <div className="text-lg font-semibold text-gray-800">
+            {participantCounts[ev._id || ev.id] || 0}
+          </div>
+        </div>
+      </div>
+
+      {/* ACTIONS */}
+      <div className="flex gap-3">
+        <Link
+          to={`/event/${ev._id || ev.id}`}
+          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-semibold"
+        >
+          View Details
+        </Link>
+<Link
+    to={`/admin/events/${ev._id || ev.id}/participants`}
+    className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md text-sm font-semibold"
+  >
+    View Participants
+  </Link>
+      </div>
+    </div>
+  </div>
+</div>
+
+            );
+          })
+        )}
+      </div>
+    </main>
+  );
+}
+
+
+
+
+
+
+
+/* --------------------------- Create Event Wizard -------------------------- */
+/* This corresponds to the large wizard you previously had. I preserved behavior.
+   It supports create and edit flows depending on props passed in. */
+
+function CreateEvent({
+  onEventSaved,
+  events = [],
+  isEdit = false,
+  editEventId = null,
+  setEvents,
+}) {
+  const navigate = useNavigate();
+
+  // steps
+  const stepDefs = [
+    { id: 1, label: "Basic Details" },
+    { id: 2, label: "Tracks" },
+    { id: 3, label: "Session Chairs" },
+    { id: 4, label: "Student Coordinator" },
+  ];
+  const [activeStep, setActiveStep] = useState(1);
+  const [completed, setCompleted] = useState([]);
+  const [saving, setSaving] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
+  const [scByTrack, setScByTrack] = useState({});
+const [scLoading, setScLoading] = useState(false);
+
+
+  const markDirty = () => setIsDirty(true);
+
+
+
+
+  // if editing an existing event, prefill
+  const findEventToEdit = () => {
+    if (!isEdit || !editEventId) return null;
+    return (
+      events.find((e) => e._id === editEventId || e.id === editEventId) || null
+    );
+  };
+
+useEffect(() => {
+  if (!isEdit || !editEventId || !Array.isArray(events)) return;
+
+  const ev = events.find(
+    (e) => e._id === editEventId || e.id === editEventId
+  );
+
+  if (!ev) return;
+
+  setEvent({
+    _id: ev._id,
+    id: ev._id || ev.id,
+    title: ev.title || "",
+    description: ev.description || "",
+    date: ev.date || "",
+    tracks: Array.isArray(ev.tracks)
+    ? ev.tracks.map((t, idx) => ({
+        _id: t._id,
+        id: t.id || String(idx + 1).padStart(3, "0"), // 🔥 ENSURE UI ID
+        title: t.title,
+        description: t.description,
+      }))
+    : [],
+
+    sessionChairs: [],            // will be loaded at step 3
+    studentCoordinators: [],      // will be loaded at step 4
+    participants: ev.participants || {},
+  });
+}, [isEdit, editEventId, events]);
+
+
+  // main event object (local while creating)
+  const [event, setEvent] = useState({
+    id: Date.now().toString(),
+    title: "",
+    description: "",
+    date: "",
+    tracks: [], // {id,title,description}
+    sessionChairs: [], // {id,name,email,phone,type,password,trackId}
+    participants: {}, // keyed by trackId -> array of participants
+    studentCoordinators: [], // {id,name,email,phone,trackId,password}
+  });
+
+  
+
+  const [successMessage, setSuccessMessage] = useState("");
+  // 🔥 Auto-save helper for EDIT mode (prevents data loss on refresh)
+const persistEditEvent = async (updatedEvent) => {
+  if (!isEdit) return;
+  if (!updatedEvent._id) return;
+  if (activeStep !== 2) return;
+
+  await fetch(`${API_BASE}/api/admin/events/${updatedEvent._id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      tracks: updatedEvent.tracks, // ✅ ONLY TRACKS
+    }),
+  });
+};
+
+
+const persistFullEditEvent = async (updatedEvent) => {
+  if (!isEdit) return;
+  if (!updatedEvent._id) return;
+
+  console.log("🔵 FULL EDIT SAVE", updatedEvent._id);
+
+  await fetch(`${API_BASE}/api/admin/events/${updatedEvent._id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      title: updatedEvent.title,
+      description: updatedEvent.description,
+      date: updatedEvent.date,
+      tracks: updatedEvent.tracks,
+      sessionChairs: updatedEvent.sessionChairs.map(c => ({
+        _id: c._id || undefined, // 🔥 preserve existing DB id
+        name: c.name,
+        email: c.email,
+        phone: c.phone,
+        type: c.type,
+        trackId: c.trackId,
+      })),
+      studentCoordinators: updatedEvent.studentCoordinators,
+    }),
+  });
+};
+
+
+  /* ---------------------------- Step 1 (Basic) ---------------------------- */
+  const step1Valid = event.title.trim() && event.date.trim();
+
+  /* ---------------------------- Step 2 (Tracks) --------------------------- */
+  const [tTitle, setTTitle] = useState("");
+  const [tDesc, setTDesc] = useState("");
+  const [editingTrackId, setEditingTrackId] = useState(null);
+  const getNextTrackId = () => {
+  const existingIds = event.tracks
+    .map((t) => parseInt(t.id, 10))
+    .filter((n) => !isNaN(n));
+
+  const next = existingIds.length > 0 ? Math.max(...existingIds) + 1 : 1;
+  return next.toString().padStart(3, "0");
+};
+
+
+
+  const addTrack = () => {
+    markDirty()
+  if (!tTitle.trim() || !tDesc.trim()) {
+    alert("Track title and description are required.");
+    return;
+  }
+
+  const id = getNextTrackId();
+
+  const newTrack = {
+    id,
+    title: tTitle.trim(),
+    description: tDesc.trim(),
+   
+  };
+
+  setEvent((ev) => {
+    const updated = { ...ev, tracks: [...ev.tracks, newTrack] };
+    persistEditEvent(updated); // auto-save in edit mode
+    return updated;
+  });
+
+  setTTitle("");
+  setTDesc("");
+};
+
+const editTrack = (track) => {
+  setEditingTrackId(track.id);
+  setTTitle(track.title);
+  setTDesc(track.description);
+};
+
+
+
+  const deleteTrack = (id) => {
+    markDirty()
+    if (!confirm("Delete track and its participants/chairs?")) return;
+    setEvent((ev) => {
+  const updated = {
+    ...ev,
+    tracks: ev.tracks.filter((tr) => tr.id !== id),
+    sessionChairs: ev.sessionChairs.filter((ch) => ch.trackId !== id),
+    participants: Object.fromEntries(
+      Object.entries(ev.participants || {}).filter(([k]) => k !== id)
+    ),
+  };
+
+
+  persistEditEvent(updated);   // 🔥 SAVE IMMEDIATELY
+  return updated;
+});
+
+  };
+
+  const updateTrack = () => {
+    markDirty()
+  if (!editingTrackId) return;
+
+  setEvent((ev) => ({
+    ...ev,
+    tracks: ev.tracks.map((t) =>
+      t.id === editingTrackId
+        ? {
+            ...t,                     // ✅ preserves ID
+            title: tTitle.trim(),
+            description: tDesc.trim(),
+          }
+        : t
+    ),
+  }));
+
+  setEditingTrackId(null);
+  setTTitle("");
+  setTDesc("");
+};
+
+
+  const step2Valid = event.tracks.length > 0;
+
+  /* -------------------------- Step 3 (Session Chairs) ---------------------- */
+// 🔥 STEP 4 – Load Student Coordinators in EDIT mode
+useEffect(() => {
+  if (!isEdit || !event._id || activeStep !== 4) return;
+
+  fetch(`${API_BASE}/api/admin/events/${event._id}`)
+    .then(res => res.json())
+    .then(data => {
+      if (!data?.event?.studentCoordinators) return;
+
+      setEvent(ev => ({
+        ...ev,
+        studentCoordinators: data.event.studentCoordinators.map(sc => {
+          const uiTrack = ev.tracks.find(
+            tr => String(tr._id) === String(sc.trackId)
+          );
+
+          return {
+            _id: sc._id,
+            id: sc._id,
+            name: sc.name,
+            email: sc.email,
+            phone: sc.phone,
+            password: "",
+            trackId: uiTrack ? uiTrack.id : null, // ✅ now valid
+          };
+        }),
+      }));
+    });
+}, [isEdit, event._id, activeStep]);
+
+
+useEffect(() => {
+  if (!isEdit || activeStep !== 4 || !event._id) return;
+
+  const load = async () => {
+    setScLoading(true);
+    const map = {};
+
+    for (const tr of event.tracks) {
+      try {
+        const res = await fetch(
+          `${API_BASE}/api/admin/student-coordinator?eventId=${event._id}&trackId=${tr.id}`
+        );
+        const data = await res.json();
+
+        map[tr.id] = data.coordinator; // may be null
+      } catch (err) {
+        console.error("SC fetch failed:", tr.id, err);
+        map[tr.id] = null;
+      }
+    }
+
+    setScByTrack(map);
+    setScLoading(false);
+  };
+
+  load();
+}, [isEdit, activeStep, event._id, event.tracks]);
+
+  useEffect(() => {
+  if (!isEdit || !event._id || activeStep !== 3) return;
+
+  fetch(`${API_BASE}/api/admin/session-chairs/${event._id}`)
+    .then(res => res.json())
+    .then(data => {
+      if (Array.isArray(data.chairs)) {
+        setEvent(ev => ({
+          ...ev,
+          sessionChairs: data.chairs.map(ch => ({
+          _id: ch._id,        // DB id
+          id: ch._id,         // keep for UI consistency
+          name: ch.name,
+          email: ch.email,
+          phone: ch.phone,
+          type: ch.type,
+          trackId: ch.trackId,
+          password: "",
+        }))
+        }));
+      }
+    });
+}, [isEdit, event._id, activeStep]);
+
+  const [chairForm, setChairForm] = useState({
+    id: "",
+    name: "",
+    email: "",
+    phone: "",
+    type: "",
+    password: "",
+    trackId: "",
+  });
+
+  const [studentForm, setStudentForm] = useState({
+  id: "",
+  name: "",
+  email: "",
+  phone: "",
+  password: "",
+  trackId: "",
+});
+
+const genStudentId = () =>
+  `SC${(event.studentCoordinators.length + 1)
+    .toString()
+    .padStart(3, "0")}`;
+
+const genStudentPassword = (name) => {
+  if (!name) return "";
+  return name.split(" ")[0].toLowerCase() + "123";
+};
+
+
+  const emailValid = (em) => /\S+@\S+\.\S+/.test(em);
+  const phoneValid = (ph) => /^\d{10}$/.test(ph);
+
+  const genChairId = () => {
+  const nums = event.sessionChairs
+    .map(c => parseInt(c.id?.replace("SCH", ""), 10))
+    .filter(n => !isNaN(n));
+
+  const next = nums.length > 0 ? Math.max(...nums) + 1 : 1;
+  return `SCH${next.toString().padStart(3, "0")}`;
+};
+
+
+  const genAutoPassword = (name) => {
+    if (!name) return "";
+    const first = name.trim().split(" ")[0].toLowerCase();
+    return `${first}123`;
+  };
+
+  const addChair = () => {
+    markDirty()
+    const { name, email, phone, type, password, trackId } = chairForm;
+    if (!name.trim()) return alert("Name required");
+    if (!emailValid(email)) return alert("Valid email required");
+    if (!phoneValid(phone)) return alert("Valid 10-digit phone required");
+    if (!type) return alert("Please select Internal or External");
+    if (!trackId) return alert("Please assign a track");
+
+    // auto-generate password if empty
+    const realPass =
+      password && password.trim() ? password.trim() : genAutoPassword(name);
+
+    // ensure no duplicate same type per track
+    const conflict = event.sessionChairs.find(
+      (c) =>
+        c.trackId === trackId && c.type.toLowerCase() === type.toLowerCase()
+    );
+    if (conflict) {
+      return alert(
+        `A ${type} chair is already assigned to this track (${conflict.name}).`
+      );
+    }
+
+    const newChair = { ...chairForm, id: genChairId(), password: realPass };
+    setEvent((ev) => ({
+      ...ev,
+      sessionChairs: [...ev.sessionChairs, newChair],
+    }));
+    setChairForm({
+      id: "",
+      name: "",
+      email: "",
+      phone: "",
+      type: "",
+      password: "",
+      trackId: "",
+    });
+  };
+
+  const editChair = (id) => {
+    const c = event.sessionChairs.find((x) => x.id === id);
+    if (!c) return;
+    setChairForm({ ...c });
+  };
+
+  const updateChair = () => {
+    markDirty()
+    const { id, name, email, phone, type, password, trackId } = chairForm;
+    if (!id) return;
+    if (!name.trim()) return alert("Name required");
+    if (!emailValid(email)) return alert("Valid email required");
+    if (!phoneValid(phone)) return alert("Valid 10-digit phone required");
+    if (!type) return alert("Please select Internal or External");
+    if (!trackId) return alert("Please assign a track");
+
+    // check conflict excluding this id
+    const conflict = event.sessionChairs.find(
+      (c) =>
+        c.trackId === trackId &&
+        c.type.toLowerCase() === type.toLowerCase() &&
+        c.id !== id
+    );
+    if (conflict) {
+      return alert(
+        `A ${type} chair is already assigned to this track (${conflict.name}).`
+      );
+    }
+
+    setEvent((ev) => ({
+      ...ev,
+      sessionChairs: ev.sessionChairs.map((c) =>
+        c.id === id ? { ...chairForm } : c
+      ),
+    }));
+    setChairForm({
+      id: "",
+      name: "",
+      email: "",
+      phone: "",
+      type: "",
+      password: "",
+      trackId: "",
+    });
+  };
+
+  const deleteChair = (id) => {
+    markDirty()
+    if (!confirm("Delete this chair?")) return;
+    setEvent((ev) => ({
+      ...ev,
+      sessionChairs: ev.sessionChairs.filter((c) => c.id !== id),
+    }));
+  };
+
+const addStudentCoordinator = async () => {
+  const { name, email, phone, password, trackId } = studentForm;
+
+  if (!name || !email || !phone || !trackId) {
+    alert("All fields required");
+    return;
+  }
+
+  const res = await fetch(`${API_BASE}/api/admin/student-coordinator`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    name,
+    email,
+    phone,
+    password,
+    eventId: event._id,
+    trackId,
+  }),
+});
+
+const data = await res.json();
+
+if (!res.ok || !data.success) {
+  alert(data.message || "Failed to add student coordinator");
+  return;
+}
+
+  setScByTrack(prev => ({
+    ...prev,
+    [trackId]: data.coordinator,
+  }));
+
+  setStudentForm({
+    id: "",
+    name: "",
+    email: "",
+    phone: "",
+    password: "",
+    trackId: "",
+  });
+};
+
+
+const editStudent = (id) => {
+  const s = event.studentCoordinators.find((x) => x.id === id);
+  if (s) setStudentForm({ ...s });
+};
+
+const updateStudent = async () => {
+  const { id, name, email, phone, password, trackId } = studentForm;
+
+  if (!id) return alert("Invalid student");
+
+  await fetch(`${API_BASE}/api/admin/student-coordinator`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      id,
+      name,
+      email,
+      phone,
+      password: password || undefined, // 🔐 update only if provided
+      eventId: event._id,
+      trackId,
+    }),
+  });
+
+  // 🔄 refetch this track only
+  const res = await fetch(
+    `${API_BASE}/api/admin/student-coordinator?eventId=${event._id}&trackId=${trackId}`
+  );
+  const data = await res.json();
+
+  setScByTrack(prev => ({
+    ...prev,
+    [trackId]: data.coordinator,
+  }));
+
+  setStudentForm({
+    id: "",
+    name: "",
+    email: "",
+    phone: "",
+    password: "",
+    trackId: "",
+  });
+};
+
+
+
+
+const deleteStudent = (id) => {
+  markDirty()
+  if (!confirm("Delete student coordinator?")) return;
+  setEvent((ev) => ({
+    ...ev,
+    studentCoordinators: ev.studentCoordinators.filter((s) => s.id !== id),
+  }));
+};
+
+
+  const getTrackTitle = (trackId) => {
+    const t = event.tracks.find((x) => x.id === trackId);
+    return t ? t.title : "—";
+  };
+
+  // validation: each track must have exactly one internal + one external
+  const step3Valid = (() => {
+    if (event.tracks.length === 0) return false;
+    if (!Array.isArray(event.sessionChairs) || event.sessionChairs.length === 0)
+    return false;
+
+    for (const tr of event.tracks) {
+      const chairsForTrack = event.sessionChairs.filter(
+        (c) => c.trackId === tr.id
+      );
+      const types = chairsForTrack.map((c) => c.type.toLowerCase());
+      if (
+        !(
+          chairsForTrack.length === 2 &&
+          types.includes("internal") &&
+          types.includes("external")
+        )
+      ) {
+        return false;
+      }
+    }
+    return true;
+  })();
+
+  /* ------------------------- Step 4 Participants -------------------------- */
+  // modal state
+  const [participantModalOpen, setParticipantModalOpen] = useState(false);
+  const [participantModalTrackId, setParticipantModalTrackId] = useState(null);
+
+  // participant form inside modal
+  const [pForm, setPForm] = useState({
+    id: "",
+    presenterName: "",
+    paperTitle: "",
+    file: null, // file object
+    fileName: "",
+    mode: "",
+    email: "",
+    phone: "",
+  });
+
+  const openParticipantModal = (trackId) => {
+    setParticipantModalTrackId(trackId);
+    setPForm({
+      id: "",
+      presenterName: "",
+      paperTitle: "",
+      file: null,
+      fileName: "",
+      mode: "",
+      email: "",
+      phone: "",
+    });
+    setParticipantModalOpen(true);
+  };
+
+  const genParticipantId = (trackId) => {
+    const list = event.participants?.[trackId] || [];
+    const idx = list.length + 1;
+    return `${trackId}P${idx.toString().padStart(3, "0")}`; // e.g., 001P001
+  };
+
+  const fileIsValid = (file) => {
+    if (!file) return false;
+    const allowed = [
+      "application/pdf",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
+    ];
+    return allowed.includes(file.type);
+  };
+
+  const addParticipant = () => {
+    const { presenterName, paperTitle, file, mode, email, phone } = pForm;
+    if (!presenterName.trim()) return alert("Presenter name required");
+    if (!paperTitle.trim()) return alert("Paper title required");
+    if (!file) return alert("Please upload the research paper (.pdf or .docx)");
+    if (!fileIsValid(file)) return alert("Invalid file type. Use PDF or DOCX.");
+    if (!mode) return alert("Select presentation mode");
+    if (!emailValid(email)) return alert("Valid email required");
+    if (!phoneValid(phone)) return alert("Valid 10-digit phone required");
+
+    const pid = genParticipantId(participantModalTrackId);
+    const saved = {
+      paperId: pid,              // ✅ FIX
+      presenterName: presenterName.trim(),
+      paperTitle: paperTitle.trim(),
+      fileName: pForm.fileName || file.name,
+      file, // keep file object in state (local)
+      mode,
+      email,
+      phone,
+    };
+
+    setEvent((ev) => {
+      const current = { ...(ev.participants || {}) };
+      if (!current[participantModalTrackId])
+        current[participantModalTrackId] = [];
+      current[participantModalTrackId] = [
+        ...current[participantModalTrackId],
+        saved,
+      ];
+      return { ...ev, participants: current };
+    });
+
+    setParticipantModalOpen(false);
+    setPForm({
+      id: "",
+      presenterName: "",
+      paperTitle: "",
+      file: null,
+      fileName: "",
+      mode: "",
+      email: "",
+      phone: "",
+    });
+  };
+
+  const deleteParticipant = (trackId, participantId) => {
+  if (!confirm("Delete participant?")) return;
+
+  setEvent((ev) => {
+    const current = { ...(ev.participants || {}) };
+    current[trackId] = (current[trackId] || []).filter(
+      (p) => p.paperId !== participantId
+    );
+    return { ...ev, participants: current };
+  });
+};
+
+const step4Valid =
+  Array.isArray(event.tracks) &&
+  event.tracks.length > 0 &&
+  event.tracks.every((tr) => scByTrack[tr.id] !== null);
+
+
+
+
+
+  /* ---------------------------- Save & Next ------------------------------- */
+  const markCompleted = (id) => {
+    setCompleted((prev) => (prev.includes(id) ? prev : [...prev, id]));
+  };
+
+  const saveEventToBackend = async (evToSave) => {
+    console.log("SAVE EVENT CALLED", {
+      isEdit,
+      eventId: evToSave._id,
+      payload: evToSave,
+    });
+
+    try {
+      // For edit: use PUT (if evToSave.id looks like Mongo _id), else POST
+      const existsId = evToSave._id;
+      if (isEdit && existsId) {
+        // update the event on backend
+        const url = `${API_BASE}/api/admin/events/${existsId}`;
+        const res = await fetch(url, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: evToSave.title,
+            description: evToSave.description,
+            date: evToSave.date,
+            tracks: evToSave.tracks,
+            sessionChairs: evToSave.sessionChairs,
+            studentCoordinators: evToSave.studentCoordinators,
+          }),
+
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || "Failed to update event");
+        // reflect update
+        if (setEvents)
+          setEvents((prev) =>
+            prev.map((p) =>
+              p._id === existsId || p.id === existsId ? data.event : p
+            )
+          );
+        return { success: true, event: data.event };
+      } else {
+        const res = await fetch(`${API_BASE}/api/admin/events`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: evToSave.title,
+            description: evToSave.description,
+            date: evToSave.date,
+            tracks: evToSave.tracks,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || "Failed to create event");
+        return { success: true, event: data.event };
+      }
+    } catch (err) {
+      console.error("Error saving to backend:", err);
+      return { success: false, error: err.message || "" };
+    }
+  };
+
+  
+
+
+  const saveAndNext = async () => {
+  // 🔥 ALWAYS persist when editing
+  if (isEdit && activeStep === 4) {
+  setSaving(true);
+  try {
+    await persistFullEditEvent(event);
+  } finally {
+    setSaving(false);
+  }
+}
+
+
+  if (activeStep === 1) {
+    if (!step1Valid) return alert("Complete Step 1");
+    markCompleted(1);
+    setActiveStep(2);
+  } 
+  else if (activeStep === 2) {
+    if (!step2Valid) return alert("Add at least one track");
+    markCompleted(2);
+    setActiveStep(3);
+  } 
+  else if (activeStep === 3) {
+    if (!step3Valid) return alert("Fix session chairs");
+    markCompleted(3);
+    setActiveStep(4);
+  } 
+  else if (activeStep === 4) {
+    if (!step4Valid) return alert("Fix student coordinators");
+
+    markCompleted(4);
+
+    if (!isEdit) {
+      // CREATE MODE ONLY
+      const result = await saveEventToBackend(event);
+      if (!result.success) {
+        alert("Save failed");
+        return;
+      }
+    }
+
+    setSuccessMessage(
+      isEdit
+        ? "✅ Event updated successfully"
+        : "✅ Event created successfully"
+    );
+    return;
+  }
+};
+
+
+  useEffect(() => {
+    if (successMessage) {
+      const t = setTimeout(() => setSuccessMessage(""), 3500);
+      return () => clearTimeout(t);
+    }
+  }, [successMessage]);
+
+  if (isEdit && !event.tracks) {
+  return (
+    <div className="p-6 text-gray-600">
+      Loading event data...
+    </div>
+  );
+}
+
+
+
+  /* ------------------------------- UI Render ----------------------------- */
+  return (
+    <div className="flex-1 flex">
+      {/* leftmost sidebar anchored to left */}
+      <aside className="w-64 bg-white/80 border-r border-green-200 min-h-[calc(100vh-80px)] p-4">
+        <div className="flex flex-col gap-3 sticky top-6">
+          {stepDefs.map((s) => {
+            const active = s.id === activeStep;
+            const done = completed.includes(s.id);
+            return (
+              <button
+                key={s.id}
+                onClick={() => {
+                  if (done || active) setActiveStep(s.id);
+                }}
+                className={`flex items-center gap-3 px-3 py-2 rounded-lg border font-medium text-left transition ${
+                  active
+                    ? "border-green-500 text-green-700 bg-green-50"
+                    : done
+                    ? "bg-green-600 text-white"
+                    : "border-green-100 text-gray-600 hover:bg-green-50"
+                }`}
+              >
+                <span
+                  className={`w-6 h-6 flex items-center justify-center rounded-full font-semibold ${
+                    done
+                      ? "bg-green-500 text-white"
+                      : active
+                      ? "border-2 border-green-500 text-green-700"
+                      : "border border-gray-300 text-gray-500"
+                  }`}
+                >
+                  {s.id}
+                </span>
+                <div>
+                  <div>{s.label}</div>
+                </div>
+              </button>
+            );
+          })}
+          <div className="mt-4">
+          <button
+  onClick={() => {
+    if (isDirty && !successMessage) {
+      const ok = confirm(
+        "You have unsaved changes. If you leave now, they will be lost. Continue?"
+      );
+      if (!ok) return;
+    }
+    navigate("/dashboard");
+  }}
+  className="text-sm text-gray-600 hover:text-green-700 hover:underline"
+>
+  ← Back to Dashboard
+</button>
+
+          </div>
+        </div>
+      </aside>
+
+      {/* main content stretches to rightmost */}
+      <section className="flex-1 p-6 overflow-auto relative w-full">
+        {successMessage && (
+          <div className="mb-4 p-3 rounded-md bg-green-50 border border-green-100 text-green-800">
+            {successMessage}
+          </div>
+        )}
+
+        {/* Step 1 */}
+        {activeStep === 1 && (
+          <div className="w-full max-w-5xl">
+            <h2 className="text-xl font-semibold text-gray-800 mb-3">
+              Basic Details
+            </h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Event Title *
+                </label>
+                <input
+                  value={event.title}
+                  onChange={(e) =>
+                    setEvent({ ...event, title: e.target.value })
+                  }
+                  className="w-full border border-green-200 rounded-md px-3 py-2 focus:ring-2 focus:ring-green-300"
+                  placeholder="Enter event title"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Description
+                </label>
+                <textarea
+                  value={event.description}
+                  onChange={(e) =>
+                    setEvent({ ...event, description: e.target.value })
+                  }
+                  className="w-full border border-green-200 rounded-md px-3 py-2 focus:ring-2 focus:ring-green-300"
+                  rows={4}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Event Date *
+                </label>
+                <input
+                  type="date"
+                  value={event.date}
+                  onChange={(e) => setEvent({ ...event, date: e.target.value })}
+                  className="w-full border border-green-200 rounded-md px-3 py-2 focus:ring-2 focus:ring-green-300"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Step 2 */}
+        {activeStep === 2 && (
+          <div className="max-w-4xl">
+            <h2 className="text-xl font-semibold text-gray-800 mb-3">Tracks</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Track Title *
+                </label>
+                <input
+                  value={tTitle}
+                  onChange={(e) => setTTitle(e.target.value)}
+                  className="w-full border border-green-200 rounded-md px-3 py-2"
+                  placeholder="e.g. AI & ML"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Description *
+                </label>
+                <textarea
+                  value={tDesc}
+                  onChange={(e) => setTDesc(e.target.value)}
+                  className="w-full border border-green-200 rounded-md px-3 py-2"
+                  rows={3}
+                  placeholder="Track scope"
+                />
+              </div>
+              <div className="flex gap-2">
+              {editingTrackId ? (
+  <>
+    <button
+      onClick={updateTrack}
+      className="px-4 py-2 bg-yellow-500 text-white rounded"
+    >
+      Update Track
+    </button>
+    <button
+      onClick={() => {
+        setEditingTrackId(null);
+        setTTitle("");
+        setTDesc("");
+      }}
+      className="px-4 py-2 border rounded"
+    >
+      Cancel
+    </button>
+  </>
+) : (
+  <button
+    onClick={addTrack}
+    className="px-4 py-2 bg-green-600 text-white rounded"
+  >
+    Add Track
+  </button>
+)}
+
+            </div>
+
+              {event.tracks.length > 0 && (
+                <div className="mt-4 space-y-2">
+                  
+                  {event.tracks.map((tr) => (
+                    <div
+                      key={tr.id}
+                      className="flex justify-between items-start border border-green-100 rounded-md p-3 bg-white"
+                    >
+                      <div>
+                        <p className="font-semibold text-green-700">
+                          {tr.id} — {tr.title}
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          {tr.description}
+                        </p>
+                      </div>
+                      <div className="flex flex-col items-end gap-2">
+  <div className="flex gap-3">
+    <button
+  onClick={() => editTrack(tr)}
+  className="text-blue-600 text-sm"
+>
+  Edit
+</button>
+
+<button
+  onClick={() => deleteTrack(tr.id)}
+  className="text-red-600 text-sm"
+>
+  Delete
+</button>
+
+  </div>
+</div>
+
+        
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Step 3 */}
+        {activeStep === 3 && (
+          <div className="max-w-4xl">
+            <h2 className="text-xl font-semibold text-gray-800 mb-3">
+              Session Chairs
+            </h2>
+
+            <div className="grid sm:grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Name *
+                </label>
+                <input
+                  value={chairForm.name}
+                  onChange={(e) =>
+                    setChairForm({ ...chairForm, name: e.target.value })
+                  }
+                  className="w-full border border-green-200 rounded-md px-3 py-2"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Email *
+                </label>
+                <input
+                  value={chairForm.email}
+                  onChange={(e) =>
+                    setChairForm({ ...chairForm, email: e.target.value })
+                  }
+                  className="w-full border border-green-200 rounded-md px-3 py-2"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Phone *
+                </label>
+                <input
+                  value={chairForm.phone}
+                  onChange={(e) =>
+                    setChairForm({ ...chairForm, phone: e.target.value })
+                  }
+                  className="w-full border border-green-200 rounded-md px-3 py-2"
+                  placeholder="10 digits"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Type *
+                </label>
+                <select
+                  value={chairForm.type}
+                  onChange={(e) =>
+                    setChairForm({ ...chairForm, type: e.target.value })
+                  }
+                  className="w-full border border-green-200 rounded-md px-3 py-2"
+                >
+                  <option value="">Select</option>
+                  <option>Internal</option>
+                  <option>External</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Password (auto-generated if left empty)
+                </label>
+                <input
+                  type="text"
+                  value={chairForm.password}
+                  onChange={(e) =>
+                    setChairForm({ ...chairForm, password: e.target.value })
+                  }
+                  className="w-full border border-green-200 rounded-md px-3 py-2"
+                  placeholder="Leave blank to auto-generate"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Assign Track *
+                </label>
+                <select
+                  value={chairForm.trackId}
+                  onChange={(e) =>
+                    setChairForm({ ...chairForm, trackId: e.target.value })
+                  }
+                  className="w-full border border-green-200 rounded-md px-3 py-2"
+                >
+                  <option value="">Select Track</option>
+                  {event.tracks.map((tr) => (
+                    <option key={tr.id} value={tr.id}>
+                      {tr.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="flex gap-2 mb-4">
+              {chairForm.id ? (
+                <button
+                  onClick={updateChair}
+                  className="px-4 py-2 bg-yellow-500 text-white rounded-md"
+                >
+                  Update Chair
+                </button>
+              ) : (
+                <button
+                  onClick={addChair}
+                  className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+                >
+                  Add Chair
+                </button>
+              )}
+            </div>
+
+            {!step3Valid && event.sessionChairs.length > 0 && (
+              <div className="p-3 bg-red-50 border border-red-100 text-red-700 rounded-md mb-4">
+                ⚠ Each track must have exactly one Internal and one External
+                chair.
+              </div>
+            )}
+
+            {event.sessionChairs.length > 0 && (
+              <div className="space-y-2">
+                {event.tracks.map(tr => {
+  const chairs = event.sessionChairs.filter(
+    c => c.trackId === tr.id
+  );
+
+  if (chairs.length === 0) return null;
+
+  return (
+    <div
+      key={tr.id}
+      className="border border-green-200 rounded-lg p-4 mb-4 bg-green-50"
+    >
+      <h3 className="font-semibold text-green-800 mb-2">
+        Track: {tr.title}
+      </h3>
+
+      <div className="space-y-2">
+        {chairs.map(c => (
+          <div
+            key={c.id}
+            className="flex justify-between items-start border rounded-md p-3 bg-white"
+          >
+            <div>
+              <p className="font-semibold">
+                {c.name}
+                <span
+                  className={`ml-2 text-xs px-2 py-0.5 rounded ${
+                    c.type === "Internal"
+                      ? "bg-blue-100 text-blue-700"
+                      : "bg-purple-100 text-purple-700"
+                  }`}
+                >
+                  {c.type}
+                </span>
+              </p>
+              <p className="text-sm text-gray-600">
+                {c.email} • {c.phone}
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => editChair(c.id)}
+                className="text-blue-600 text-sm"
+              >
+                Edit
+              </button>
+              <button
+                onClick={() => deleteChair(c.id)}
+                className="text-red-600 text-sm"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+})}
+
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Step 4 Participants */}
+        {activeStep === 4 && (
+  <div className="max-w-4xl">
+  <h2 className="text-xl font-semibold mb-4">
+    Student Coordinator
+  </h2>
+
+  {/* ---- FORM ---- */}
+  <div className="grid sm:grid-cols-2 gap-4">
+    <input
+      placeholder="Name"
+      value={studentForm.name}
+      onChange={(e) =>
+        setStudentForm({ ...studentForm, name: e.target.value })
+      }
+      className="border px-3 py-2 rounded"
+    />
+
+    <input
+      placeholder="Email"
+      value={studentForm.email}
+      onChange={(e) =>
+        setStudentForm({ ...studentForm, email: e.target.value })
+      }
+      className="border px-3 py-2 rounded"
+    />
+
+    <input
+      placeholder="Phone"
+      value={studentForm.phone}
+      onChange={(e) =>
+        setStudentForm({ ...studentForm, phone: e.target.value })
+      }
+      className="border px-3 py-2 rounded"
+    />
+
+    <input
+      placeholder="Password (auto if empty)"
+      value={studentForm.password}
+      onChange={(e) =>
+        setStudentForm({ ...studentForm, password: e.target.value })
+      }
+      className="border px-3 py-2 rounded"
+    />
+
+    <select
+      value={studentForm.trackId}
+      onChange={(e) =>
+        setStudentForm({ ...studentForm, trackId: e.target.value })
+      }
+      className="border px-3 py-2 rounded sm:col-span-2"
+    >
+      <option value="">Assign Track</option>
+      {event.tracks.map((tr) => (
+        <option key={tr.id} value={tr.id}>
+          {tr.title}
+        </option>
+      ))}
+    </select>
+  </div>
+
+  {/* ---- ACTION BUTTON ---- */}
+  <div className="mt-4">
+    {studentForm.id ? (
+      <button
+        onClick={updateStudent}
+        className="px-4 py-2 bg-yellow-500 text-white rounded"
+      >
+        Update Student
+      </button>
+    ) : (
+      <button
+        onClick={addStudentCoordinator}
+        className="px-4 py-2 bg-green-600 text-white rounded"
+      >
+        Add Student Coordinator
+      </button>
+    )}
+  </div>
+
+  {/* ---- LIST BY TRACK ---- */}
+  <div className="mt-6 space-y-4">
+    {event.tracks.map((tr) => {
+      const coordinator = scByTrack[tr.id];
+
+      return (
+        <div
+          key={tr.id}
+          className="border border-green-200 rounded-lg p-4 bg-green-50"
+        >
+          <h3 className="font-semibold text-green-800 mb-2">
+            Track: {tr.title}
+          </h3>
+
+          {coordinator ? (
+            <div className="flex justify-between items-start border rounded-md p-4 bg-white">
+              <div className="space-y-1">
+                <p className="font-semibold text-gray-800">
+                  {coordinator.name}
+                </p>
+
+                <p className="text-sm text-gray-600">
+                  📧 {coordinator.email}
+                </p>
+
+                <p className="text-sm text-gray-600">
+                  📞 {coordinator.phone}
+                </p>
+
+                <p className="text-sm text-gray-500 italic">
+                  🔐 Password: •••••••• (hidden)
+                </p>
+
+                <p className="text-sm text-gray-700">
+                  🧭 Track:{" "}
+                  <span className="font-medium">{tr.title}</span>
+                </p>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() =>
+                    setStudentForm({
+                      id: coordinator._id,
+                      name: coordinator.name,
+                      email: coordinator.email,
+                      phone: coordinator.phone,
+                      password: "",
+                      trackId: tr.id,
+                    })
+                  }
+                  className="text-blue-600 text-sm font-medium"
+                >
+                  Edit
+                </button>
+
+                <button
+                  onClick={async () => {
+                    if (!confirm("Delete student coordinator?")) return;
+
+                    await fetch(
+                      `${API_BASE}/api/admin/student-coordinator`,
+                      {
+                        method: "DELETE",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          eventId: event._id,
+                          trackId: tr.id,
+                        }),
+                      }
+                    );
+
+                    setScByTrack((prev) => ({
+                      ...prev,
+                      [tr.id]: null,
+                    }));
+                  }}
+                  className="text-red-600 text-sm font-medium"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="text-sm text-gray-500 italic">
+              No student coordinator assigned for this track
+            </div>
+          )}
+        </div>
+      );
+    })}
+  </div>
+</div>
+
+)}
+
+
+        {/* Fixed Save & Next (bottom-right of viewport) */}
+        <div className="fixed bottom-6 right-6 z-40">
+        <button
+  onClick={saveAndNext}
+  disabled={saving}
+  className={`px-6 py-3 rounded-lg font-semibold shadow-md transition ${
+    saving
+      ? "bg-gray-400 text-white cursor-not-allowed"
+      : (activeStep === 1 && step1Valid) ||
+        (activeStep === 2 && step2Valid) ||
+        (activeStep === 3 && step3Valid) ||
+        (activeStep === 4 && step4Valid)
+      ? "bg-green-600 hover:bg-green-700 text-white"
+      : "bg-gray-300 text-gray-500 cursor-not-allowed"
+  }`}
+>
+  {saving
+    ? "Saving..."
+    : activeStep === 4
+    ? isEdit
+      ? "Save Changes"
+      : "Create Event"
+    : "Save & Next"}
+</button>
+
+
+        </div>
+
+        {/* Participant Modal */}
+        {participantModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-green-100/60 backdrop-blur-sm px-4">
+            <div className="relative w-full max-w-2xl bg-white/95 border border-green-200 rounded-2xl shadow-xl p-6">
+              <h3 className="text-lg font-semibold text-gray-800 mb-3">
+                Add Participant — Track {participantModalTrackId}
+              </h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Participant ID
+                  </label>
+                  <div className="mt-1 text-sm text-gray-800 font-semibold">
+                    {pForm.id || genParticipantId(participantModalTrackId)}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Presenter Name *
+                  </label>
+                  <input
+                    value={pForm.presenterName}
+                    onChange={(e) =>
+                      setPForm({ ...pForm, presenterName: e.target.value })
+                    }
+                    className="w-full border border-green-200 rounded-md px-3 py-2"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Paper Title *
+                  </label>
+                  <input
+                    value={pForm.paperTitle}
+                    onChange={(e) =>
+                      setPForm({ ...pForm, paperTitle: e.target.value })
+                    }
+                    className="w-full border border-green-200 rounded-md px-3 py-2"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Research Paper (PDF / DOCX) *
+                  </label>
+                  <input
+                    type="file"
+                    accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        setPForm({ ...pForm, file, fileName: file.name });
+                      }
+                    }}
+                    className="w-full"
+                  />
+                  {pForm.fileName && (
+                    <div className="text-xs text-gray-500 mt-1">
+                      {pForm.fileName}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Presentation Mode *
+                  </label>
+                  <select
+                    value={pForm.mode}
+                    onChange={(e) =>
+                      setPForm({ ...pForm, mode: e.target.value })
+                    }
+                    className="w-full border border-green-200 rounded-md px-3 py-2"
+                  >
+                    <option value="">Select</option>
+                    <option>Online</option>
+                    <option>Offline</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Presenter Email *
+                  </label>
+                  <input
+                    value={pForm.email}
+                    onChange={(e) =>
+                      setPForm({ ...pForm, email: e.target.value })
+                    }
+                    className="w-full border border-green-200 rounded-md px-3 py-2"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Presenter Phone *
+                  </label>
+                  <input
+                    value={pForm.phone}
+                    onChange={(e) =>
+                      setPForm({ ...pForm, phone: e.target.value })
+                    }
+                    className="w-full border border-green-200 rounded-md px-3 py-2"
+                    placeholder="10 digits"
+                  />
+                </div>
+              </div>
+
+              {/* modal footer: Save Participant bottom-right inside modal */}
+              <div className="mt-6 flex justify-end gap-3">
+                <button
+                  onClick={() => {
+                    setParticipantModalOpen(false);
+                  }}
+                  className="px-4 py-2 rounded-md border border-green-100"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    addParticipant();
+                  }}
+                  className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+                >
+                  Save Participant
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+/* -------------------------- Event Details Page -------------------------- */
+function EventDetails({ events, setEvents }) {
+  const { id } = useParams();
+  const navigate = useNavigate();
+
+  const [local, setLocal] = useState(null);
+  const [saveConfirmOpen, setSaveConfirmOpen] = useState(false);
+const [selectedTrackId, setSelectedTrackId] = useState(null);
+const [sessionChairs, setSessionChairs] = useState([]);
+const [studentCoordinator, setStudentCoordinator] = useState(null);
+const [trackStats, setTrackStats] = useState({});
+const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+
+useEffect(() => {
+  if (!local || !Array.isArray(local.tracks)) return;
+  if (selectedTrackId) return;
+  
+  const firstTrack = local.tracks[0];
+  if (firstTrack?.id) {
+    setSelectedTrackId(firstTrack.id);
+  }
+}, [local, selectedTrackId]);
+
+useEffect(() => {
+  if (!local?._id) return;
+
+  fetch(`${API_BASE}/api/admin/session-chairs/${local._id}`)
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        setSessionChairs(data.chairs || []);
+      }
+    });
+}, [local]);
+
+useEffect(() => {
+  if (!local?._id || !selectedTrackId) return;
+
+  // 🔥 RESET before fetch
+  setStudentCoordinator(null);
+
+  fetch(
+    `${API_BASE}/api/admin/student-coordinator?eventId=${local._id}&trackId=${selectedTrackId}`
+  )
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        setStudentCoordinator(data.coordinator);
+      }
+    });
+}, [local, selectedTrackId]);
+
+
+
+useEffect(() => {
+  let cancelled = false;
+
+  const loadEvent = async () => {
+    // 1️⃣ First try from already-loaded events list
+    if (Array.isArray(events) && events.length > 0) {
+      const ev = events.find((e) => e._id === id || e.id === id);
+
+      if (ev) {
+        if (cancelled) return;
+
+        setLocal({
+          _id: ev._id,
+          id: ev._id || ev.id,
+          title: ev.title || "",
+          description: ev.description || "",
+          date: ev.date || "",
+          tracks: Array.isArray(ev.tracks) ? ev.tracks : [],
+          participants: ev.participants || {},
+          studentCoordinators: Array.isArray(ev.studentCoordinators)
+            ? ev.studentCoordinators.map((s) => ({
+                ...s,
+                trackId:
+                  typeof s.trackId === "object"
+                    ? s.trackId._id || s.trackId.id
+                    : s.trackId,
+              }))
+            : [],
+          sessionChairs: [], // loaded separately if needed
+        });
+
+        return;
+      }
+    }
+
+    // 2️⃣ Fallback: fetch single event from backend
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/admin/events/${encodeURIComponent(id)}`
+      );
+
+      if (!res.ok) return;
+
+      const data = await res.json();
+
+      if (!data?.event || cancelled) return;
+
+      setLocal({
+        _id: data.event._id,
+        id: data.event._id,
+        title: data.event.title || "",
+        description: data.event.description || "",
+        date: data.event.date || "",
+        tracks: Array.isArray(data.event.tracks)
+          ? data.event.tracks
+          : [],
+        participants: data.event.participants || {},
+        studentCoordinators: Array.isArray(data.event.studentCoordinators)
+          ? data.event.studentCoordinators.map((s) => ({
+              ...s,
+              trackId:
+                typeof s.trackId === "object"
+                  ? s.trackId._id || s.trackId.id
+                  : s.trackId,
+            }))
+          : [],
+        sessionChairs: [],
+      });
+    } catch (err) {
+      console.error("Fetching single event failed:", err);
+    }
+  };
+
+  loadEvent();
+
+  return () => {
+    cancelled = true;
+  };
+}, [events, id]);
+
+  useEffect(() => {
+  if (!local?._id) return;
+
+  fetch(`${API_BASE}/api/admin/participants/stats?eventId=${local._id}`)
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        setTrackStats(data.stats || {});
+      }
+    });
+}, [local]);
+const getProgressColor = (assessed, total) => {
+  if (!total || total === 0) return "bg-gray-300";
+
+  const percent = (assessed / total) * 100;
+
+  if (percent <= 20) return "bg-red-500";
+  if (percent <= 40) return "bg-orange-500";
+  if (percent <= 60) return "bg-yellow-500";
+  if (percent <= 80) return "bg-lime-500";
+  return "bg-green-600";
+};
+
+
+  if (!local) {
+    return (
+      <div className="flex-1 p-6">
+        <div className="w-full mt-6 px-6">
+          <div className="p-6 bg-white/80 border border-green-200 rounded-lg">
+            <p className="text-gray-600">Event not found.</p>
+            <div className="mt-3">
+              <button
+                onClick={() => navigate("/")}
+                className="px-4 py-2 bg-green-600 text-white rounded-md"
+              >
+                Back to Dashboard
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const updateTrackField = (trackId, field, value) => {
+  setLocal((prev) => ({
+    ...prev,
+    tracks: prev.tracks.map((t) =>
+      t.id === trackId ? { ...t, [field]: value } : t
+    ),
+  }));
+};
+
+  const updateLocalToGlobal = async () => {
+
+    try {
+      // Save to backend (PUT)
+      const idToSave = local._id || local.id;
+      const res = await fetch(
+        `${API_BASE}/api/admin/events/${encodeURIComponent(idToSave)}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(local),
+        }
+      );
+      const data = await res.json();
+      if (!res.ok) {
+        alert("Save failed: " + (data.message || "Server error"));
+        return false;
+      }
+      // update parent list
+      setEvents((prev) =>
+        prev.map((e) =>
+          e._id === idToSave || e.id === idToSave ? data.event : e
+        )
+      );
+      setSaveConfirmOpen(true);
+      setTimeout(() => setSaveConfirmOpen(false), 1800);
+      return true;
+    } catch (err) {
+      console.error("Error saving event:", err);
+      alert("Unable to save event to server.");
+      return false;
+    }
+  };
+
+  const getTrackTitle = (trackId) => {
+    const t = local.tracks.find((x) => x.id === trackId);
+    return t ? t.title : "—";
+  };
+
+  const toggleAssessmentLock = async (trackId) => {
+  const track = local.tracks.find((t) => t.id === trackId);
+  if (!track) return;
+
+  const res = await fetch(
+    `${API_BASE}/api/admin/tracks/${local._id}/${trackId}/lock`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ locked: !track.assessmentLocked }),
+    }
+  );
+
+  const data = await res.json();
+  if (!data.success) {
+    alert("Failed to update lock");
+    return;
+  }
+
+  // ✅ RE-FETCH EVENT FROM BACKEND (single source of truth)
+  const refreshed = await fetch(
+    `${API_BASE}/api/admin/events/${local._id}`
+  ).then((r) => r.json());
+
+  if (refreshed.success) {
+    setLocal((prev) => ({
+      ...prev,
+      tracks: refreshed.event.tracks,
+    }));
+  }
+};
+
+
+
+  return (
+    <div className="flex-1 p-6 overflow-auto width-full">
+      <div className="flex items-start justify-between mb-6">
+        <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm w-full">
+  <h2 className="text-2xl font-semibold text-gray-800">
+    {local.title}
+  </h2>
+
+  <p className="text-sm text-gray-600 text-justify mt-0">
+    {local.description}
+  </p>
+<div className="mt-3 flex items-center justify-between">
+  <p className="text-sm text-gray-500 mt-2">
+    Date: {local.date}
+  </p>
+
+  
+    <div className="flex items-center gap-3">
+    {sessionStorage.getItem("care_role") === "admin" && (
+      <button
+        onClick={() => navigate(`/edit/${id}`)}
+        className="px-3 py-1.5 text-sm font-semibold
+                   bg-green-600 text-white rounded-md
+                   hover:bg-green-700"
+      >
+        ✏️ Edit Event
+      </button>
+    )}
+
+    <button
+      onClick={() => navigate("/dashboard")}
+      className="text-sm font-medium text-green-700 hover:underline"
+    >
+      ← Back to Dashboard
+    </button>
+  </div>
+</div>
+
+
+</div>
+
+
+      </div>
+
+
+<div className="flex h-[calc(100vh-180px)] border rounded-xl overflow-hidden relative">
+
+  {/* 🟢 LEFT SIDEBAR */}
+  {/* 🟢 LEFT SIDEBAR */}
+<aside
+  className={`
+    fixed inset-y-0 left-0
+    z-50
+    w-72 bg-white border-r border-green-100
+    flex flex-col
+    transform transition-transform duration-300
+    md:static md:translate-x-0 md:z-auto
+    ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}
+  `}
+>
+  {/* Sidebar Header */}
+  <div className="relative px-5 py-4 border-b bg-gradient-to-r from-green-50 to-white">
+    <h3 className="text-lg font-bold text-green-700 tracking-wide">
+      Tracks
+    </h3>
+    <p className="text-xs text-gray-500 mt-1">
+      Select a track to view details
+    </p>
+
+    {/* ❌ Close button (mobile only) */}
+    <button
+      onClick={() => setIsSidebarOpen(false)}
+      className="absolute top-4 right-4 text-gray-500 md:hidden"
+    >
+      ✕
+    </button>
+  </div>
+
+
+  {/* Track List */}
+  <div className="flex-1 overflow-y-auto">
+    
+    {local.tracks.map((tr) => {
+      const active = selectedTrackId === tr.id;
+
+      return (
+        <button
+  key={tr.id}
+  onClick={() => {
+    setSelectedTrackId(tr.id);
+    setIsSidebarOpen(false); // 👈 auto-close sidebar
+  }}
+  className={`relative w-full px-5 py-4 text-left transition group ${
+    active ? "bg-green-50" : "hover:bg-gray-50"
+  }`}
+>
+
+          {/* Active indicator */}
+          {active && (
+            <span className="absolute left-0 top-0 h-full w-1 bg-green-600 rounded-r" />
+          )}
+
+          <div className="flex flex-col gap-0.5">
+
+  {/* ✅ Track ID */}
+  <span className="text-[11px] uppercase tracking-wide text-gray-400">
+    Track ID: {tr.id}
+  </span>
+
+  {/* ✅ Track Title */}
+  <span
+    className={`text-sm font-semibold ${
+      active ? "text-green-700" : "text-gray-800"
+    }`}
+  >
+    {tr.title}
+  </span>
+
+  {/* ✅ Assessment count */}
+  <span className="text-xs text-gray-500 mt-1">
+    Assessed:{" "}
+    <span className="font-semibold text-green-700">
+      {trackStats[tr.id]?.assessed ?? 0}
+    </span>
+    {" / "}
+    {trackStats[tr.id]?.total ?? 0}
+  </span>
+
+  {/* ✅ Progress bar (UNCHANGED) */}
+  {trackStats[tr.id] && (
+    <div className="mt-1 w-full bg-gray-200 rounded h-1">
+      <div
+  className={`${getProgressColor(
+    trackStats[tr.id]?.assessed ?? 0,
+    trackStats[tr.id]?.total ?? 0
+  )} h-1 rounded transition-all duration-500`}
+        style={{
+          width: `${
+            trackStats[tr.id].total === 0
+              ? 0
+              : (trackStats[tr.id].assessed /
+                 trackStats[tr.id].total) * 100
+          }%`
+        }}
+      />
+    </div>
+  )}
+          </div>
+        </button>
+      );
+    })}
+  </div>
+
+</aside>
+{isSidebarOpen && (
+  <div
+    onClick={() => setIsSidebarOpen(false)}
+    className="fixed inset-0 bg-black/40 z-40 md:hidden"
+  />
+)}
+
+
+  {/* 🟢 RIGHT CONTENT */}
+  {/* 🟢 RIGHT CONTENT */}
+<section className="flex-1 p-4 md:p-6 overflow-auto bg-green-50/40">
+
+  {/* 📱 MOBILE: Track selector button */}
+  <div className="mb-4 md:hidden">
+    <button
+      onClick={() => setIsSidebarOpen(true)}
+      className="
+        w-full flex items-center justify-between
+        px-4 py-2 rounded-lg
+        bg-white border border-green-200
+        text-green-700 font-semibold
+      "
+    >
+      {selectedTrackId
+        ? `Track ${selectedTrackId}`
+        : "Select Track"}
+      <span className="text-lg">☰</span>
+    </button>
+  </div>
+
+  {/* 🟢 MAIN CONTENT */}
+  {selectedTrackId ? (
+    <TrackDetails
+      eventId={local._id}
+      trackId={selectedTrackId}
+      local={local}
+      studentCoordinator={studentCoordinator}
+      sessionChairs={sessionChairs}
+      onToggleAssessmentLock={toggleAssessmentLock}
+    />
+  ) : (
+    <div className="text-gray-600">
+      Select a track to view details
+    </div>
+  )}
+
+</section>
+
+
+</div>
+
+
+
+
+  
+      
+
+      {/* Save confirmation modal */}
+      {saveConfirmOpen && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center bg-green-100/60 backdrop-blur-sm px-4">
+          <div className="bg-white/95 border border-green-200 rounded-xl p-6 shadow-xl">
+            <div className="text-green-700 font-semibold text-lg">
+              ✅ Changes saved successfully!
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Fixed Save All (bottom-right) */}
+      <div className="fixed bottom-6 right-6 z-50">
+      </div>
+    </div>
+  );
+  
+}
+
+function TrackDetails({
+  eventId,          // ✅ ADD THIS
+  trackId,
+  local,
+  studentCoordinator,
+  sessionChairs,
+  onToggleAssessmentLock,
+}) {
+
+
+
+  const tracks = Array.isArray(local?.tracks) ? local.tracks : [];
+  const track = tracks.find((t) => t.id === trackId);
+  const [participants, setParticipants] = useState([]);
+  const [loadingParticipants, setLoadingParticipants] = useState(true);
+  const [selectedParticipant, setSelectedParticipant] = useState(null);
+  const [sortBy, setSortBy] = useState("");
+  const [sortOrder, setSortOrder] = useState("asc");
+
+  const [filterInstitute, setFilterInstitute] = useState("");
+  const [filterBranch, setFilterBranch] = useState("");
+  const [filterMode, setFilterMode] = useState("");
+  const [marksRange, setMarksRange] = useState([0, 50]);
+  const [topLimit, setTopLimit] = useState(0); // 0 = no limit
+  const [meetingLink, setMeetingLink] = useState(track.meetingLink || "");
+  const [isEditingMeetingLink, setIsEditingMeetingLink] = useState(false);
+const [editingAssessment, setEditingAssessment] = useState(false);
+const isAdmin = sessionStorage.getItem("care_role") === "admin";
+const [assessmentMode, setAssessmentMode] = useState("criteria"); 
+// "criteria" | "total"
+
+const [adminAssessmentForm, setAdminAssessmentForm] = useState({
+  criteria: [],
+  total: 0,
+  notes: "",
+});
+
+
+
+const handleAdminSaveMarks = async () => {
+  const isCriteriaMode =
+    selectedParticipant.assessment?.criteria?.length > 0;
+
+  const payload = isCriteriaMode
+    ? {
+        assessment: {
+          criteria: adminAssessmentForm.criteria,
+          total: adminAssessmentForm.criteria.reduce(
+            (s, v) => s + Number(v || 0),
+            0
+          ),
+        },
+      }
+    : {
+        assessment: {
+          total: adminAssessmentForm.total,
+        },
+      };
+
+  await fetch(
+  `${API_BASE}/api/admin/participants/${selectedParticipant._id}`,
+  {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  }
+);
+
+
+  setEditingAssessment(false);
+};
+
+
+
+
+  if (!track) return null;
+
+  const chairs = (sessionChairs || []).filter(
+    (c) => String(c.trackId) === String(trackId)
+  );
+  const trackSessionChairs = sessionChairs.filter(
+  (c) => String(c.trackId) === String(trackId)
+);
+
+useEffect(() => {
+  if (!selectedParticipant) return;
+
+  const a = selectedParticipant.assessment || {};
+  const isCriteriaMode =
+    Array.isArray(a.criteria) && a.criteria.length > 0;
+
+  setAssessmentMode(isCriteriaMode ? "criteria" : "total");
+
+  setAdminAssessmentForm({
+    criteria: isCriteriaMode ? [...a.criteria] : [],
+    total: a.total ?? 0,
+    notes: a.notes || "",
+  });
+
+  setEditingAssessment(false);
+}, [selectedParticipant]);
+
+
+  useEffect(() => {
+  if (!eventId || !trackId) return;
+
+  const fetchParticipants = async () => {
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/admin/participants?eventId=${eventId}&trackId=${trackId}`
+      );
+
+      const data = await res.json();
+
+      if (data.success) {
+        setParticipants(data.participants);
+      } else {
+        setParticipants([]);
+      }
+    } catch (err) {
+      console.error("Failed to fetch participants", err);
+      setParticipants([]);
+    }
+  };
+
+  fetchParticipants();
+}, [eventId, trackId]);
+
+
+const saveMeetingLink = async () => {
+  const cleaned =
+    meetingLink.startsWith("http")
+      ? meetingLink
+      : `https://${meetingLink}`;
+
+  await fetch(
+    `${API_BASE}/api/event/${eventId}/track/${track.id}/meeting-link`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ meetingLink: cleaned }),
+    }
+  );
+
+  setMeetingLink(cleaned); // ✅ ADD THIS
+};
+
+
+
+const filteredParticipants = participants
+  .filter((p) => {
+    const instituteMatch =
+      !filterInstitute ||
+      p.institute?.toLowerCase().includes(filterInstitute.toLowerCase());
+
+    const branchMatch =
+      !filterBranch ||
+      p.branch?.toLowerCase().includes(filterBranch.toLowerCase());
+
+    const modeMatch =
+      !filterMode || p.mode === filterMode;
+
+    const marks = p.assessment?.total ?? -1;
+    const marksMatch =
+      marks === -1 ||
+      (marks >= marksRange[0] && marks <= marksRange[1]);
+
+    return instituteMatch && branchMatch && modeMatch && marksMatch;
+  })
+  .sort((a, b) => {
+    if (!sortBy) return 0;
+
+    let valA, valB;
+
+    if (sortBy === "paperId") {
+      valA = a.paperId;
+      valB = b.paperId;
+    }
+
+    if (sortBy === "marks") {
+      valA = a.assessment?.total ?? -1;
+      valB = b.assessment?.total ?? -1;
+    }
+
+    if (sortOrder === "asc") {
+      return valA > valB ? 1 : -1;
+    }
+    return valA < valB ? 1 : -1;
+  })
+  .slice(0, topLimit > 0 ? topLimit : participants.length);
+
+  const exportParticipantsCSV = () => {
+  if (!filteredParticipants.length) {
+    alert("No participants to export");
+    return;
+  }
+
+  const headers = [
+  "S.No",
+  "Paper ID",
+  "Presenter Name",
+  "Paper Title",
+  "Track Name",        // ✅ ADD
+  "Institute",
+  "Branch",
+  "Mode",
+  "Email",
+  "Phone",
+  "Marks",
+];
+
+
+  const rows = filteredParticipants.map((p, index) => [
+  index + 1,
+  p.paperId,
+  p.presenterName,
+  p.paperTitle,
+  track.title,                 // ✅ ADD
+  p.institute || "",
+  p.branch || "",
+  p.mode || "",
+  p.email || "",
+  p.phone || "",
+  typeof p.assessment?.total === "number"
+    ? p.assessment.total
+    : "Pending",
+]);
+
+
+  const csvContent =
+    [headers, ...rows]
+      .map((row) =>
+        row
+          .map((cell) =>
+            `"${String(cell).replace(/"/g, '""')}"`
+          )
+          .join(",")
+      )
+      .join("\n");
+
+  const blob = new Blob([csvContent], {
+    type: "text/csv;charset=utf-8;",
+  });
+
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = `participants_track_${trackId}.csv`;
+  link.click();
+
+  URL.revokeObjectURL(url);
+};
+
+
+
+const exportParticipantsXLSX = () => {
+  if (!filteredParticipants.length) {
+    alert("No participants to export");
+    return;
+  }
+
+  const rows = filteredParticipants.map((p, index) => ({
+  "S.No": index + 1,
+  "Paper ID": p.paperId,
+  "Paper Title": p.paperTitle,
+  "Track Name": track.title,    // ✅ ADD
+  "Presenter Name": p.presenterName,
+  "Email": p.email,
+  "Phone": p.phone,
+  "Institute": p.institute,
+  "Branch": p.branch,
+  "Mode": p.mode,
+  "Marks": p.assessment?.total ?? "Pending",
+  "Remarks": p.assessment?.remarks ?? "",
+  "Submission Link": p.submissionLink ?? "",
+  "Co-Authors": p.coAuthors?.map(
+    (c) => `${c.name} (${c.email})`
+  ).join("; "),
+}));
+
+
+  const worksheet = XLSX.utils.json_to_sheet(rows);
+
+  // ✅ AUTO COLUMN WIDTH (KEY REQUIREMENT)
+  const colWidths = Object.keys(rows[0]).map((key) => ({
+    wch: Math.max(
+      key.length,
+      ...rows.map((r) => String(r[key] ?? "").length)
+    ) + 2,
+  }));
+
+  worksheet["!cols"] = colWidths;
+
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(
+    workbook,
+    worksheet,
+    "Participants"
+  );
+
+  XLSX.writeFile(
+    workbook,
+    `CARE_${track.id}_${track.title}_Report.xlsx`
+  );
+};
+
+
+const exportParticipantsPDF = () => {
+  if (!filteredParticipants || filteredParticipants.length === 0) {
+    alert("No participants to export");
+    return;
+  }
+
+  const doc = new jsPDF("p", "mm", "a4");
+
+  /* =========================
+     GLOBAL FONT SETUP
+  ========================= */
+  doc.setFont("helvetica", "normal");
+
+  /* =========================
+     HEADER (RAMSITA 2026)
+  ========================= */
+  doc.setFillColor(240, 253, 244);
+  doc.rect(0, 0, 210, 34, "F");
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(22);
+  doc.setTextColor(21, 128, 61);
+  doc.text("RAMSITA 2026", 14, 20);
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.setTextColor(75, 85, 99);
+  doc.text("Assessment Report", 14, 28);
+
+  doc.setDrawColor(200, 200, 200);
+  doc.line(14, 32, 196, 32);
+
+  /* =========================
+     META INFORMATION
+  ========================= */
+  let y = 40;
+
+  doc.setFontSize(10);
+  doc.setTextColor(31, 41, 55);
+
+  doc.text(`Event: ${local?.title || "-"}`, 14, y);
+  y += 6;
+
+  doc.text(`Track: ${track?.id || "-"} – ${track?.title || "-"}`, 14, y);
+  y += 6;
+
+  doc.setFont("helvetica", "bold");
+  doc.text("Session Chairs:", 14, y);
+  doc.setFont("helvetica", "normal");
+
+  const trackSessionChairs = (sessionChairs || []).filter(
+    (c) => String(c.trackId) === String(trackId)
+  );
+
+  const chairText =
+    trackSessionChairs.length > 0
+      ? trackSessionChairs.map((c) => `${c.name} (${c.type})`).join(", ")
+      : "Not Assigned";
+
+  doc.text(chairText, 60, y, { maxWidth: 130 });
+  y += 12;
+
+  /* =========================
+     PARTICIPANT TABLE
+  ========================= */
+  const tableRows = filteredParticipants.map((p, index) => {
+    let marks = "Pending";
+    let isAbsent = false;
+
+    if (typeof p?.assessment?.total === "number") {
+      if (p.assessment.total === 0) {
+        marks = "Absent";
+        isAbsent = true;
+      } else {
+        marks = p.assessment.total;
+      }
+    }
+
+    return [
+      index + 1,
+      p.paperId || "",
+      p.paperTitle || "",
+      p.presenterName || "",
+      p.phone || "",
+      p.email || "",
+      {
+        content: marks,
+        styles: isAbsent
+          ? { textColor: [220, 38, 38], fontStyle: "bold" }
+          : {},
+      },
+    ];
+  });
+
+  autoTable(doc, {
+    startY: y,
+    head: [[
+      "S.No",
+      "Paper ID",
+      "Paper Title",
+      "Presenter",
+      "Phone",
+      "Email",
+      "Marks",
+    ]],
+    body: tableRows,
+    theme: "grid",
+    styles: {
+      font: "helvetica",
+      fontSize: 9,
+      cellPadding: 3,
+      valign: "middle",
+    },
+    headStyles: {
+      fillColor: [22, 163, 74],
+      textColor: 255,
+      fontStyle: "bold",
+    },
+    columnStyles: {
+      0: { cellWidth: 10 },
+      1: { cellWidth: 18 },
+      2: { cellWidth: 40 },
+      3: { cellWidth: 30 },
+      4: { cellWidth: 25 },
+      5: { cellWidth: 40 },
+      6: { cellWidth: 20 },
+    },
+    margin: { left: 14, right: 14 },
+    pageBreak: "auto",
+  });
+
+  /* =========================
+     FOOTER
+  ========================= */
+  const pageCount = doc.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFontSize(9);
+    doc.setTextColor(107, 114, 128);
+    doc.text(
+      `Generated by CARE • Page ${i} of ${pageCount}`,
+      105,
+      290,
+      { align: "center" }
+    );
+  }
+
+  /* =========================
+     SAVE FILE
+  ========================= */
+  doc.save(
+    `CARE_${track?.id || "TRACK"}_${track?.title || "REPORT"}_Assessment_Report.pdf`
+  );
+};
+
+
+const submissionUrl =
+  selectedParticipant?.submissionLink
+    ? selectedParticipant.submissionLink.startsWith("http")
+      ? selectedParticipant.submissionLink
+      : `https://${selectedParticipant.submissionLink}`
+    : "";
+
+
+
+  return (
+    <div className="space-y-8">
+
+{/* TRACK INFO */}
+{/* TRACK INFO */}
+<div className="bg-white rounded-2xl p-4 md:p-6 border border-green-100 shadow-sm">
+  <div className="flex flex-col md:flex-row md:items-start gap-6">
+
+    {/* LEFT: Track details */}
+    <div className="flex-1 md:pr-4">
+      <h2 className="text-2xl font-bold text-green-700">
+        {track.title}
+      </h2>
+
+      <p className="text-sm text-gray-500 mt-1">
+        Track ID: {track.id}
+      </p>
+
+      <p className="
+        mt-4 text-sm text-gray-700
+        text-justify leading-relaxed indent-6
+      ">
+        {track.description}
+      </p>
+    </div>
+
+    {/* RIGHT / BELOW (mobile): Student Coordinator */}
+    {studentCoordinator && (
+      <div className="
+        w-full md:w-64
+        bg-green-50 border border-green-100
+        rounded-xl p-4
+        text-sm text-gray-700
+        shrink-0
+      ">
+        <div className="font-semibold text-green-700 mb-2">
+          Student Coordinator
+        </div>
+
+        <ul className="space-y-1">
+          <li className="break-words">
+            {studentCoordinator.name}
+          </li>
+
+          <li className="flex items-center gap-1 min-w-0">
+            <span className="truncate" title={studentCoordinator.email}>
+              {studentCoordinator.email}
+            </span>
+          </li>
+
+          <li>
+            {studentCoordinator.phone}
+          </li>
+        </ul>
+      </div>
+    )}
+
+  </div>
+</div>
+
+
+{/* ===== TRACK CONTROLS: LOCK + MEETING LINK ===== */}
+<div
+  className="
+    mt-5
+    grid grid-cols-1 md:grid-cols-2 gap-4
+    rounded-xl border border-green-100
+    bg-white p-4
+  "
+>
+  {/* 🔒 Assessment Lock */}
+  <div className="flex items-center justify-center">
+    <button
+      onClick={() => onToggleAssessmentLock(trackId)}
+      className={`px-5 py-2 rounded-md font-semibold w-full max-w-xs ${
+        track.assessmentLocked
+          ? "bg-red-600 text-white"
+          : "bg-green-600 text-white"
+      }`}
+    >
+      {track.assessmentLocked
+        ? "Assessment Locked 🔒"
+        : "Assessment Unlocked 🔓"}
+    </button>
+  </div>
+
+  {/* 🔗 Meeting Link */}
+  <div>
+    <label className="block text-sm font-semibold text-gray-700 mb-1">
+      Online Presentation Meeting Link
+    </label>
+
+    <div className="flex gap-2">
+      <input
+        type="url"
+        value={meetingLink}
+        disabled={!isEditingMeetingLink}
+        onChange={(e) => setMeetingLink(e.target.value)}
+        className={`flex-1 border rounded-md px-3 py-2 text-sm ${
+          isEditingMeetingLink
+            ? "bg-white border-gray-300"
+            : "bg-gray-100 border-gray-200 text-gray-700 cursor-not-allowed"
+        }`}
+      />
+
+      {!isEditingMeetingLink ? (
+        <button
+          onClick={() => setIsEditingMeetingLink(true)}
+          className="px-4 py-2 rounded-md text-sm font-semibold
+                     border border-gray-300 bg-white
+                     hover:bg-gray-100 transition"
+        >
+          Edit
+        </button>
+      ) : (
+        <button
+  disabled={!meetingLink.trim()}
+  onClick={async () => {
+    await saveMeetingLink();
+    setIsEditingMeetingLink(false);
+  }}
+  className={`px-4 py-2 rounded-md text-sm font-semibold ${
+    !meetingLink.trim()
+      ? "bg-gray-300 cursor-not-allowed"
+      : "bg-blue-600 text-white hover:bg-blue-700"
+  }`}
+>
+  Update
+</button>
+
+      )}
+    </div>
+  </div>
+</div>
+      {/* SESSION CHAIRS */}
+<div className="grid sm:grid-cols-2 gap-4 mb-6">
+  {chairs.map((c) => (
+    <div
+      key={c._id}
+      className="rounded-xl border border-green-100 p-4 bg-white shadow-sm"
+    >
+      <div className="flex justify-between items-start">
+        <div>
+          <div className="font-semibold text-gray-800">
+            {c.name}
+          </div>
+          <div className="text-xs text-gray-500 mt-1">
+            {c.type} Chair
+          </div>
+        </div>
+
+        <span
+          className={`px-2 py-1 text-xs rounded-full ${
+            c.type === "Internal"
+              ? "bg-blue-100 text-blue-700"
+              : "bg-purple-100 text-purple-700"
+          }`}
+        >
+          {c.type}
+        </span>
+      </div>
+
+      <div className="text-sm text-gray-600 mt-3">
+        {c.email}
+      </div>
+      <div className="text-sm text-gray-600">
+        {c.phone}
+      </div>
+
+      {/* ✅ RESEND INVITATION BUTTON */}
+      <button
+        onClick={async () => {
+          if (!window.confirm("Resend invitation email to this chair?")) return;
+
+          const res = await fetch(
+            `${API_BASE}/api/admin/session-chairs/${c._id}/resend-invite`,
+            { method: "POST" }
+          );
+
+          const data = await res.json();
+
+          if (data.success) {
+            alert("Invitation email resent successfully.");
+          } else {
+            alert(data.message || "Failed to resend invitation");
+          }
+        }}
+        className="mt-3 text-sm text-green-700 hover:underline"
+      >
+        Resend Invitation
+      </button>
+    </div>
+  ))}
+</div>
+
+
+
+
+{/* PARTICIPANTS SECTION */}
+<div className="bg-white rounded-2xl border border-green-100 p-5 space-y-4">
+
+  {/* Header */}
+  <div className="flex items-center justify-between">
+    <h3 className="text-lg font-semibold text-green-700">
+      Participants
+    </h3>
+    <span className="text-sm text-gray-500">
+      Total: {filteredParticipants.length}
+    </span>
+  </div>
+<div className="flex flex-wrap items-center gap-3">
+  <button
+    onClick={exportParticipantsCSV}
+    className="px-4 py-2 text-sm font-medium rounded-lg bg-green-600 text-white hover:bg-green-700 transition"
+  >
+    Export CSV
+  </button>
+
+  <button
+    onClick={exportParticipantsXLSX}
+    className="px-4 py-2 text-sm font-medium rounded-lg bg-green-600 text-white hover:bg-green-700 transition"
+  >
+    Export XLSX
+  </button>
+
+  <button
+    onClick={exportParticipantsPDF}
+    className="px-4 py-2 text-sm font-medium rounded-lg bg-emerald-700 text-white hover:bg-emerald-800 transition"
+  >
+    Export PDF
+  </button>
+</div>
+
+
+  {/* Controls */}
+<div className="flex flex-col gap-4">
+
+  {/* ================= SORTING ================= */}
+  <div className="flex flex-wrap items-center gap-3">
+    <span className="text-sm font-semibold text-gray-700">
+      Sort
+    </span>
+
+    {/* Sort By */}
+    <select
+      value={sortBy}
+      onChange={(e) => setSortBy(e.target.value)}
+      className="border rounded-lg px-3 py-1.5 text-sm"
+    >
+      <option value="">Select field</option>
+      <option value="paperId">Paper ID</option>
+      <option value="marks">Total Marks</option>
+    </select>
+
+    {/* Sort Order */}
+    <select
+      value={sortOrder}
+      onChange={(e) => setSortOrder(e.target.value)}
+      className="border rounded-lg px-3 py-1.5 text-sm"
+    >
+      <option value="asc">Ascending</option>
+      <option value="desc">Descending</option>
+    </select>
+
+    {/* Merit Limit */}
+    <select
+      value={topLimit}
+      onChange={(e) => setTopLimit(Number(e.target.value))}
+      className="border rounded-lg px-3 py-1.5 text-sm"
+    >
+      <option value={0}>Show all</option>
+      <option value={2}>Top 2</option>
+      <option value={3}>Top 3</option>
+      <option value={5}>Top 5</option>
+    </select>
+  </div>
+
+  {/* ================= FILTERING ================= */}
+  <div className="flex flex-wrap items-center gap-3">
+    <span className="text-sm font-semibold text-gray-700">
+      Filter
+    </span>
+
+    {/* Institute */}
+    <input
+      type="text"
+      placeholder="Institute"
+      value={filterInstitute}
+      onChange={(e) => setFilterInstitute(e.target.value)}
+      className="border rounded-lg px-3 py-1.5 text-sm"
+    />
+
+    {/* Branch */}
+    <input
+      type="text"
+      placeholder="Branch"
+      value={filterBranch}
+      onChange={(e) => setFilterBranch(e.target.value)}
+      className="border rounded-lg px-3 py-1.5 text-sm"
+    />
+
+    {/* Mode */}
+    <select
+      value={filterMode}
+      onChange={(e) => setFilterMode(e.target.value)}
+      className="border rounded-lg px-3 py-1.5 text-sm"
+    >
+      <option value="">All modes</option>
+      <option value="Online">Online</option>
+      <option value="Offline">Offline</option>
+    </select>
+
+    {/* Marks Range */}
+    <input
+      type="number"
+      placeholder="Min marks"
+      className="border rounded-lg px-2 py-1.5 text-sm w-24"
+      value={marksRange[0]}
+      onChange={(e) =>
+        setMarksRange([Number(e.target.value), marksRange[1]])
+      }
+    />
+
+    <span className="text-gray-400 text-sm">–</span>
+
+    <input
+      type="number"
+      placeholder="Max marks"
+      className="border rounded-lg px-2 py-1.5 text-sm w-24"
+      value={marksRange[1]}
+      onChange={(e) =>
+        setMarksRange([marksRange[0], Number(e.target.value)])
+      }
+    />
+  </div>
+</div>
+
+
+  {/* Participants List */}
+  <div className="space-y-2">
+    {/*PARTICIPANTS LIST */}
+<div className="space-y-2">
+  {filteredParticipants.map((p, index) => (
+    <div
+      key={p._id}
+      className="bg-white border border-green-100 rounded-xl px-4 py-3 flex items-center justify-between gap-4 hover:shadow-sm transition"
+    >
+      {/* LEFT CONTENT */}
+      <div className="flex-1 min-w-0">
+        {/* Top row */}
+        <div className="flex items-center flex-wrap gap-x-3 gap-y-1">
+
+          {/* Serial */}
+          <span className="text-xs text-gray-400">
+            #{index + 1}
+          </span>
+
+          {/* Paper ID Tag */}
+          <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">
+            {p.paperId}
+          </span>
+
+          {/* Presenter Name */}
+          <span className="font-semibold text-gray-900">
+            {p.presenterName}
+          </span>
+        </div>
+
+        {/* Paper title */}
+        <div className="mt-1 text-sm text-gray-700 truncate">
+          {p.paperTitle}
+        </div>
+
+        {/* Institute + Branch */}
+        <div className="mt-0.5 text-xs text-gray-500 italic">
+          {p.institute} • {p.branch}
+        </div>
+      </div>
+
+      {/* RIGHT SIDE */}
+      <div className="flex flex-col items-end gap-2 shrink-0">
+        {/* Marks */}
+        {typeof p.assessment?.total === "number" ? (
+          <span className="font-semibold text-gray-800 flex items-center gap-1">
+              {sortBy === "marks" && sortOrder === "desc" && index === 0 && "🥇"}
+              {sortBy === "marks" && sortOrder === "desc" && index === 1 && "🥈"}
+              {sortBy === "marks" && sortOrder === "desc" && index === 2 && "🥉"}
+              {p.assessment.total}
+            </span>
+          ) : (
+            <span className="text-xs italic text-gray-500">Pending</span>
+          )}
+
+
+        {/* View details */}
+        <button
+          onClick={() => setSelectedParticipant(p)}
+          className="text-xs font-medium text-green-700 hover:underline"
+        >
+          View details
+        </button>
+      </div>
+    </div>
+  ))}
+</div>
+{selectedParticipant && (
+  <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+    <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col relative">
+
+
+      {/* Header */}
+      <div className="flex justify-between items-start px-6 py-4 border-b">
+  <h3 className="text-lg font-semibold text-green-700">
+    Participant Details
+  </h3>
+  
+</div>
+<div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+      {/* Presenter */}
+      <div>
+    <div className="font-semibold text-gray-800 mb-1">Presenter</div>
+    <div className="text-sm text-gray-700 space-y-1">
+      <div>{selectedParticipant.presenterName}</div>
+      <div>{selectedParticipant.email}</div>
+      <div>{selectedParticipant.phone}</div>
+      <div>
+        {selectedParticipant.institute} • {selectedParticipant.branch}
+      </div>
+    </div>
+  </div>
+      {/* Paper */}
+      <div>
+    <div className="font-semibold text-gray-800 mb-1">Paper</div>
+    <div className="text-sm text-gray-700 space-y-1">
+      <div>Paper ID: {selectedParticipant.paperId}</div>
+      <div>{selectedParticipant.paperTitle}</div>
+      <div>Presentation Mode: {selectedParticipant.mode}</div>
+    </div>
+  </div>
+      {/* Submission */}
+      <div>
+    <div className="font-semibold text-gray-800 mb-1">Submission</div>
+    {selectedParticipant.submissionLink ? (
+      <a
+  href={submissionUrl}
+  target="_blank"
+  rel="noreferrer"
+  className="text-sm text-green-700 hover:underline break-all"
+>
+  Open Drive Folder
+</a>
+
+
+    ) : (
+      <div className="text-sm text-gray-500">No submission link</div>
+    )}
+  </div>
+
+      {/* Co-authors */}
+      <div>
+    <div className="font-semibold text-gray-800 mb-1">Co-authors</div>
+    {selectedParticipant.coAuthors?.length ? (
+      <ul className="text-sm text-gray-700 space-y-1">
+        {selectedParticipant.coAuthors.map((c, i) => (
+          <li key={i}>
+            {c.name} ({c.email})
+          </li>
+        ))}
+      </ul>
+    ) : (
+      <div className="text-sm text-gray-500">No co-authors added</div>
+    )}
+  </div>
+
+     {/* Assessment */}
+<div>
+  <h4 className="text-lg font-semibold text-green-700 mb-2">
+    Assessment Breakdown
+  </h4>
+
+  {/* ===== MODE TABS ===== */}
+  {isAdmin && (
+    <div className="flex gap-2 mb-3">
+      <button
+        disabled={editingAssessment}
+        onClick={() => setAssessmentMode("criteria")}
+        className={`px-3 py-1.5 rounded-md text-sm font-semibold ${
+          assessmentMode === "criteria"
+            ? "bg-green-600 text-white"
+            : "bg-gray-100 text-gray-700"
+        } ${editingAssessment ? "opacity-50 cursor-not-allowed" : ""}`}
+      >
+        Criteria-wise
+      </button>
+
+      <button
+        disabled={editingAssessment}
+        onClick={() => setAssessmentMode("total")}
+        className={`px-3 py-1.5 rounded-md text-sm font-semibold ${
+          assessmentMode === "total"
+            ? "bg-green-600 text-white"
+            : "bg-gray-100 text-gray-700"
+        } ${editingAssessment ? "opacity-50 cursor-not-allowed" : ""}`}
+      >
+        Direct Total
+      </button>
+    </div>
+  )}
+
+  {/* ===== EDIT BUTTONS ===== */}
+  {isAdmin && (
+    <div className="flex justify-end mb-2 gap-2">
+      {!editingAssessment ? (
+        <button
+          onClick={() => setEditingAssessment(true)}
+          className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm"
+        >
+          Edit Marks
+        </button>
+      ) : (
+        <>
+          <button
+            onClick={() => setEditingAssessment(false)}
+            className="px-3 py-1.5 border rounded text-sm"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleAdminSaveMarks}
+            className="px-3 py-1.5 bg-green-600 text-white rounded text-sm"
+          >
+            Save Changes
+          </button>
+        </>
+      )}
+    </div>
+  )}
+
+  <table className="w-full border text-sm">
+    <thead className="bg-green-100">
+      <tr>
+        <th className="border px-3 py-2 text-left">Criteria</th>
+        <th className="border px-3 py-2 text-center">Marks</th>
+      </tr>
+    </thead>
+
+    <tbody>
+      {/* ================= CRITERIA MODE ================= */}
+      {assessmentMode === "criteria" ? (
+        <>
+          {ASSESSMENT_CRITERIA.map((label, idx) => (
+            <tr key={idx}>
+              <td className="border px-3 py-2">{label}</td>
+              <td className="border px-3 py-2 text-center">
+                {editingAssessment ? (
+                  <input
+                    type="number"
+                    min={0}
+                    max={10}
+                    value={adminAssessmentForm.criteria[idx] ?? 0}
+                    onChange={(e) => {
+                      let value = Number(e.target.value) || 0;
+                      value = Math.max(0, Math.min(10, value)); // 🔒 max 10
+
+                      setAdminAssessmentForm((f) => {
+                        const updated = [...f.criteria];
+                        updated[idx] = value;
+                        return { ...f, criteria: updated };
+                      });
+                    }}
+                    className="w-20 border rounded text-center"
+                  />
+                ) : (
+                  <span className="font-semibold">
+                    {adminAssessmentForm.criteria[idx] ?? 0}
+                  </span>
+                )}
+              </td>
+            </tr>
+          ))}
+
+          <tr className="bg-gray-100 font-bold">
+            <td className="border px-3 py-2">Total</td>
+            <td className="border px-3 py-2 text-center">
+              {adminAssessmentForm.criteria.reduce(
+                (s, v) => s + Number(v || 0),
+                0
+              )}
+            </td>
+          </tr>
+        </>
+      ) : (
+        /* ================= TOTAL MODE ================= */
+        <tr className="bg-gray-100 font-bold">
+          <td className="border px-3 py-2">Total</td>
+          <td className="border px-3 py-2 text-center">
+            {editingAssessment ? (
+              <input
+                type="number"
+                min={0}
+                max={50}
+                value={adminAssessmentForm.total}
+                onChange={(e) => {
+                  let value = Number(e.target.value) || 0;
+                  value = Math.max(0, Math.min(50, value)); // 🔒 max 50
+                  setAdminAssessmentForm((f) => ({
+                    ...f,
+                    total: value,
+                  }));
+                }}
+                className="w-20 border rounded text-center"
+              />
+            ) : (
+              adminAssessmentForm.total
+            )}
+          </td>
+        </tr>
+      )}
+    </tbody>
+  </table>
+</div>
+
+</div>
+<div className="px-6 py-3 border-t flex justify-end">
+  <button
+    onClick={() => setSelectedParticipant(null)}
+    className="px-4 py-2 border rounded-md"
+  >
+    Close
+  </button>
+</div>
+
+      </div>
+      
+    </div>
+    
+)}
+  </div>
+</div>
+    </div>
+  );
+}
+
+/* ------------------------ Session Chair Console ------------------------- */
+/* Reused your full SessionChair.jsx logic (preserved). It expects backend route:
+   GET /api/session/:email  => { success:true, chair, track, participants }
+   PUT /api/admin/events/:eventId => update event participants/tracks
+*/
+
+
+function ProfileCard({ chair, onLogout }) {
+  if (!chair) return null;
+  return (
+    <div className="w-full mt-6 px-6">
+      <div className="flex items-center gap-4 bg-white/95 border border-green-100 rounded-2xl p-4">
+        <div className="w-20 h-20 rounded-full bg-green-600 flex items-center justify-center text-white font-bold text-2xl">
+          {chair.name ? chair.name[0].toUpperCase() : "S"}
+        </div>
+        <div className="flex-1">
+          <div className="text-lg font-semibold text-gray-800">
+            {chair.name}
+          </div>
+          <div className="text-sm text-gray-600">Role: Session Chair</div>
+          <div className="text-sm text-gray-600">Email: {chair.email}</div>
+          <div className="text-sm text-gray-600">
+            Phone: {chair.phone || "—"}
+          </div>
+        </div>
+        <div>
+          <button
+            onClick={onLogout}
+            className="px-3 py-2 rounded-md border text-red-600 hover:bg-red-50"
+          >
+            Logout
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TrackCard({
+  track,
+  chairs,
+  participants,
+  collapsed,
+  onToggleCollapse,
+  onStartAssessment,
+  onReorderParticipant,
+  onOpenParticipant,
+}) {
+  const totalSubs = participants?.length || 0;
+  const [copied, setCopied] = useState(false);
+
+
+  const totalAssessed = participants.filter(
+  (p) => typeof p.assessment?.total === "number"
+).length;
+
+
+  const progressPercent =
+    totalSubs > 0 ? Math.round((totalAssessed / totalSubs) * 100) : 0;
+
+    const handleCopyMeetingLink = async () => {
+  try {
+    await navigator.clipboard.writeText(normalizedMeetingLink);
+
+    setCopied(true);
+
+    setTimeout(() => {
+      setCopied(false);
+    }, 2000);
+  } catch (err) {
+    console.error("Copy failed", err);
+  }
+};
+
+const normalizedMeetingLink =
+  track?.meetingLink
+    ? track.meetingLink.startsWith("http")
+      ? track.meetingLink
+      : `https://${track.meetingLink}`
+    : "";
+
+
+  return (
+    <div className="w-full mt-6 px-6">
+      <div className="bg-white/95 border border-green-100 rounded-2xl p-4">
+
+        {/* HEADER */}
+        <div className="flex items-start justify-between">
+          <div
+            className="flex-1 pr-6 cursor-pointer"
+          >
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+  
+  {/* Track Title */}
+  <div className="text-xl font-semibold text-green-700">
+    {track.id} — {track.title}
+  </div>
+
+  {/* Start Assessment Button */}
+  <button
+    onClick={onStartAssessment}
+    disabled={track.assessmentLocked}
+    className={`px-4 py-2 rounded-md text-sm font-semibold w-fit ${
+      track.assessmentLocked
+        ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+        : "bg-green-600 text-white hover:bg-green-700 transition"
+    }`}
+  >
+    {track.assessmentLocked ? "Assessment Locked" : "Start Assessment"}
+  </button>
+
+</div>
+
+
+            <div className="text-sm text-justify text-gray-600 mt-1">
+              {track.description}
+            </div>
+
+            <div className="text-sm text-gray-500 mt-2">
+              Chairs:{" "}
+              {chairs.internal ? `${chairs.internal.name} (Internal)` : "—"},{" "}
+              {chairs.external ? `${chairs.external.name} (External)` : "—"}
+            </div>
+
+            {/* ===== Online Meeting Link ===== */}
+{track?.meetingLink && (
+  <div
+    className="
+      mt-3 inline-flex items-center gap-3
+      max-w-[520px]
+      rounded-lg border border-emerald-200
+      bg-emerald-50 px-3 py-2
+    "
+  >
+    {/* Link text */}
+    <a
+  href={normalizedMeetingLink}
+  target="_blank"
+  rel="noopener noreferrer"
+  className="
+    text-sm text-emerald-900
+    truncate max-w-[260px]
+    hover:underline
+  "
+  title={normalizedMeetingLink}
+>
+  {normalizedMeetingLink}
+</a>
+
+    {/* Join button */}
+    <a
+  href={normalizedMeetingLink}
+  target="_blank"
+  rel="noopener noreferrer"
+  className="px-2.5 py-1 rounded-md
+             bg-emerald-600 text-white
+             text-xs font-semibold
+             hover:bg-emerald-700 transition"
+>
+  Join
+</a>
+
+
+    {/* Copy button */}
+    <button
+      onClick={handleCopyMeetingLink}
+      className="
+        px-2 py-1 rounded-md
+        border border-emerald-300
+        bg-white text-emerald-700
+        text-xs font-semibold
+        hover:bg-emerald-100 transition
+        whitespace-nowrap
+      "
+      title="Copy meeting link"
+    >
+      {copied ? "✓ Copied" : "📋 Copy"}
+    </button>
+  </div>
+)}
+
+
+            <div className="text-sm text-gray-500 mt-1">
+              Submissions: {totalSubs} • Assessed:{" "}
+              <span className="font-semibold text-green-700">
+                {totalAssessed}
+              </span>
+            </div>
+
+            {/* Progress bar */}
+            <div className="mt-2 w-full bg-gray-200 rounded h-2">
+              <div
+                className="bg-green-500 h-2 rounded"
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
+          </div>
+
+        </div>
+
+        {/* LEGEND */}
+        {!collapsed && (
+          <div className="mt-4 flex gap-4 text-xs text-gray-600">
+            <span className="flex items-center gap-1">
+              <span className="w-3 h-3 bg-green-200 border"></span> Assessed
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="w-3 h-3 bg-white border"></span> Pending
+            </span>
+          </div>
+        )}
+
+        {/* PARTICIPANTS */}
+        {!collapsed && (
+          <div className="mt-4 border-t pt-4 space-y-3">
+            {!participants || participants.length === 0 ? (
+              <div className="text-gray-600">
+                No participants assigned yet.
+              </div>
+            ) : (
+              participants.map((p, idx) => {
+                const isAssessed =
+  typeof p.assessment?.total === "number";
+
+                return (
+                  <div
+                  key={p._id}
+                  className={`rounded-xl border p-4 shadow-sm transition hover:shadow-md ${
+                    isAssessed
+                      ? "bg-green-50 border-green-300"
+                      : "bg-white border-gray-200"
+                  }`}
+                >
+                  <div className="flex justify-between items-start">
+
+                    {/* LEFT */}
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-semibold">
+  Paper ID: {p.paperId}
+</span>
+
+
+                        {isAssessed && (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-green-600 text-white">
+                            ✔ Assessed
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="text-lg font-semibold text-green-700">
+                        {p.presenterName}
+                      </div>
+
+                      <div className="text-sm text-gray-700 font-medium">
+                        {p.paperTitle}
+                      </div>
+
+                      <div className="text-sm text-gray-600">
+                        {p.institute} • {p.branch}
+                      </div>
+
+                      <div className="text-xs text-gray-500">
+                        Mode: {p.mode} • {p.email}
+                      </div>
+                    </div>
+
+                    {/* RIGHT */}
+                    <div className="flex items-center gap-2">
+                      <button
+                        disabled={track.assessmentLocked}
+                        onClick={() => onOpenParticipant(idx)}
+                        className={`px-4 py-2 rounded-lg text-sm ${
+                          track.assessmentLocked
+                            ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                            : "bg-green-600 text-white"
+                        }`}
+                      >
+                        Assess
+                      </button>
+                    </div>
+
+                  </div>
+                </div>
+
+                );
+              })
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+/* ------------------------ Assessment Modal ------------------------ */
+
+function AssessmentModal({
+  open,
+  onClose,
+  participants,
+  currentIndex,
+  onSaveAndNext,
+  track,
+  isSaved, // ← comes from parent
+  onNext,
+  onPrev,
+  onScheduleToLast,
+  persistParticipants,
+}) {
+  const [savedMsg, setSavedMsg] = React.useState(false);
+  const [showMarks, setShowMarks] = React.useState(false);
+
+
+  const [assessmentMode, setAssessmentMode] = React.useState("criteria");
+  const [isDirty, setIsDirty] = React.useState(false);
+	/* ---------- TIMER (SESSION CHAIR ONLY) ---------- */
+const PRESENTATION_TIME = 5 * 60; // 5 minutes
+const TOTAL_TIME = 7 * 60;        // 7 minutes
+
+const [secondsLeft, setSecondsLeft] = React.useState(TOTAL_TIME);
+const [timerRunning, setTimerRunning] = React.useState(false);
+const timerRef = React.useRef(null);
+const [timersByIndex, setTimersByIndex] = React.useState({});
+const [activeTimerIndex, setActiveTimerIndex] = React.useState(null);
+
+
+
+
+
+  const [form, setForm] = React.useState({
+    present: true,
+   criteria: Array(ASSESSMENT_CRITERIA.length).fill(0),
+    total: 0,
+    notes: "",
+  });
+  const DEFAULT_FORM = {
+  present: true,
+ criteria: Array(ASSESSMENT_CRITERIA.length).fill(0),
+
+  total: 0,
+  notes: "",
+};
+
+  /* ---------- LOAD PARTICIPANT ---------- */
+  React.useEffect(() => {
+  if (!showMarks) return;
+
+  const timer = setTimeout(() => {
+    setShowMarks(false);
+  }, 1000);
+
+  return () => clearTimeout(timer);
+}, [showMarks]);
+
+
+React.useEffect(() => {
+  if (!participants?.length) return;
+
+  const p = participants[currentIndex];
+  if (!p) return;
+  
+
+  // 🔒 HARD RESET FIRST (prevents bleed)
+  let nextForm = { ...DEFAULT_FORM };
+
+  let mode = "criteria";
+
+  if (p.assessment) {
+    mode = p.assessment.mode === "direct" ? "direct" : "criteria";
+
+    const criteria =
+  Array.isArray(p.assessment.criteria) &&
+  p.assessment.criteria.length === ASSESSMENT_CRITERIA.length
+    ? p.assessment.criteria
+    : Array(ASSESSMENT_CRITERIA.length).fill(0);
+
+
+    const total =
+      mode === "direct"
+        ? p.assessment.total ?? 0
+        : criteria.reduce((a, b) => a + Number(b || 0), 0);
+
+    nextForm = {
+      present: p.present ?? true,
+      criteria,
+      total,
+      notes: p.assessment.notes ?? "",
+    };
+  }
+
+  setAssessmentMode(mode);
+  setForm(nextForm);
+  setIsDirty(false);
+}, [participants, currentIndex]);
+
+	React.useEffect(() => {
+  // If this participant owns the timer, show live timer
+  if (activeTimerIndex === currentIndex) return;
+
+  // Otherwise show their stored or fresh time
+  setSecondsLeft(TOTAL_TIME);
+}, [currentIndex]);
+
+
+
+  if (!open || !participants?.length) return null;
+
+  const p = participants[currentIndex];
+  const isLast = currentIndex === participants.length - 1;
+
+  /* ---------- CRITERIA ---------- */
+  const setCriteria = (i, value) => {
+  if (assessmentMode !== "criteria") return;
+
+  setIsDirty(true);
+
+  const arr = [...form.criteria];
+
+  // allow empty while typing
+  arr[i] = value === "" ? "" : value;
+
+  setForm((f) => ({ ...f, criteria: arr }));
+};
+
+if (track?.assessmentLocked) {
+  return (
+    <div className="fixed inset-0 flex items-center justify-center bg-black/40">
+      <div className="bg-white p-6 rounded-xl">
+        <h3 className="text-lg font-semibold text-red-600">
+          Assessment Locked
+        </h3>
+        <p className="text-sm text-gray-600 mt-2">
+          The admin has locked this assessment.
+        </p>
+        <button onClick={onClose} className="mt-4 px-4 py-2 border rounded">
+          Close
+        </button>
+      </div>
+    </div>
+  );
+}
+
+	const handleSaveMarks = async () => {
+  if (track.assessmentLocked) {
+    alert("Assessment is locked by admin.");
+    return;
+  }
+
+  const assessmentPayload = {
+    criteria: assessmentMode === "criteria" ? form.criteria : [],
+    total: Number(form.total),
+    notes: form.notes || "",
+    mode: assessmentMode,
+  };
+
+  await onSaveAndNext(currentIndex, {
+    present: form.present,
+    assessment: assessmentPayload,
+  });
+
+  setSavedMsg(true);
+  setIsDirty(false); // ✅ marks are now safely saved
+  setTimeout(() => setSavedMsg(false), 2000);
+};
+
+
+  /* ---------- DIRECT TOTAL ---------- */
+  const setDirectTotal = (value) => {
+  if (assessmentMode !== "direct") return;
+
+  setIsDirty(true); // ✅ local only
+
+  setForm((f) => ({
+  ...f,
+  total: Math.max(0, Math.min(50, Number(value) || 0)),
+  // NOTE: criteria intentionally cleared in direct mode
+  criteria: Array(ASSESSMENT_CRITERIA.length).fill(0),
+}));
+  };
+
+
+const handleAdminSaveMarks = async () => {
+  const payload =
+    assessmentMode === "criteria"
+      ? {
+          assessment: {
+            criteria: adminAssessmentForm.criteria,
+            total: adminAssessmentForm.criteria.reduce(
+              (s, v) => s + Number(v || 0),
+              0
+            ),
+          },
+        }
+      : {
+          assessment: {
+            total: adminAssessmentForm.total,
+            criteria: [],
+          },
+        };
+
+  await fetch(
+    `${API_BASE}/api/admin/participants/${selectedParticipant._id}`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }
+  );
+
+  setEditingAssessment(false);
+};
+
+const startTimer = () => {
+  // ⛔ another participant already has the timer
+  if (timerRunning && activeTimerIndex !== currentIndex) {
+    alert(
+      "A timer is already running for another participant. Please stop it first."
+    );
+    return;
+  }
+
+  // ⛔ same participant, already running
+  if (timerRunning && activeTimerIndex === currentIndex) return;
+
+  setTimerRunning(true);
+  setActiveTimerIndex(currentIndex);
+
+  timerRef.current = setInterval(() => {
+    setSecondsLeft(prev => {
+      if (prev <= 1) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+        setTimerRunning(false);
+        setActiveTimerIndex(null);
+        return 0;
+      }
+      return prev - 1;
+    });
+  }, 1000);
+};
+
+
+const stopTimer = () => {
+  setTimerRunning(false);
+  setActiveTimerIndex(null);
+
+  if (timerRef.current) {
+    clearInterval(timerRef.current);
+    timerRef.current = null;
+  }
+};
+
+
+const formatTime = (secs) => {
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+};
+
+const getTimerColor = () => {
+  const progress = (TOTAL_TIME - secondsLeft) / TOTAL_TIME;
+
+  // clamp between 0–1
+  const p = Math.min(1, Math.max(0, progress));
+
+  /**
+   * Color path:
+   * 0%   → Green   (34, 197, 94)
+   * 50%  → Yellow  (234, 179, 8)
+   * 100% → Red     (239, 68, 68)
+   */
+
+  let r, g, b;
+
+  if (p < 0.5) {
+    // Green → Yellow
+    const t = p / 0.5;
+    r = Math.round(34 + (234 - 34) * t);
+    g = Math.round(197 + (179 - 197) * t);
+    b = Math.round(94 + (8 - 94) * t);
+  } else {
+    // Yellow → Red
+    const t = (p - 0.5) / 0.5;
+    r = Math.round(234 + (239 - 234) * t);
+    g = Math.round(179 + (68 - 179) * t);
+    b = Math.round(8 + (68 - 8) * t);
+  }
+
+  return `rgb(${r}, ${g}, ${b})`;
+};
+
+
+
+const elapsed = TOTAL_TIME - secondsLeft;
+
+const showPresentationOver =
+  elapsed >= PRESENTATION_TIME && elapsed < TOTAL_TIME;
+
+const showSessionOver = secondsLeft === 0;
+
+
+
+  const handleMarkAbsent = () => {
+    if (track.assessmentLocked) {
+      alert("Assessment is locked by admin.");
+      return;
+    }
+
+  if (
+    !window.confirm(
+      "Are you sure you want to mark this participant as ABSENT? This action will clear all marks."
+    )
+  ) {
+    return;
+  }
+
+  onSaveAndNext(currentIndex, {
+    present: false,
+    assessment: {
+      criteria: [],
+      total: 0,
+      notes: "Marked absent",
+      mode: "direct",
+    },
+  });
+
+  setIsDirty(false);
+  setSavedMsg(true);
+  setTimeout(() => setSavedMsg(false), 3000);
+};
+
+
+
+const handleScheduleToLast = () => {
+  if (
+    !window.confirm(
+      "Schedule this participant to the end of the assessment list?"
+    )
+  ) {
+    return;
+  }
+
+  onScheduleToLast(currentIndex);
+};
+
+const guardedPrev = () => {
+  if (isDirty) {
+    alert("You have unsaved marks. Please click 'Save Marks' first.");
+    return;
+  }
+
+  setTimersByIndex(t => ({
+    ...t,
+    [currentIndex]: secondsLeft,
+  }));
+
+  onPrev();
+};
+
+
+const guardedNext = () => {
+  if (isDirty) {
+    alert("You have unsaved marks. Please click 'Save Marks' first.");
+    return;
+  }
+
+  setTimersByIndex(t => ({
+    ...t,
+    [currentIndex]: secondsLeft,
+  }));
+
+  onNext();
+};
+
+
+
+const normalizeCriteriaValue = (raw, max = 10) => {
+  if (raw === "" || raw === null || raw === undefined) return 0;
+
+  const str = String(raw);
+
+  // If value has no decimal, is > max, and was likely typed before 0
+  if (!str.includes(".") && Number(str) > max) {
+    const firstDigit = Number(str[0]);
+    if (!isNaN(firstDigit)) {
+      return Math.min(max, firstDigit);
+    }
+  }
+
+  const num = Number(str);
+  if (isNaN(num)) return 0;
+
+  return Math.max(0, Math.min(max, num));
+};
+
+
+  const activeInput =
+  "border border-gray-300 rounded text-center py-2 bg-white focus:ring-2 focus:ring-green-300";
+
+  const disabledInput =
+    "border border-gray-200 rounded text-center py-2 bg-gray-100 text-gray-400 cursor-not-allowed";
+
+  return (
+   <div className="fixed inset-0 z-50 flex items-center justify-center bg-green-100/60 backdrop-blur-sm px-4">
+    <div
+      className="
+        w-full max-w-3xl bg-white rounded-2xl shadow-xl
+        max-h-[85vh] overflow-y-auto p-6
+      "
+    >
+
+        {/* PARTICIPANT DETAILS */}
+
+        <div className="mb-6 bg-green-50 border border-green-200 rounded-xl p-4">
+
+  {/* HEADER */}
+  <div className="flex justify-between items-start mb-3">
+    <div>
+      <div className="text-xl font-bold text-green-700">
+        {p.presenterName}
+      </div>
+      <div className="text-sm text-gray-600">
+        {p.institute} • {p.branch}
+      </div>
+    </div>
+
+    <span className="px-3 py-1 rounded-full bg-green-600 text-white text-sm font-semibold">
+      Paper ID: {p.paperId}
+
+    </span>
+  </div>
+
+  {/* PAPER DETAILS */}
+  <div className="mb-3">
+    <div className="text-sm font-semibold text-gray-700">
+      Paper Title
+    </div>
+    <div className="text-sm text-gray-800">
+      {p.paperTitle}
+    </div>
+  </div>
+
+  {/* CONTACT + MODE */}
+  <div className="grid grid-cols-2 gap-4 text-sm">
+    <div>
+      <div className="font-semibold text-gray-600">Email</div>
+      <div>{p.email}</div>
+    </div>
+
+    <div>
+      <div className="font-semibold text-gray-600">Phone</div>
+      <div>{p.phone || "—"}</div>
+    </div>
+
+    <div>
+      <div className="font-semibold text-gray-600">Presentation Mode</div>
+      <div>{p.mode}</div>
+    </div>
+
+    <div>
+      <div className="font-semibold text-gray-600">Submission</div>
+      {p.submissionLink ? (
+        <a
+          href={p.submissionLink}
+          target="_blank"
+          rel="noreferrer"
+          className="text-green-700 underline"
+        >
+          Open Drive Folder
+        </a>
+      ) : (
+        <span>—</span>
+      )}
+    </div>
+  </div>
+
+  {/* CO-AUTHORS */}
+  <div className="mt-4">
+    <div className="font-semibold text-gray-600 mb-1">
+      Co-Authors
+    </div>
+
+    {p.coAuthors && p.coAuthors.length > 0 ? (
+      <ul className="list-disc list-inside text-sm text-gray-700">
+        {p.coAuthors.map((c, i) => (
+          <li key={i}>
+            {c.name} ({c.email})
+          </li>
+        ))}
+      </ul>
+    ) : (
+      <div className="text-sm text-gray-500 italic">
+        No co-authors added
+      </div>
+    )}
+  </div>
+</div>
+
+{/* ================= TIMER ================= */}
+<div className="mb-6 border border-dashed border-green-300 rounded-xl p-4 bg-green-50">
+  <div className="flex justify-between items-center">
+    <div>
+      <div className="text-sm font-semibold text-gray-600">
+        Presentation Timer
+      </div>
+
+      <div
+  className="text-3xl font-bold mt-1 transition-colors duration-500"
+  style={{ color: getTimerColor() }}
+>
+    {formatTime(secondsLeft)}
+
+</div>
+
+      <div className="text-xs text-gray-500">
+        5 min presentation • 2 min Q&amp;A
+      </div>
+    </div>
+
+    <div className="flex gap-2">
+      <button
+  onClick={startTimer}
+  disabled={timerRunning && activeTimerIndex !== currentIndex}
+  className="px-4 py-2 rounded bg-green-600 text-white font-semibold
+             disabled:bg-green-300"
+>
+  ▶ Start
+</button>
+
+
+      <button
+        onClick={stopTimer}
+        className="px-4 py-2 rounded border border-gray-300 text-gray-700"
+      >
+        ⏸ Stop
+      </button>
+    </div>
+  </div>
+
+  {/* ALERTS */}
+  {showPresentationOver && (
+    <div className="mt-3 text-sm font-semibold text-yellow-700 bg-yellow-100 px-3 py-2 rounded">
+      ⚠️ Presentation time over. Q&amp;A started.
+    </div>
+  )}
+
+  {showSessionOver && (
+    <div className="mt-3 text-sm font-semibold text-red-700 bg-red-100 px-3 py-2 rounded">
+      ⛔ Time up! Please stop and move to next participant.
+    </div>
+  )}
+</div>
+
+
+
+
+        {/* MODE */}
+        <div className="flex gap-4 mb-4">
+          <label>
+            <input
+              type="radio"
+              checked={assessmentMode === "criteria"}
+              onChange={() => setAssessmentMode("criteria")}
+            />{" "}
+            Criteria-wise
+          </label>
+          <label>
+            <input
+              type="radio"
+              checked={assessmentMode === "direct"}
+              onChange={() => setAssessmentMode("direct")}
+            />{" "}
+            Direct total
+          </label>
+        </div>
+
+        {/* CRITERIA */}
+        <div className="text-xs text-gray-500 mb-1">
+          {assessmentMode === "criteria"
+            ? "Criteria-based marking enabled"
+            : "Criteria disabled in direct marking"}
+        </div>
+
+{assessmentMode === "criteria" && (
+  <div className="space-y-4 mb-4">
+    {ASSESSMENT_CRITERIA.map((label, i) => (
+      <div
+        key={i}
+        className="grid grid-cols-1 md:grid-cols-[1fr_100px] gap-3 items-center"
+      >
+        {/* Criteria name */}
+        <div className="text-sm font-medium text-gray-800">
+          {i + 1}. {label}
+        </div>
+
+        {/* Fixed-width masked input */}
+        <input
+          type={showMarks ? "number" : "password"}
+          min={0}
+          max={10}
+          value={form.criteria[i]}
+          disabled={assessmentMode !== "criteria"}
+          onChange={(e) => setCriteria(i, e.target.value)}
+          onBlur={() => {
+            const arr = [...form.criteria];
+            arr[i] = normalizeCriteriaValue(arr[i], 10);
+
+            const total = arr.reduce(
+              (a, b) => a + Number(b || 0),
+              0
+            );
+
+            setForm((f) => ({
+              ...f,
+              criteria: arr,
+              total,
+            }));
+          }}
+          onFocus={(e) => e.target.select()}
+          className={`
+            ${activeInput}
+            w-[100px]
+            text-center
+            tracking-widest
+          `}
+        />
+      </div>
+    ))}
+  </div>
+)}
+
+{/* TOTAL */}
+<div className="text-xs text-gray-500 mb-1">
+  {assessmentMode === "direct"
+    ? "Direct total marking enabled"
+    : "Total locked in criteria mode"}
+</div>
+
+<div className="mb-4 flex items-center gap-3">
+  <label className="text-sm font-medium">Total</label>
+
+  <input
+    type={showMarks ? "number" : "password"}
+    min={0}
+    max={50}
+    value={form.total}
+    disabled={assessmentMode === "criteria"}
+    onChange={(e) => setDirectTotal(e.target.value)}
+    className={`
+      ${assessmentMode === "direct"
+        ? "border border-gray-300 bg-white"
+        : "border border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"}
+      rounded px-2 py-1
+      w-[100px]
+      text-center
+      tracking-widest
+    `}
+  />
+
+  <span className="text-sm text-gray-600">/ 50</span>
+</div>
+<div className="flex justify-between items-center mb-3">
+  <div className="text-sm text-gray-600">
+    Marks Visibility
+  </div>
+
+  <button
+    type="button"
+    onClick={() => setShowMarks((v) => !v)}
+    className={`
+      px-4 py-1.5 rounded-md text-sm font-medium border
+      transition
+      ${showMarks
+        ? "bg-gray-100 text-gray-700 border-gray-300"
+        : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"}
+    `}
+  >
+    {showMarks ? "Hide Marks" : "Show Marks"}
+  </button>
+</div>
+<div className="text-sm text-gray-600">
+    Remarks
+  </div>
+
+        {/* NOTES */}
+        <textarea
+          rows={2}
+          value={form.notes}
+          onChange={(e) => setForm({ ...form, notes: e.target.value })}
+          className="w-full border rounded p-2 mb-4"
+        />
+
+        {/* NAVIGATION BAR */}
+<div className="flex justify-center items-center gap-6 mb-4">
+  <button
+    onClick={guardedPrev}
+    disabled={currentIndex === 0}
+    className="px-4 py-2 rounded border text-gray-700 
+               disabled:text-gray-300 disabled:border-gray-200"
+  >
+    ◀ Previous
+  </button>
+
+  <div className="text-sm text-gray-500 font-medium">
+    {currentIndex + 1} of {participants.length}
+  </div>
+
+  <button
+    onClick={guardedNext}
+    disabled={currentIndex === participants.length - 1}
+    className="px-4 py-2 rounded border text-gray-700 
+               disabled:text-gray-300 disabled:border-gray-200"
+  >
+    Next ▶
+  </button>
+</div>
+
+
+        {/* FOOTER */}
+        <div className="flex justify-between items-center">
+          <div className="min-h-[24px]">
+            {savedMsg && (
+              <span className="text-green-600 font-semibold">
+                ✔ Marks saved
+              </span>
+            )}
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              onClick={handleMarkAbsent}
+              className="border border-red-600 text-red-600 px-4 py-2 rounded hover:bg-red-50 font-semibold"
+            >
+              Mark Absent
+            </button>
+
+            <button
+              onClick={handleScheduleToLast}
+              className="border border-orange-500 text-orange-600 px-4 py-2 rounded hover:bg-orange-50">
+              Schedule to Last
+            </button>
+
+
+            <button onClick={onClose} className="border px-4 py-2 rounded">
+              Exit
+            </button>
+
+            <button
+              onClick={handleSaveMarks}
+              className="bg-green-600 text-white px-4 py-2 rounded"
+            >
+              Save Marks
+            </button>
+
+            {isLast && (
+              <button
+    onClick={() => {
+      // 🔒 BLOCK IF UNSAVED
+      if (isDirty) {
+        alert("You have unsaved marks. Please save before ending assessment.");
+        return;
+      }
+
+      // ✅ Final confirmation
+      if (
+        window.confirm(
+          "Are you sure you want to end the assessment? This will close the assessment window."
+        )
+      ) {
+        onClose();
+      }
+    }}
+    className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
+  >
+    End Assessment
+  </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+function AssessmentSummary({ participants, onClose }) {
+  // sort by total marks (descending)
+  const sorted = [...participants].sort((a, b) => {
+    const ta = a.assessment?.total ?? 0;
+    const tb = b.assessment?.total ?? 0;
+    return tb - ta;
+  });
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-4">
+      <div className="bg-white max-w-6xl w-full rounded-xl shadow-xl p-6 overflow-auto max-h-[90vh]">
+
+        {/* HEADER */}
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold">
+            Assessment Summary
+          </h2>
+          <button
+            onClick={onClose}
+            className="px-3 py-1 border rounded"
+          >
+            Close
+          </button>
+        </div>
+
+        {/* TABLE */}
+        <table className="w-full border border-gray-300 text-sm">
+          <thead className="bg-gray-100">
+            <tr>
+              <th className="border px-2 py-1">S.No.</th>
+              <th className="border px-2 py-1">Presenter Name</th>
+              <th className="border px-2 py-1">Paper ID</th>
+              <th className="border px-2 py-1">Title</th>
+              {ASSESSMENT_CRITERIA.map((c, i) => (
+  <th key={i} className="border px-2 py-1 text-xs">
+    {c}
+  </th>
+))}
+
+              <th className="border px-2 py-1">Total</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {sorted.map((p, idx) => {
+              const assessment = p.assessment || {};
+              const mode = assessment.mode || "criteria";
+             const criteria =
+  Array.isArray(assessment.criteria) &&
+  assessment.criteria.length === ASSESSMENT_CRITERIA.length
+    ? assessment.criteria
+    : Array(ASSESSMENT_CRITERIA.length).fill(0);
+
+
+              return (
+                <tr key={p._id || p.paperId}>
+
+                  <td className="border px-2 py-1 text-center">
+                    {idx + 1}
+                  </td>
+                  <td className="border px-2 py-1">
+                    {p.presenterName}
+                  </td>
+                  <td className="border px-2 py-1">
+  {p.paperId}
+</td>
+
+                  <td className="border px-2 py-1">
+                    {p.paperTitle}
+                  </td>
+
+                  {mode === "direct" ? (
+                    <td
+                      colSpan={5}
+                      className="border px-2 py-1 text-center italic text-gray-600"
+                    >
+                      Direct marking
+                    </td>
+                  ) : (
+                    criteria.map((c, i) => (
+                      <td
+                        key={i}
+                        className="border px-2 py-1 text-center"
+                      >
+                        {c}
+                      </td>
+                    ))
+                  )}
+
+                  <td className="border px-2 py-1 text-center font-semibold">
+                    {assessment.total ?? 0}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+
+
+function SessionChairConsole() {
+  const navigate = useNavigate();
+
+  const [loading, setLoading] = useState(true);
+  const [chair, setChair] = useState(null);
+  const [track, setTrack] = useState(null);
+  const [participants, setParticipants] = useState([]);
+  const [collapsed, setCollapsed] = useState(false);
+  const [sidebarVisible, setSidebarVisible] = useState(false);
+  const [assessmentOpen, setAssessmentOpen] = useState(false);
+  const [assessmentIndex, setAssessmentIndex] = useState(0);
+  const [error, setError] = useState(null);
+  const [showSummary, setShowSummary] = useState(false);
+ const normalizeParticipants = (list) =>
+  list.map((p) => ({
+    ...p,
+    _id: p._id,                 // Mongo ID (ONLY identity)
+    paperId: p.paperId,         // display only
+   assessment: p.assessment || null,
+
+  }));
+
+
+
+  // ✅ ADDED: profile visibility control
+  const [showProfile, setShowProfile] = useState(false);
+
+  const storedEmail = sessionStorage.getItem("care_email");
+
+  /* ---------------- LOAD SESSION DATA (UNCHANGED LOGIC) ---------------- */
+  useEffect(() => {
+    if (!storedEmail) {
+      setError("Session expired. Please login again.");
+      setLoading(false);
+      return;
+    }
+
+    const load = async () => {
+      try {
+        const res = await fetch(
+          `${API_BASE}/api/session/${encodeURIComponent(storedEmail)}`
+        );
+        const data = await res.json();
+
+        if (!res.ok || !data.success) {
+          setError(data.message || "Failed to load session data.");
+          return;
+        }
+
+        setChair(data.chair || {});
+        setTrack(data.track || {});
+
+        const pRes = await fetch(
+          `${API_BASE}/api/student/participants?eventId=${data.chair.eventId}&trackId=${data.chair.trackId}`
+        );
+
+        const pData = await pRes.json();
+        setParticipants(normalizeParticipants(pData.participants || []));
+        setError(null);
+      } catch (err) {
+        console.error("Failed loading session data:", err);
+        setError("Unable to reach server.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    load();
+    
+  }, []);
+
+  useEffect(() => {
+    if (!chair?.eventId || !chair?.trackId) return;
+
+    refreshTrackLock();
+    const i = setInterval(refreshTrackLock, 10000);
+
+    return () => clearInterval(i);
+  }, [chair]);
+
+
+  /* ---------------- LOGOUT (FIXED) ---------------- */
+  const handleLogout = () => {
+    sessionStorage.clear();
+    navigate("/login");
+  };
+
+  /* ---------------- ASSESSMENT HELPERS (UNCHANGED) ---------------- */
+const openAssessmentFromIndex = async (i) => {
+  const locked = await refreshTrackLock();
+
+  if (locked) {
+    alert("Assessment is locked by admin.");
+    return;
+  }
+
+  setAssessmentIndex(i);
+  setAssessmentOpen(true);
+};
+
+
+
+
+  const startAssessment = async () => {
+  const locked = await refreshTrackLock();
+
+  if (locked) {
+    alert("Assessment is locked by admin.");
+    return;
+  }
+
+  setAssessmentIndex(0);
+  setAssessmentOpen(true);
+};
+
+
+
+
+
+  const reorderParticipant = (from, to) => {
+    if (to < 0 || to >= participants.length) return;
+    const arr = [...participants];
+    const [item] = arr.splice(from, 1);
+    arr.splice(to, 0, item);
+    setParticipants(arr);
+  };
+
+const refreshTrackLock = async () => {
+  try {
+    const res = await fetch(
+      `${API_BASE}/api/session/track-status?eventId=${chair.eventId}&trackId=${chair.trackId}`
+    );
+
+    if (!res.ok) {
+      console.error("Track lock fetch failed");
+      return false; // ✅ NEVER assume locked
+    }
+
+    const data = await res.json();
+
+    if (data.success) {
+      setTrack((prev) => ({
+        ...prev,
+        assessmentLocked: data.assessmentLocked,
+      }));
+      return data.assessmentLocked;
+    }
+
+    return false;
+  } catch (err) {
+    console.error("Track lock fetch error:", err);
+    return false;
+  }
+};
+
+
+
+const persistParticipants = async ({ participantId, present, assessment }) => {
+  const res = await fetch(
+    `${API_BASE}/api/session/participants/${participantId}/assessment`,
+    {
+      method: "PATCH", // ✅ MUST MATCH BACKEND
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ present, assessment }),
+    }
+  );
+
+  if (res.status === 403) {
+    return { locked: true };
+  }
+
+  const data = await res.json();
+
+  if (!res.ok || !data.success) {
+    console.error("Assessment save failed:", data);
+    return { success: false };
+  }
+
+  return { success: true, participant: data.participant };
+};
+
+
+
+const saveAssessmentAndProceed = async (idx, assessmentObj) => {
+  if (track.assessmentLocked) {
+    alert("Assessment is locked by admin.");
+    return;
+  }
+
+  const result = await persistParticipants({
+  participantId: participants[idx]._id, // Mongo _id ONLY
+  present: assessmentObj.present,
+  assessment: assessmentObj.assessment,
+});
+
+
+  if (result?.locked) {
+    alert("Assessment is locked by admin.");
+    return;
+  }
+
+  if (result?.success && result.participant) {
+  setParticipants((prev) =>
+    prev.map((p) =>
+      p._id === result.participant._id
+        ? result.participant   // ✅ backend is truth
+        : p
+    )
+  );
+}
+
+};
+
+
+const handleFinalSubmit = async () => {
+  if (
+    !window.confirm(
+      "Final submission will lock assessment permanently. Continue?"
+    )
+  ) {
+    return;
+  }
+
+  const res = await fetch(
+    `${API_BASE}/api/admin/tracks/${chair.eventId}/${chair.trackId}/lock`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ locked: true }),
+    }
+  );
+
+  const data = await res.json();
+
+  if (data.success) {
+  alert("Assessment submitted and locked.");
+
+  // 🔒 HARD LOCK LOCALLY (instant UI update)
+  setTrack((prev) => ({
+    ...prev,
+    assessmentLocked: true,
+  }));
+
+  await refreshTrackLock(); // backend confirmation
+}else {
+    alert("Failed to lock assessment");
+  }
+};
+
+
+const handlePrev = () => {
+  setAssessmentIndex((i) => Math.max(0, i - 1));
+};
+
+const handleNext = () => {
+  setAssessmentIndex((i) =>
+    Math.min(participants.length - 1, i + 1)
+  );
+};
+
+ const handleScheduleToLast = (idx) => {
+  setParticipants((prev) => {
+    const arr = [...prev];
+    const [moved] = arr.splice(idx, 1);
+    arr.push(moved);
+    return arr;
+  });
+
+  // keep index valid
+  setAssessmentIndex((i) =>
+    i >= participants.length - 1 ? participants.length - 2 : i
+  );
+};
+
+
+
+  /* ---------------- LOADING / ERROR UI (UNCHANGED) ---------------- */
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        Loading session chair console…
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="bg-white p-6 rounded shadow">
+          <div className="text-red-600 mb-3">{error}</div>
+          <button
+            onClick={() => {
+              sessionStorage.clear();
+              navigate("/login");
+            }}
+            className="px-4 py-2 border rounded"
+          >
+            Back to Login
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  /* ---------------- RENDER ---------------- */
+  return (
+    <div className="min-h-screen bg-linear-to-br from-green-50 via-green-100 to-green-200 text-gray-800">
+      <Header
+  user={{
+    name: chair?.name || "Session Chair",
+    role: "sessionChair",
+  }}
+  onLogout={handleLogout}
+        onProfileClick={() => setShowProfile((v) => !v)} // ✅ FIXED
+      />
+      <TrackCard
+        track={track || { id: "—", title: "No Track", description: "—" }}
+        chairs={{
+            internal: chair || null,
+            external: null,
+        }}
+        participants={participants}
+        collapsed={collapsed}
+        onToggleCollapse={() => setCollapsed((v) => !v)} // ✅ FIXED: arrow only
+        onStartAssessment={startAssessment}
+        onReorderParticipant={reorderParticipant}
+        onOpenParticipant={openAssessmentFromIndex}
+      />
+
+      <AssessmentModal
+        open={assessmentOpen}
+        onClose={() => setAssessmentOpen(false)}
+        participants={participants}
+        currentIndex={assessmentIndex}
+        onSaveAndNext={saveAssessmentAndProceed}
+        track={track}
+        persistParticipants={persistParticipants}
+        onNext={() => {
+          if (assessmentIndex < participants.length - 1) {
+            setAssessmentIndex((i) => i + 1);
+          } else {
+            setAssessmentOpen(false);
+          }
+        }}
+        onPrev={handlePrev}
+        onScheduleToLast={handleScheduleToLast}
+      />
+
+
+      <div className="mt-6 flex justify-between items-center px-6 py-4 bg-white border-t shadow-sm">
+  <button
+    onClick={() => setShowSummary(true)}
+    className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded font-medium"
+  >
+    View Summary
+  </button>
+
+<button
+  onClick={handleFinalSubmit}
+  disabled={track.assessmentLocked}
+  className={`px-4 py-2 rounded font-semibold ${
+    track.assessmentLocked
+      ? "bg-gray-400 cursor-not-allowed"
+      : "bg-red-600 hover:bg-red-700 text-white"
+  }`}
+>
+  {track.assessmentLocked ? "Assessment Locked" : "Final Submit"}
+</button>
+
+
+</div>
+
+    {showSummary && (
+      <AssessmentSummary
+        participants={participants}
+        onClose={() => setShowSummary(false)}
+      />
+    )}
+
+
+    </div>
+  );
+}
+
+
+/* ----------------------------- App Routes ------------------------------ */
+/* IMPORTANT: useLocation() must be used inside BrowserRouter context, so
+   we create AppRoutes which uses that hook and is rendered inside BrowserRouter.
+*/
+function EditEventWrapper({ events, setEvents }) {
+  const { id } = useParams();
+
+  return (
+    <CreateEvent
+      isEdit={true}
+      editEventId={id}
+      events={events}
+      setEvents={setEvents}
+      onEventSaved={() => {}}
+    />
+  );
+}
+
+function AppRoutes({ events, setEvents, refreshEvents }) {
+  const location = useLocation();
+  const hideHeader =
+  location.pathname === "/login" ||
+  location.pathname.startsWith("/session") ||
+  location.pathname.startsWith("/student");
+
+  const [user, setUser] = useState({ name: "Admin", role: "admin" });
+
+  const navigate = useNavigate();
+
+  useEffect(() => {
+  const role = sessionStorage.getItem("care_role");
+  const email = sessionStorage.getItem("care_email");
+
+  if (role === "sessionChair") {
+    setUser({ name: email.split("@")[0], role });
+  } else if (role === "studentCoordinator") {
+    setUser({ name: "Student Coordinator", role });
+  } else {
+    setUser({ name: "Admin", role: "admin" });
+  }
+}, [location]);
+
+const handleLogout = () => {
+  sessionStorage.clear();
+  navigate("/login", { replace: true });
+};
+
+
+function ProtectedRoutes({ allowedRoles }) {
+  const role = sessionStorage.getItem("care_role");
+  const email = sessionStorage.getItem("care_email");
+
+  // Not logged in
+  if (!role || !email) {
+    sessionStorage.clear();
+    return <Navigate to="/login" replace />;
+  }
+
+  // Role not allowed
+  if (allowedRoles && !allowedRoles.includes(role)) {
+    sessionStorage.clear();
+    return <Navigate to="/login" replace />;
+  }
+
+  return <Outlet />;
+}
+
+
+
+
+
+  return (
+    <div className="min-h-screen bg-linear-to-br from-green-50 via-green-100 to-green-200 text-gray-800 flex flex-col">
+      {!hideHeader && <Header user={user} onLogout={handleLogout} />}
+
+      <Routes>
+  {/* ENTRY */}
+  <Route path="/" element={<Navigate to="/login" replace />} />
+  <Route path="/login" element={<Login />} />
+
+  {/* ADMIN */}
+  <Route element={<ProtectedRoutes allowedRoles={["admin"]} />}>
+    <Route path="/dashboard" element={<Dashboard events={events} refreshEvents={refreshEvents} />} />
+    <Route path="/create" element={<CreateEvent onEventSaved={(ev) => setEvents((prev) => [ev, ...prev])} events={events} setEvents={setEvents} />} />
+    <Route path="/event/:id" element={<EventDetails events={events} setEvents={setEvents} />} />
+    <Route path="/edit/:id" element={<EditEventWrapper events={events} setEvents={setEvents} />} />
+    <Route
+  path="/admin/events/:eventId/participants"
+  element={<AdminEventParticipants />}
+/>
+
+  </Route>
+
+  {/* SESSION CHAIR */}
+  <Route element={<ProtectedRoutes allowedRoles={["sessionChair"]} />}>
+    <Route path="/session" element={<SessionChairConsole />} />
+  </Route>
+
+  {/* STUDENT */}
+  <Route element={<ProtectedRoutes allowedRoles={["studentCoordinator"]} />}>
+    <Route
+      path="/student"
+      element={
+        <iframe
+          src="/student.html"
+          className="w-full h-[calc(100vh-0px)] border-none"
+          title="Student Coordinator Dashboard"
+        />
+      }
+    />
+  </Route>
+
+  {/* FALLBACK */}
+  <Route path="*" element={<Navigate to="/login" replace />} />
+</Routes>
+
+
+    </div>
+  );
+}
+
+/* ------------------------------- Root App ------------------------------- */
+export default function App() {
+  const [events, setEvents] = useState([]);
+  const [loadingEvents, setLoadingEvents] = useState(true);
+
+  // fetch events from backend on load
+  const fetchEventsFromBackend = async () => {
+  try {
+    const res = await fetch(`${API_BASE}/api/admin/events`);
+    const data = await res.json();
+
+    if (res.ok && data.success && Array.isArray(data.events)) {
+      setEvents(data.events);
+    } else {
+      console.error("Unexpected response shape:", data);
+      setEvents([]);
+    }
+  } catch (err) {
+    console.error("Error fetching events:", err);
+    setEvents([]);
+  } finally {
+    setLoadingEvents(false);
+  }
+};
+  useEffect(() => {
+    fetchEventsFromBackend();
+  }, []);
+
+  return (
+    <BrowserRouter>
+      <AppRoutes
+        events={events}
+        setEvents={setEvents}
+        refreshEvents={fetchEventsFromBackend}
+      />
+    </BrowserRouter>
+  );
+}

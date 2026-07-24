@@ -1,0 +1,2005 @@
+// server.js
+import express from "express";
+import mongoose from "mongoose";
+import cors from "cors";
+import dotenv from "dotenv";
+import crypto from "crypto";
+import proofRoutes from "./proof.routes.js";
+import { sendMail } from "./mailer.js";
+
+
+dotenv.config();
+
+const app = express();
+app.use(
+  cors({
+    origin: [
+      "http://localhost:5173",
+      "https://care-zeta.vercel.app",
+    ],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
+  })
+);
+
+
+
+app.use(express.json({ limit: "25mb" }));
+app.use("/api/proof", proofRoutes);
+
+app.use(express.urlencoded({ extended: true }));
+
+
+app.get("/api/test-mail", async (_req, res) => {
+  try {
+    await sendMail({
+      to: "care.system@gmail.com",
+      subject: "CARE Brevo Test",
+      html: "<p>Brevo mail working 🎉</p>",
+    });
+    res.json({ success: true });
+  } catch (err) {
+    console.error("BREVO ERROR:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+
+
+/* --------------------------- MongoDB Atlas Connection --------------------------- */
+mongoose
+  .connect(process.env.MONGO_URI, {
+    serverSelectionTimeoutMS: 10000,
+  })
+  .then(() => console.log("✅ MongoDB Atlas Connected"))
+  .catch((err) => {
+    console.error("❌ MongoDB Connection Error:", err.message);
+    process.exit(1);
+  });
+process.on("unhandledRejection", (err) => {
+  console.error("UNHANDLED PROMISE:", err);
+});
+
+process.on("uncaughtException", (err) => {
+  console.error("UNCAUGHT EXCEPTION:", err);
+});
+
+/* ------------------------------- Schemas -------------------------------- */
+const SessionChairSchema = new mongoose.Schema(
+  {
+    name: String,
+   email: {
+  type: String,
+  lowercase: true,
+  trim: true,
+},
+ // ❗ remove global unique
+    phone: String,
+    type: String,
+    passwordHash: String,
+    trackId: String,
+    eventId: String,
+  },
+  { timestamps: true }
+);
+
+const StudentCoordinatorSchema = new mongoose.Schema(
+  {
+    name: String,
+   email: {
+  type: String,
+  lowercase: true,
+  trim: true,
+},
+
+    phone: String,
+    passwordHash: String,
+    trackId: String,
+    eventId: String,
+  },
+  { timestamps: true }
+);
+
+StudentCoordinatorSchema.index(
+  { email: 1, trackId: 1, eventId: 1 },
+  { unique: true }
+);
+
+const StudentCoordinator = mongoose.model(
+  "StudentCoordinator",
+  StudentCoordinatorSchema
+);
+
+
+// prevent duplicate chair per event
+SessionChairSchema.index(
+  { email: 1, trackId: 1, eventId: 1 },
+  { unique: true }
+);
+
+const TrackSchema = new mongoose.Schema(
+  {
+    id: String,
+    title: String,
+    description: String,
+
+    assessmentLocked: {
+      type: Boolean,
+      default: true,
+    },
+
+    // ✅ NEW (SAFE, OPTIONAL)
+    meetingLink: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+  },
+  { _id: true }
+);
+
+
+
+const EventSchema = new mongoose.Schema(
+  {
+    title: String,
+    description: String,
+    date: String,
+    tracks: [TrackSchema],
+    sessionChairs: Array,
+    participants: Object,
+  },
+  { timestamps: true }
+);
+
+const ParticipantSchema = new mongoose.Schema(
+  {
+    eventId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Event",
+      required: true,
+      index: true,
+    },
+    trackId: {
+      type: String,
+      required: true,
+      index: true,
+    },
+
+    // ownership
+    createdBy: {
+      type: String, // student coordinator email
+      required: true,
+      index: true,
+    },
+
+    // presenter details
+    paperId: { type: String, required: true },
+    paperTitle: { type: String, required: true },
+    presenterName: { type: String, required: true },
+    email: { type: String, required: true },
+    phone: String,
+    institute: String,
+    branch: String,
+    mode: String,
+    submissionLink: String,
+
+    coAuthors: [
+      {
+        name: String,
+        email: String,
+      },
+    ],
+
+    // workflow
+    status: {
+      type: String,
+      enum: ["DRAFT", "SUBMITTED", "EVALUATED"],
+      default: "DRAFT",
+      index: true,
+    },
+    assessment: {
+      criteria: {
+        type: [Number],
+        default: [],
+      },
+      total: {
+        type: Number,
+        index: true,
+      },
+      notes: String,
+      mode: {
+        type: String,
+        enum: ["criteria", "direct"],
+      },
+      evaluatedBy: String,
+      evaluatedAt: Date,
+    },
+
+  },
+  { timestamps: true }
+);
+
+// enforce integrity
+ParticipantSchema.index(
+  { eventId: 1, trackId: 1, paperId: 1 },
+  { unique: true }
+);
+
+const Participant = mongoose.model("Participant", ParticipantSchema);
+
+const SessionChair = mongoose.model("SessionChair", SessionChairSchema);
+const Event = mongoose.model("Event", EventSchema);
+const otpStore = new Map(); // email -> { otp, expiresAt }
+const generateSimplePassword = (name) => {
+  if (!name) return "care123";
+
+  return (
+    name
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "") // remove spaces & symbols
+      + "123"
+  );
+};
+
+
+/* ------------------------------- Utilities ------------------------------- */
+const hashPassword = (password) =>
+  crypto.createHash("sha256").update(password).digest("hex");
+const generateOTP = () =>
+  Math.floor(1000 + Math.random() * 9000).toString();
+
+
+/* ------------------------------- Routes -------------------------------- */
+// 🔴 REQUIRED ROOT ROUTE (Railway health)
+app.get("/", (_req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "CARE backend is running",
+  });
+});
+
+// 🔴 REQUIRED HEALTH ROUTE
+app.get("/health", (_req, res) => {
+  res.status(200).send("OK");
+});
+
+// 🔴 REQUIRED FAVICON HANDLER
+app.get("/favicon.ico", (_req, res) => {
+  res.status(204).end();
+});
+
+
+/* 1️⃣ Admin: Create Event */
+app.post("/api/admin/events", async (req, res) => {
+  console.log("🔥 ADMIN EVENT CREATE API HIT 🔥");
+
+  try {
+    const eventData = req.body;
+
+    const event = await Event.create(eventData);
+    console.log("🚀 CREATE EVENT CALLED");
+
+    /* ===============================
+       SESSION CHAIRS (NO EMAIL)
+    =============================== */
+    for (const chair of eventData.sessionChairs || []) {
+      console.log("➡️ SESSION CHAIR LOOP HIT:", chair);
+
+      const email = chair.email?.trim().toLowerCase();
+      console.log("📧 Normalized email:", email);
+
+      if (!email) {
+        console.log("⛔ Skipping: email missing");
+        continue;
+      }
+
+      const exists = await SessionChair.findOne({
+        email,
+        eventId: event._id.toString(),
+      });
+
+      console.log("🔍 Exists in DB?", !!exists);
+
+      if (exists) {
+        console.log("⛔ Skipping: already exists");
+        continue;
+      }
+
+      const tempPassword =
+        chair.password || Math.random().toString(36).slice(-8);
+
+      console.log("🔐 Temp password generated:", tempPassword);
+
+      await SessionChair.create({
+        name: chair.name,
+        email,
+        phone: chair.phone,
+        type: chair.type,
+        passwordHash: hashPassword(tempPassword),
+        trackId: chair.trackId,
+        eventId: event._id.toString(),
+      });
+
+      console.log("✅ Session chair saved in DB (NO EMAIL SENT)");
+    }
+
+    /* ===============================
+       STUDENT COORDINATORS (EMAIL ON)
+    =============================== */
+    for (const sc of eventData.studentCoordinators || []) {
+      const exists = await StudentCoordinator.findOne({
+        email: sc.email,
+        eventId: event._id.toString(),
+      });
+
+      if (exists) continue;
+      if (!sc.password) continue;
+
+      await StudentCoordinator.create({
+        name: sc.name,
+        email: sc.email.trim().toLowerCase(),
+        phone: sc.phone,
+        passwordHash: hashPassword(sc.password),
+        trackId: sc.trackId,
+        eventId: event._id.toString(),
+      });
+
+      await sendMail({
+        from: `"RAMSITA 2026" <${process.env.MAIL_USER}>`,
+        to: sc.email,
+        subject: "RAMSITA Student Coordinator Access",
+        html: `
+          <p>Hello ${sc.name},</p>
+          <p>You have been assigned as <b>Student Coordinator</b>.</p>
+          <p><b>Password:</b> ${sc.password}</p>
+          <p>Please login to RAMSITA.</p>
+        `,
+      });
+    }
+
+    res.status(201).json({
+      success: true,
+      event,
+    });
+  } catch (error) {
+    console.error("❌ Create event error:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+});
+
+app.put("/api/admin/participants/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { assessment } = req.body;
+
+    const updated = await Participant.findByIdAndUpdate(
+      id,
+      {
+        $set: {
+          assessment: {
+            criteria: assessment.criteria || [],
+            total: assessment.total ?? 0,
+          },
+        },
+      },
+      { new: true }
+    );
+
+    res.json({ success: true, participant: updated });
+  } catch (err) {
+    console.error("ADMIN MARK UPDATE FAILED:", err);
+    res.status(500).json({ success: false, message: "Update failed" });
+  }
+});
+
+
+/* 2️⃣ Login (Admin + Session Chair) */
+app.post("/api/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Email and password are required",
+      });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    // ADMIN
+    if (
+      normalizedEmail === process.env.ADMIN_EMAIL?.toLowerCase() &&
+      password === process.env.ADMIN_PASS
+    ) {
+      return res.json({
+        success: true,
+        role: "admin",
+        email: normalizedEmail,
+      });
+    }
+
+    const hashed = hashPassword(password);
+
+    const student = await StudentCoordinator.findOne({ email: normalizedEmail });
+    if (student && student.passwordHash === hashed) {
+      return res.json({
+        success: true,
+        role: "studentCoordinator",
+        email: normalizedEmail,
+      });
+    }
+
+    const chair = await SessionChair.findOne({ email: normalizedEmail });
+    if (chair && chair.passwordHash === hashed) {
+      return res.json({
+        success: true,
+        role: "sessionChair",
+        email: normalizedEmail,
+      });
+    }
+
+    return res.status(401).json({
+      success: false,
+      message: "Invalid email or password",
+    });
+
+  } catch (err) {
+    console.error("LOGIN ERROR:", err);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+});
+
+
+app.post("/api/auth/send-otp", async (req, res) => {
+  const email = req.body.email.toLowerCase();
+
+
+  if (email === "admin@csit.in") {
+    return res.json({
+      success: false,
+      message: "Contact admin to reset password.",
+    });
+  }
+  const chair = await SessionChair.findOne({ email }).lean();
+  const student = await StudentCoordinator.findOne({ email }).lean();
+
+
+  if (!chair && !student) {
+  console.log("OTP failed for email:", email);
+  return res.status(404).json({
+    success: false,
+    message: "Email not registered",
+  });
+}
+
+  const otp = generateOTP();
+  const expiresAt = Date.now() + 5 * 60 * 1000; // 5 minutes
+console.log("MAIL_USER =", process.env.MAIL_USER);
+
+  otpStore.set(email, { otp, expiresAt });
+  try {
+
+  await sendMail({
+    from: `"RAMSITA 2026" <${process.env.MAIL_USER}>`,
+    to: email,
+    subject: "RAMSITA 2026 review platform Login OTP",
+    html: `
+      <p>Hello,</p>
+      <p>Your <b>RAMSITA login OTP</b> is:</p>
+      <h2 style="letter-spacing:4px">${otp}</h2>
+      <p>This OTP is valid for <b>5 minutes</b>.</p>
+    `,
+  });
+
+  res.json({ success: true, message: "OTP sent to email" });
+} catch (mailErr) {
+  console.error("❌ OTP MAIL ERROR:", mailErr.message);
+  res.status(500).json({
+    success: false,
+    message: "Failed to send OTP email",
+  });
+}
+  });
+
+  app.get("/api/test-mail", async (_req, res) => {
+  try {
+
+    await sendMail({
+      to: process.env.MAIL_USER,
+      from: process.env.MAIL_USER,
+      subject: "CARE Mail Test",
+      text: "Mail system working",
+    });
+
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.get("/api/admin/events/session-chair-counts", async (req, res) => {
+  try {
+    const counts = await SessionChair.aggregate([
+      {
+        $match: {
+          eventId: { $ne: null },
+        },
+      },
+      {
+        $group: {
+          _id: "$eventId",
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const map = {};
+    counts.forEach((c) => {
+      map[c._id] = c.count;
+    });
+
+    res.json({ success: true, counts: map });
+  } catch (err) {
+    console.error("Session chair count error:", err);
+    res.status(500).json({ success: false });
+  }
+});
+
+
+app.post("/api/auth/verify-otp", async (req, res) => {
+  const { email, otp } = req.body;
+
+  const record = otpStore.get(email);
+  if (!record) {
+    return res.status(400).json({ success: false, message: "OTP expired" });
+  }
+
+  if (Date.now() > record.expiresAt) {
+    otpStore.delete(email);
+    return res.status(400).json({ success: false, message: "OTP expired" });
+  }
+
+  if (record.otp !== otp) {
+    return res.status(401).json({ success: false, message: "Invalid OTP" });
+  }
+
+  otpStore.delete(email);
+
+  // ADMIN CHECK
+  if (email === "admin@csit.in") {
+    return res.json({ success: true, role: "admin" });
+  }
+
+  const student = await StudentCoordinator.findOne({ email });
+  if (student) {
+    return res.json({
+      success: true,
+      role: "studentCoordinator",
+    });
+  }
+
+
+  const chair = await SessionChair.findOne({ email });
+  if (!chair) {
+    return res.status(404).json({ success: false });
+  }
+
+  res.json({
+    success: true,
+    role: "sessionChair",
+    chair: {
+      email: chair.email,
+      eventId: chair.eventId,
+    },
+  });
+});
+// ADMIN: Update participant assessment (override)
+app.put("/api/admin/participants/:id/assessment", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { assessment } = req.body;
+
+    if (!assessment) {
+      return res.status(400).json({
+        success: false,
+        message: "Assessment payload required",
+      });
+    }
+
+    const participant = await Participant.findById(id);
+    if (!participant) {
+      return res.status(404).json({
+        success: false,
+        message: "Participant not found",
+      });
+    }
+
+    const criteria = Array.isArray(assessment.criteria)
+      ? assessment.criteria.map(n => Number(n) || 0)
+      : [];
+
+    const total =
+      typeof assessment.total === "number"
+        ? assessment.total
+        : criteria.reduce((a, b) => a + b, 0);
+
+    participant.assessment = {
+      criteria,
+      total,
+      notes: assessment.notes || "",
+      mode: criteria.length ? "criteria" : "direct",
+      evaluatedBy: "admin",
+      evaluatedAt: new Date(),
+    };
+
+    participant.status = "EVALUATED";
+
+    await participant.save();
+
+    res.json({ success: true, participant });
+  } catch (err) {
+    console.error("❌ Admin assessment update failed:", err);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+});
+
+/* 3️⃣ Admin: Update Event (SAFE MERGE – NO DATA LOSS) */
+app.put("/api/admin/events/:id", async (req, res) => {
+  const eventId = req.params.id;
+  try {
+    const eventData = req.body;
+    const incoming = req.body;
+    const incomingChairs = Array.isArray(incoming.sessionChairs)
+  ? incoming.sessionChairs
+  : [];
+
+    const oldEvent = await Event.findById(eventId);
+    if (!oldEvent) {
+      return res.status(404).json({
+        success: false,
+        message: "Event not found",
+      });
+    }
+
+
+    /* ===================== SESSION CHAIR SYNC ===================== */
+
+    console.log("🔥 ADMIN EVENT UPDATE API HIT 🔥");
+
+for (const chair of eventData.sessionChairs || []) {
+  const email = chair.email?.trim().toLowerCase();
+  if (!email) continue;
+
+  const exists = await SessionChair.findOne({
+    email,
+    eventId: req.params.id,
+  });
+
+  if (exists) continue;
+
+  const tempPassword =
+    chair.password || Math.random().toString(36).slice(-8);
+
+  await SessionChair.create({
+    name: chair.name,
+    email,
+    phone: chair.phone,
+    type: chair.type,
+    passwordHash: hashPassword(tempPassword),
+    trackId: chair.trackId,
+    eventId: req.params.id,
+  });
+
+  try {
+
+    await sendMail({
+      from: `"CARE System" <${process.env.MAIL_USER}>`,
+      to: email,
+      subject: "CARE – Session Chair Invitation",
+      html: `
+        <p>Hello <b>${chair.name}</b>,</p>
+        <p>You have been assigned as a <b>${chair.type}</b> Session Chair.</p>
+        <p><b>Track:</b> ${chair.trackId}</p>
+        <p><b>Login Email:</b> ${email}</p>
+        <p><b>Temporary Password:</b> ${tempPassword}</p>
+        <p>Please login to CARE.</p>
+      `,
+    });
+
+    console.log("✅ Session chair invitation sent to:", email);
+  } catch (err) {
+    console.error("❌ Session chair mail failed:", err.message);
+  }
+}
+
+
+const hasSessionChairUpdate = Array.isArray(incoming.sessionChairs);
+
+if (hasSessionChairUpdate) {
+  const incoming = req.body;
+
+const incomingChairs = Array.isArray(incoming.sessionChairs)
+  ? incoming.sessionChairs
+  : [];
+
+if (incomingChairs.length > 0) {
+  // ===================== SESSION CHAIR SYNC =====================
+
+// normalize incoming chairs
+const normalizedChairs = incomingChairs.map((c) => ({
+  ...c,
+  email: c.email.toLowerCase().trim(),
+}));
+
+// fetch existing chairs for this event
+const dbChairs = await SessionChair.find({ eventId });
+
+// create a lookup map: email-trackId → chair
+const dbChairMap = new Map(
+  dbChairs.map((c) => [`${c.email}-${c.trackId}`, c])
+);
+
+// keys sent from frontend
+const incomingChairKeys = new Set(
+  normalizedChairs.map((c) => `${c.email}-${c.trackId}`)
+);
+
+// 🔹 UPSERT (create or update)
+for (const c of normalizedChairs) {
+  const key = `${c.email}-${c.trackId}`;
+
+  if (!dbChairMap.has(key)) {
+    // ➕ NEW CHAIR
+    await SessionChair.create({
+      name: c.name,
+      email: c.email,
+      phone: c.phone,
+      type: c.type,
+      passwordHash: hashPassword(c.password),
+      trackId: c.trackId,
+      eventId,
+    });
+  } else {
+    // ✏️ UPDATE EXISTING
+    await SessionChair.updateOne(
+      { email: c.email, trackId: c.trackId, eventId },
+      {
+        $set: {
+          name: c.name,
+          phone: c.phone,
+          type: c.type,
+        },
+      }
+    );
+  }
+}
+
+// 🗑️ DELETE REMOVED CHAIRS
+for (const db of dbChairs) {
+  const key = `${db.email}-${db.trackId}`;
+  if (!incomingChairKeys.has(key)) {
+    await SessionChair.deleteOne({ _id: db._id });
+  }
+}
+
+}
+  const normalizedChairs = incomingChairs.map(c => ({
+    ...c,
+    email: c.email.toLowerCase().trim(),
+  }));
+
+  const dbChairs = await SessionChair.find({ eventId });
+
+  const dbChairMap = new Map(
+    dbChairs.map(c => [`${c.email}-${c.trackId}`, c])
+  );
+
+  const incomingChairKeys = new Set(
+    normalizedChairs.map(c => `${c.email}-${c.trackId}`)
+  );
+
+  // UPSERT
+  for (const c of normalizedChairs) {
+    const key = `${c.email}-${c.trackId}`;
+
+    if (!dbChairMap.has(key)) {
+      await SessionChair.create({
+        name: c.name,
+        email: c.email,
+        phone: c.phone,
+        type: c.type,
+        passwordHash: hashPassword(c.password),
+        trackId: c.trackId,
+        eventId,
+      });
+    } else {
+      await SessionChair.updateOne(
+        { email: c.email, trackId: c.trackId, eventId },
+        {
+          $set: {
+            name: c.name,
+            phone: c.phone,
+            type: c.type,
+          },
+        }
+      );
+    }
+  }
+
+  // DELETE ONLY IF USER SENT DATA
+  for (const db of dbChairs) {
+    const key = `${db.email}-${db.trackId}`;
+    if (!incomingChairKeys.has(key)) {
+      await SessionChair.deleteOne({ _id: db._id });
+    }
+  }
+}
+
+    const normalizedChairs = incomingChairs.map(c => ({
+      ...c,
+      email: c.email.toLowerCase().trim(),
+    }));
+
+    const dbChairs = await SessionChair.find({ eventId });
+
+    const dbChairMap = new Map(
+      dbChairs.map(c => [`${c.email}-${c.trackId}`, c])
+    );
+
+    const incomingChairKeys = new Set(
+      normalizedChairs.map(c => `${c.email}-${c.trackId}`)
+    );
+
+    // UPSERT CHAIRS
+    for (const c of normalizedChairs) {
+      const key = `${c.email}-${c.trackId}`;
+
+      if (!dbChairMap.has(key)) {
+        await SessionChair.create({
+          name: c.name,
+          email: c.email,
+          phone: c.phone,
+          type: c.type,
+          passwordHash: hashPassword(c.password),
+          trackId: c.trackId,
+          eventId,
+        });
+      } else {
+        await SessionChair.updateOne(
+          { email: c.email, trackId: c.trackId, eventId },
+          {
+            $set: {
+              name: c.name,
+              phone: c.phone,
+              type: c.type,
+            },
+          }
+        );
+      }
+    }
+
+    // DELETE REMOVED CHAIRS
+    for (const db of dbChairs) {
+      const key = `${db.email}-${db.trackId}`;
+      if (!incomingChairKeys.has(key)) {
+        await SessionChair.deleteOne({ _id: db._id });
+      }
+    }
+
+   
+    
+    /* ===================== EVENT UPDATE ===================== */
+
+  const updatePayload = {};
+
+// update basic fields ONLY if present
+if (typeof incoming.title === "string")
+  updatePayload.title = incoming.title;
+
+if (typeof incoming.description === "string")
+  updatePayload.description = incoming.description;
+
+if (typeof incoming.date === "string")
+  updatePayload.date = incoming.date;
+
+// update tracks ONLY if present
+if (Array.isArray(incoming.tracks)) {
+  updatePayload.tracks = incoming.tracks.map((t) => ({
+    ...t,
+    assessmentLocked:
+      typeof t.assessmentLocked === "boolean"
+        ? t.assessmentLocked
+        : true,
+  }));
+}
+
+
+
+const updatedEvent = await Event.findByIdAndUpdate(
+  eventId,
+  { $set: updatePayload },
+  { new: true }
+);
+console.log("🧪 UPDATE TARGET", eventId);
+
+
+
+if (!updatedEvent) {
+  console.error("❌ UPDATE FAILED — NO DOCUMENT MATCHED", eventId);
+}
+
+
+    res.json({
+      success: true,
+      event: updatedEvent,
+    });
+
+  } catch (error) {
+    console.error("❌ Update event error:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+});
+
+app.post("/api/admin/student-coordinator", async (req, res) => {
+  try {
+    const { name, email, phone, password, eventId, trackId } = req.body;
+
+    if (!name || !email || !phone || !eventId || !trackId) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing required fields",
+      });
+    }
+
+    // 🔐 AUTO PASSWORD (firstname123)
+    const finalPassword =
+      password && password.trim()
+        ? password.trim()
+        : generateSimplePassword(name);
+
+    // 🔁 HARD RESET: only ONE coordinator per track
+    await StudentCoordinator.deleteOne({
+      eventId: String(eventId),
+      trackId: String(trackId),
+    });
+
+    const coordinator = await StudentCoordinator.create({
+      name: name.trim(),
+      email: email.toLowerCase().trim(),
+      phone,
+      passwordHash: hashPassword(finalPassword),
+      eventId: String(eventId),
+      trackId: String(trackId),
+    });
+
+    res.json({
+      success: true,
+      coordinator: {
+        _id: coordinator._id,
+        name: coordinator.name,
+        email: coordinator.email,
+        phone: coordinator.phone,
+        trackId: coordinator.trackId,
+      },
+    });
+  } catch (err) {
+    console.error("❌ CREATE STUDENT COORDINATOR ERROR:", err.message);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+});
+
+/*  STUDENT SAVE PARTICIPANTS  */
+app.post("/api/student/participants", async (req, res) => {
+  try {
+    const {
+      eventId,
+      trackId,
+      submittedBy,
+      ...participantData
+    } = req.body;
+
+    if (!eventId || !trackId || !submittedBy) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing eventId, trackId, or submittedBy",
+      });
+    }
+
+    const participant = await Participant.create({
+      ...participantData,
+      paperId: participantData.paperId.trim(), // ✅ FIX
+      eventId: new mongoose.Types.ObjectId(eventId),
+      trackId,
+      createdBy: submittedBy,
+    });
+
+
+    console.log("✅ PARTICIPANT SAVED:", participant._id);
+
+    res.json({ success: true, participant });
+  } catch (err) {
+    console.error("❌ PARTICIPANT INSERT ERROR:", err.message);
+    res.status(400).json({
+      success: false,
+      message: err.message,
+    });
+  }
+});
+
+app.put("/api/student/participants/:id", async (req, res) => {
+  try {
+    const updated = await Participant.findByIdAndUpdate(
+      req.params.id,
+      {
+        presenterName: req.body.presenterName,
+        paperTitle: req.body.paperTitle,
+        institute: req.body.institute,
+        branch: req.body.branch,
+        email: req.body.email,
+        phone: req.body.phone,
+        mode: req.body.mode,
+        submissionLink: req.body.submissionLink,
+        coAuthors: req.body.coAuthors,
+      },
+      { new: true, runValidators: false }
+    );
+
+    if (!updated) {
+      return res.status(404).json({
+        success: false,
+        message: "Participant not found",
+      });
+    }
+
+    res.json({
+      success: true,
+      participant: updated,
+    });
+  } catch (err) {
+    console.error("❌ STUDENT UPDATE ERROR:", err);
+    res.status(500).json({
+      success: false,
+      message: "Failed to update participant",
+    });
+  }
+});
+
+app.patch("/api/session/participants/:id/assessment", async (req, res) => {
+  try {
+    const { assessment } = req.body;
+
+    const participant = await Participant.findById(req.params.id);
+    if (!participant) {
+      return res.status(404).json({
+        success: false,
+        message: "Participant not found",
+      });
+    }
+
+    // 🔒 FETCH EVENT + TRACK
+    const event = await Event.findById(participant.eventId);
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: "Event not found",
+      });
+    }
+
+    const track = event.tracks.find(
+      (t) => String(t.id) === String(participant.trackId)
+    );
+
+    if (!track) {
+      return res.status(404).json({
+        success: false,
+        message: "Track not found",
+      });
+    }
+
+    // 🚫 BLOCK IF LOCKED
+    if (track.assessmentLocked) {
+      return res.status(403).json({
+        success: false,
+        message: "Assessment is locked by admin",
+      });
+    }
+
+    // ✅ SAVE ALLOWED
+    const updated = await Participant.findByIdAndUpdate(
+      req.params.id,
+      {
+        $set: {
+          "assessment.criteria": assessment.criteria || [],
+          "assessment.total": assessment.total,
+          "assessment.notes": assessment.notes || "",
+          "assessment.mode": assessment.mode || "criteria",
+          "assessment.evaluatedBy": req.body.evaluatedBy || "sessionChair",
+          status: "EVALUATED",
+        },
+      },
+      { new: true }
+    );
+
+    res.json({
+      success: true,
+      participant: updated,
+    });
+  } catch (err) {
+    console.error("ASSESSMENT SAVE ERROR:", err);
+    res.status(500).json({
+      success: false,
+      message: "Failed to save assessment",
+    });
+  }
+});
+
+// ✅ Student Coordinator: Update meeting link for own track
+app.put("/api/student/track/meeting-link", async (req, res) => {
+  try {
+    const { email, eventId, trackId, meetingLink } = req.body;
+
+    if (!email || !eventId || !trackId) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing required fields",
+      });
+    }
+
+    // 1️⃣ Verify student coordinator
+    const student = await StudentCoordinator.findOne({
+      email: email.toLowerCase(),
+      eventId,
+      trackId,
+    });
+
+    if (!student) {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized track access",
+      });
+    }
+
+    // 2️⃣ Load event
+    const event = await Event.findById(eventId);
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: "Event not found",
+      });
+    }
+
+    // 3️⃣ Find track
+    const track = event.tracks.find(
+      (t) => String(t.id) === String(trackId)
+    );
+
+    if (!track) {
+      return res.status(404).json({
+        success: false,
+        message: "Track not found",
+      });
+    }
+
+    // 4️⃣ Update ONLY meeting link
+    track.meetingLink = meetingLink || "";
+
+    await event.save();
+
+    res.json({
+      success: true,
+      meetingLink: track.meetingLink,
+    });
+  } catch (err) {
+    console.error("❌ Meeting link update error:", err);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+});
+
+app.post("/api/admin/tracks/:eventId/:trackId/lock", async (req, res) => {
+  try {
+    const { eventId, trackId } = req.params;
+    const { locked } = req.body;
+
+    const event = await Event.findById(eventId);
+    if (!event) {
+      return res.status(404).json({ success: false, message: "Event not found" });
+    }
+
+    const track = event.tracks.find(
+      (t) => String(t.id) === String(trackId)
+    );
+
+    if (!track) {
+      return res.status(404).json({ success: false, message: "Track not found" });
+    }
+
+    track.assessmentLocked = Boolean(locked);
+    track.lockedAt = new Date();
+    track.lockedBy = "admin";
+
+    await event.save();
+
+    res.json({
+      success: true,
+      assessmentLocked: track.assessmentLocked,
+    });
+  } catch (err) {
+    console.error("❌ LOCK ROUTE ERROR:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+
+// SESSION CHAIR: Get current track lock status
+
+
+
+
+
+
+
+app.delete("/api/student/participants/:id", async (req, res) => {
+  try {
+    await Participant.findByIdAndDelete(req.params.id);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+
+
+
+//* 4️⃣ Session Chair Dashboard */
+app.get("/api/session/:email", async (req, res) => {
+  try {
+    const chair = await SessionChair.findOne({
+      email: req.params.email.toLowerCase(),
+    });
+
+    if (!chair) {
+      return res.status(404).json({
+        success: false,
+        message: "Session chair not found",
+      });
+    }
+
+    const event = await Event.findById(chair.eventId);
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: "Event not found",
+      });
+    }
+
+    // ✅ TRACK FROM EVENT
+    const track = event.tracks.find(
+      (t) => String(t.id) === String(chair.trackId)
+    );
+
+    if (!track) {
+      return res.status(404).json({
+        success: false,
+        message: "Track not found",
+      });
+    }
+
+    // ✅ PARTICIPANTS FROM PARTICIPANT COLLECTION
+    const participants = await Participant.find({
+      eventId: chair.eventId,
+      trackId: chair.trackId,
+    }).sort({ createdAt: 1 });
+
+    res.json({
+      success: true,
+      chair,
+      track,
+      participants,
+    });
+  } catch (err) {
+    console.error("❌ Session fetch error:", err);
+    res.status(500).json({ success: false });
+  }
+});
+
+
+
+app.get("/api/student/participants", async (req, res) => {
+  const { eventId, trackId } = req.query;
+
+if (!eventId || !trackId) {
+  return res.status(400).json({
+    success: false,
+    message: "Missing eventId or trackId",
+  });
+}
+const participants = await Participant.find({
+  eventId: new mongoose.Types.ObjectId(eventId),
+  trackId: trackId
+}).sort({ createdAt: 1 });
+
+  res.json({ success: true, participants });
+});
+
+// SESSION CHAIR: get current track lock status
+app.get("/api/session/track-status", async (req, res) => {
+  try {
+    const { eventId, trackId } = req.query;
+
+    if (!eventId || !trackId) {
+      return res.status(400).json({
+        success: false,
+        message: "eventId and trackId are required",
+      });
+    }
+
+    const event = await Event.findById(eventId);
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: "Event not found",
+      });
+    }
+
+    const track = event.tracks.find(
+      (t) => String(t.id) === String(trackId)
+    );
+
+    if (!track) {
+      return res.status(404).json({
+        success: false,
+        message: "Track not found",
+      });
+    }
+
+    res.json({
+      success: true,
+      assessmentLocked: !!track.assessmentLocked,
+    });
+  } catch (err) {
+    console.error("TRACK STATUS ERROR:", err);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch track status",
+    });
+  }
+});
+
+
+/*  STUDENT COORDINATOR DASHBOARD FETCH  */
+app.get("/api/student/session/:email", async (req, res) => {
+  try {
+    const student = await StudentCoordinator.findOne({
+      email: req.params.email,
+    });
+
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: "Student coordinator not found",
+      });
+    }
+
+    const event = await Event.findById(student.eventId);
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: "Event not found",
+      });
+    }
+
+    const track = event.tracks.find(
+  (t) => String(t.id) === String(student.trackId)
+);
+
+if (!track) {
+  console.error("❌ TRACK NOT FOUND", {
+    studentTrackId: student.trackId,
+    availableTracks: event.tracks.map(t => ({
+      id: t.id,
+      _id: t._id.toString(),
+      title: t.title,
+    })),
+  });
+
+  return res.status(404).json({
+    success: false,
+    message: "Assigned track not found",
+  });
+}
+
+
+    if (!track) {
+      return res.status(404).json({
+        success: false,
+        message: "Assigned track not found",
+      });
+    }
+
+    const participants = await Participant.find({
+      eventId: student.eventId,
+      trackId: student.trackId,   // ✅ STRING "002"
+    }).sort({ createdAt: 1 });
+
+    const sessionChairs = await SessionChair.find({
+      eventId: student.eventId,
+      trackId: student.trackId,
+    }).select("name email type -_id");
+
+
+
+    res.json({
+      success: true,
+      student: {
+        name: student.name,
+        email: student.email,
+        eventId: student.eventId,
+        trackId: student.trackId,
+      },
+      event: {
+        _id: event._id,          // ✅ MongoDB ID
+        title: event.title,
+        date: event.date,
+      },
+      track: {
+  _id: track._id,
+  id: track.id,
+  title: track.title,
+  description: track.description,
+  meetingLink: track.meetingLink || "",
+},
+
+      sessionChairs,
+      participants,
+    });
+
+
+  } catch (err) {
+    console.error("❌ Student session fetch error:", err);
+    res.status(500).json({ success: false });
+  }
+});
+
+// ✅ Session Chair: Fetch participants for assessment
+app.get("/api/session/participants", async (req, res) => {
+  try {
+    const { eventId, trackId } = req.query;
+
+    if (!eventId || !trackId) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing eventId or trackId",
+      });
+    }
+
+    const participants = await Participant.find({
+      eventId: new mongoose.Types.ObjectId(eventId),
+      trackId,
+    }).sort({ createdAt: 1 });
+
+    res.json({
+      success: true,
+      participants,
+    });
+  } catch (err) {
+    console.error("❌ Session participant fetch error:", err);
+    res.status(500).json({ success: false });
+  }
+});
+
+
+
+/* 5️⃣ Admin: Fetch All Events (USED BY DASHBOARD) */
+
+
+app.get("/api/admin/events", async (_req, res) => {
+  try {
+    const events = await Event.find().sort({ createdAt: -1 }).lean();
+
+    console.log("📦 Admin fetch events:", events.length);
+
+    res.json({
+      success: true,
+      events,
+
+    });
+  } catch (err) {
+    console.error("❌ Admin fetch events error:", err);
+    res.status(500).json({
+      success: false,
+      events: [],
+    });
+  }
+});
+
+// ✅ MUST COME FIRST
+app.get("/api/admin/events/participant-counts", async (req, res) => {
+  try {
+    const counts = await Participant.aggregate([
+      {
+        // ✅ Ignore broken participants
+        $match: {
+          eventId: { $ne: null }
+        }
+      },
+      {
+        $group: {
+          _id: "$eventId",
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    const map = {};
+    counts.forEach((c) => {
+      map[c._id.toString()] = c.count;
+    });
+
+    res.json({ success: true, counts: map });
+  } catch (err) {
+    console.error("Participant count error:", err);
+    res.status(500).json({ success: false });
+  }
+});
+// ✅ PUT THIS FIRST
+
+
+app.get("/api/admin/participants/stats", async (req, res) => {
+  try {
+    const { eventId } = req.query;
+
+    if (!eventId) {
+      return res.status(400).json({
+        success: false,
+        message: "eventId is required",
+      });
+    }
+
+    // ✅ Build query safely
+    const query = mongoose.Types.ObjectId.isValid(eventId)
+      ? {
+          $or: [
+            { eventId: eventId },
+            { eventId: new mongoose.Types.ObjectId(eventId) },
+          ],
+        }
+      : { eventId: eventId };
+
+    const participants = await Participant.find(query);
+
+    const stats = {};
+
+    for (const p of participants) {
+      const trackId = String(p.trackId); // 🔑 must match frontend
+
+      if (!stats[trackId]) {
+        stats[trackId] = { total: 0, assessed: 0 };
+      }
+
+      stats[trackId].total += 1;
+
+      // ✅ correct assessed condition
+      if (typeof p.assessment?.total === "number") {
+        stats[trackId].assessed += 1;
+      }
+    }
+
+    res.json({ success: true, stats });
+  } catch (err) {
+    console.error("❌ Participant stats error:", err.message);
+    res.status(500).json({
+      success: false,
+      error: err.message,
+    });
+  }
+});
+app.get("/api/admin/events/:eventId/participants", async (req, res) => {
+  try {
+    const { eventId } = req.params;
+
+    const event = await Event.findById(eventId);
+    if (!event) {
+      return res.json({ success: false, message: "Event not found" });
+    }
+
+    const participants = await Participant.find({
+      eventId: new mongoose.Types.ObjectId(eventId),
+    });
+
+    const trackMap = {};
+    event.tracks.forEach((t) => {
+      trackMap[t.id] = t.title;
+    });
+
+    const enriched = participants.map((p) => ({
+      ...p.toObject(),
+      trackName: trackMap[p.trackId] || "—",
+    }));
+
+    res.json({
+      success: true,
+      participants: enriched,
+      tracks: event.tracks,
+    });
+  } catch (err) {
+    console.error("ADMIN PARTICIPANTS ERROR:", err);
+    res.status(500).json({ success: false });
+  }
+});
+
+
+// ✅ Admin: Get single event by ID
+app.get("/api/admin/events/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const event = await Event.findById(id);
+
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: "Event not found",
+      });
+    }
+
+    return res.json({
+      success: true,
+      event,
+    });
+  } catch (err) {
+    console.error("Fetch single event error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+});
+
+
+app.get("/api/admin/participants/:eventId", async (req, res) => {
+  const participants = await Participant.find({
+    eventId: req.params.eventId,
+  });
+
+  res.json({ success: true, participants });
+});
+// ✅ Admin: Fetch Session Chairs (SOURCE OF TRUTH)
+app.get("/api/admin/session-chairs/:eventId", async (req, res) => {
+  try {
+    const chairs = await SessionChair.find({
+      eventId: req.params.eventId,
+    }).select("-passwordHash");
+
+    res.json({ success: true, chairs });
+  } catch (err) {
+    console.error("❌ Fetch session chairs error:", err);
+    res.status(500).json({ success: false });
+  }
+});
+// ✅ Admin: Fetch participants by event + track (FOR TRACK DETAILS PANEL)
+app.get("/api/admin/participants", async (req, res) => {
+  try {
+    const { eventId, trackId } = req.query;
+
+    if (!eventId || !trackId) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing eventId or trackId",
+      });
+    }
+
+    const participants = await Participant.find({
+      eventId: new mongoose.Types.ObjectId(eventId),
+      trackId: String(trackId),
+    }).sort({ createdAt: -1 });
+
+    return res.json({
+      success: true,
+      participants,
+    });
+  } catch (err) {
+    console.error("❌ Admin track participants fetch error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch participants",
+    });
+  }
+});
+app.delete("/api/admin/student-coordinator", async (req, res) => {
+  try {
+    const { eventId, trackId } = req.body;
+
+    if (!eventId || !trackId) {
+      return res.status(400).json({ success: false });
+    }
+
+    await StudentCoordinator.deleteOne({
+      eventId: String(eventId),
+      trackId: String(trackId),
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("❌ Delete student coordinator error:", err);
+    res.status(500).json({ success: false });
+  }
+});
+
+app.put("/api/admin/student-coordinator", async (req, res) => {
+  const { id, name, email, phone, password } = req.body;
+
+  if (!id) {
+    return res.status(400).json({ success: false });
+  }
+
+  const update = {
+    name,
+    email: email.toLowerCase().trim(),
+    phone,
+  };
+
+  if (password && password.trim()) {
+    update.passwordHash = hashPassword(password);
+  }
+
+  await StudentCoordinator.findByIdAndUpdate(id, { $set: update });
+
+  res.json({ success: true });
+});
+
+
+// ✅ Admin: Fetch Student Coordinator for a Track
+app.get("/api/admin/student-coordinator", async (req, res) => {
+  try {
+    const { eventId, trackId } = req.query;
+
+    if (!eventId || !trackId) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing eventId or trackId",
+      });
+    }
+
+    const coordinator = await StudentCoordinator.findOne({
+      eventId: String(eventId),
+      trackId: String(trackId),
+    }).select("_id name email phone trackId");
+
+    // 🔒 HARD NULL STATE
+    return res.json({
+      success: true,
+      coordinator: coordinator || null,
+    });
+  } catch (err) {
+    console.error("❌ Fetch student coordinator error:", err);
+    return res.status(500).json({ success: false });
+  }
+});
+
+// ================= UPDATE TRACK MEETING LINK =================
+app.put(
+  "/api/event/:eventId/track/:trackId/meeting-link",
+  // your existing auth middleware
+  async (req, res) => {
+    try {
+      const { eventId, trackId } = req.params;
+      const { meetingLink } = req.body;
+
+      // 🔐 ROLE GUARD
+      
+
+      if (!meetingLink || typeof meetingLink !== "string") {
+        return res.status(400).json({
+          success: false,
+          message: "Valid meeting link is required",
+        });
+      }
+
+      // 🔎 UPDATE TRACK
+      const result = await Event.updateOne(
+        { _id: eventId, "tracks.id": trackId },
+        { $set: { "tracks.$.meetingLink": meetingLink.trim() } }
+      );
+
+      if (result.matchedCount === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Event or track not found",
+        });
+      }
+
+      return res.json({
+        success: true,
+        message: "Meeting link updated successfully",
+      });
+    } catch (err) {
+      console.error("❌ UPDATE MEETING LINK ERROR:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Server error",
+      });
+    }
+  }
+);
+
+// ================= GET TRACK MEETING LINK =================
+app.get(
+  "/api/event/:eventId/track/:trackId/meeting-link",
+  async (req, res) => {
+    try {
+      const { eventId, trackId } = req.params;
+
+      const event = await Event.findOne(
+        { _id: eventId, "tracks.id": trackId },
+        { "tracks.$": 1 }
+      );
+
+      if (!event || !event.tracks.length) {
+        return res.status(404).json({
+          success: false,
+          message: "Track not found",
+        });
+      }
+
+      const track = event.tracks[0];
+
+      return res.json({
+        success: true,
+        meetingLink: track.meetingLink || "",
+        assessmentLocked: track.assessmentLocked,
+      });
+    } catch (err) {
+      console.error("❌ GET MEETING LINK ERROR:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Server error",
+      });
+    }
+  }
+);
+
+
+
+app.post(
+  "/api/admin/session-chairs/:id/resend-invite",
+  async (req, res) => {
+    try {
+      const chairId = req.params.id;
+
+      const chair = await SessionChair.findById(chairId);
+      if (!chair) {
+        return res.status(404).json({
+          success: false,
+          message: "Session chair not found",
+        });
+      }
+
+      const event = await Event.findById(chair.eventId);
+      const eventTitle = event ? event.title : "CARE Event";
+
+      // ✅ SIMPLE TEMP PASSWORD: name + 123
+      const tempPassword = generateSimplePassword(chair.name);
+
+      // 🔐 hash & save
+      chair.passwordHash = hashPassword(tempPassword);
+      await chair.save();
+
+      // 📧 send mail
+      await sendMail({
+        to: chair.email,
+        subject: "RAMSITA 2026 – Session Chair Invitation",
+        html: `
+        <div style="background:#f0fdf4;padding:24px;font-family:Arial,Helvetica,sans-serif;">
+          <table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:auto;background:#ffffff;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.08);overflow:hidden;">
+            
+            <tr>
+              <td style="background:#16a34a;padding:20px;text-align:center;">
+                <h1 style="margin:0;color:#ffffff;">RAMSITA 2026</h1>
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding:28px;color:#1f2937;">
+                <h2 style="color:#15803d;">Hello ${chair.name},</h2>
+
+                <p>
+                  You have been appointed as a
+                  <strong>${chair.type} Session Chair</strong>.
+                </p>
+
+                <table width="100%" style="margin:16px 0;">
+                  <tr>
+                    <td><b>Event</b></td>
+                    <td>${eventTitle}</td>
+                  </tr>
+                  <tr>
+                    <td><b>Track ID</b></td>
+                    <td>${chair.trackId}</td>
+                  </tr>
+                  <tr>
+                    <td><b>Login Email</b></td>
+                    <td>${chair.email}</td>
+                  </tr>
+                  <tr>
+                    <td><b>Temporary Password</b></td>
+                    <td>
+                      <span style="background:#dcfce7;padding:6px 10px;border-radius:6px;font-weight:bold;">
+                        ${tempPassword}
+                      </span>
+                    </td>
+                  </tr>
+                </table>
+
+                <p>Please log in and change your password after first login.</p>
+
+                <div style="text-align:center;margin:24px 0;">
+                  <a href="https://care-zeta.vercel.app"
+                     style="background:#16a34a;color:#ffffff;padding:12px 24px;border-radius:8px;text-decoration:none;">
+                    Login to RAMSITA 2026
+                  </a>
+                </div>
+              </td>
+            </tr>
+
+            <tr>
+              <td style="background:#f9fafb;padding:16px;text-align:center;font-size:12px;color:#6b7280;">
+                © ${new Date().getFullYear()} RAMSITA
+              </td>
+            </tr>
+
+          </table>
+        </div>
+        `,
+      });
+
+      console.log("🔁 Invitation resent to:", chair.email);
+      res.json({ success: true });
+
+    } catch (err) {
+      console.error("❌ Resend invite error:", err);
+      res.status(500).json({
+        success: false,
+        message: err.message,
+      });
+    }
+  }
+);
+
+
+
+app.use((err, req, res, next) => {
+  console.error("🔥 UNHANDLED ERROR:", err);
+  res.status(500).json({
+    success: false,
+    message: "Internal server error",
+  });
+});
+
+const PORT = process.env.PORT || 5000;
+
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+});
+
+/* ------------------------------- Server Start --------------------------- */
