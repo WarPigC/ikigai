@@ -35,6 +35,7 @@ export default function StudentDashboard() {
         <ParticipantList 
           eventId={sessionData?.event?._id}
           trackId={sessionData?.track?.id}
+          allEvents={sessionData?.allEvents}
         />
       </main>
     </div>

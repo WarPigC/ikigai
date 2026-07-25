@@ -12,7 +12,7 @@ import ProofUploadModal from "./ProofUploadModal";
 import { useParticipants } from "../../hooks/useParticipants";
 import { useParticipantFilters } from "../../hooks/useParticipantFilters";
 
-export default function ParticipantList({ eventId, trackId }) {
+export default function ParticipantList({ eventId, trackId, allEvents }) {
   // Fetch logic is abstracted into hooks, preventing render loops
   const { participants, proofs, loading, error, refresh } = useParticipants(eventId, trackId);
   
@@ -105,6 +105,7 @@ export default function ParticipantList({ eventId, trackId }) {
       />
 
       <AddParticipantModal
+        allEvents={allEvents}
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
         eventId={eventId}
