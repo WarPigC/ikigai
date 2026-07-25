@@ -1,166 +1,163 @@
-import React, { useEffect } from "react";
-import { useParticipantForm } from "../../hooks/useParticipantForm";
+import React, { useState, useEffect } from "react";
+import { X, Plus, Trash2 } from "lucide-react";
+import { studentApi } from "../../services/studentApi";
 
-export default function EditParticipantModal({ isOpen, onClose, eventId, trackId, participant, onSuccess }) {
-  const {
-    formData,
-    isSubmitting,
-    error,
-    handleChange,
-    addCoAuthor,
-    removeCoAuthor,
-    handleCoAuthorChange,
-    handleUpdate,
-    resetForm
-  } = useParticipantForm(eventId, trackId, () => {
-    onSuccess();
-    onClose();
+export default function EditParticipantModal({ isOpen, onClose, participant, onSuccess }) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const [teamDetails, setTeamDetails] = useState({
+    teamName: "",
+    problemStatement: "",
+    description: "",
+    pptLink: "",
   });
 
+  const [members, setMembers] = useState([]);
+
   useEffect(() => {
-    if (isOpen && participant) {
-      resetForm(participant);
+    if (participant) {
+      setTeamDetails({
+        teamName: participant.teamName || "",
+        problemStatement: participant.problemStatement || "",
+        description: participant.description || "",
+        pptLink: participant.pptLink || "",
+      });
+      setMembers(participant.members?.length ? [...participant.members] : []);
     }
-  }, [isOpen, participant]);
+  }, [participant]);
 
-  if (!isOpen || !participant) return null;
+  if (!isOpen) return null;
 
-  const handleClose = () => {
-    if (!isSubmitting) {
-      resetForm();
-      onClose();
-    }
+  const handleAddMember = () => {
+    setMembers([
+      ...members,
+      {
+        name: "",
+        gender: "Male",
+        institute: "",
+        branch: "",
+        year: "",
+        phone: "",
+        email: "",
+        isLeader: members.length === 0,
+      }
+    ]);
   };
 
-  const onSubmit = async (e) => {
+  const handleRemoveMember = (index) => {
+    const newMembers = [...members];
+    if (newMembers[index].isLeader && newMembers.length > 1) {
+      const otherIndex = index === 0 ? 1 : 0;
+      newMembers[otherIndex].isLeader = true;
+    }
+    newMembers.splice(index, 1);
+    setMembers(newMembers);
+  };
+
+  const handleMemberChange = (index, field, value) => {
+    const newMembers = [...members];
+    if (field === "isLeader" && value === true) {
+      newMembers.forEach(m => m.isLeader = false);
+    }
+    newMembers[index][field] = value;
+    setMembers(newMembers);
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    await handleUpdate(participant._id);
+    const incomplete = members.some(m => !m.name || !m.email);
+    if (incomplete) {
+      setError("Please provide at least Name and Email for all members");
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    try {
+      await studentApi.updateParticipant(participant._id, {
+        ...teamDetails,
+        members
+      });
+      onSuccess();
+      onClose();
+    } catch (err) {
+      setError(err.message || "Failed to update participant");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col my-auto">
-        <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white rounded-t-xl z-10">
+    <div className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
+        <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50/50">
           <h2 className="text-xl font-bold text-gray-800">Edit Participant</h2>
-          <button 
-            onClick={handleClose} 
-            disabled={isSubmitting}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
-            </svg>
+          <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full text-gray-500">
+            <X size={20} />
           </button>
         </div>
 
         <div className="p-6 overflow-y-auto">
           {error && (
-            <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded text-sm">
-              {error}
+            <div className="mb-4 p-4 bg-red-50 text-red-600 rounded-lg text-sm border border-red-100">
+              <span className="font-medium">Error:</span> {error}
             </div>
           )}
 
-          <form id="editParticipantForm" onSubmit={onSubmit} className="space-y-6">
-            
-            {/* Presenter Info */}
-            <div className="border border-gray-800/10 rounded-lg p-4 bg-green-50/30">
-              <h3 className="text-sm font-bold text-green-700 uppercase tracking-wider mb-4 border-b border-gray-300 pb-2">
-                Presenter Information
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
-                  <input type="text" name="presenterName" required value={formData.presenterName} onChange={handleChange} className="w-full border rounded-md px-3 py-2 text-sm focus:ring-gray-800/20 focus:border-gray-800" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
-                  <input type="email" name="email" required value={formData.email} onChange={handleChange} className="w-full border rounded-md px-3 py-2 text-sm focus:ring-gray-800/20 focus:border-gray-800" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Phone *</label>
-                  <input type="tel" name="phone" required value={formData.phone} onChange={handleChange} className="w-full border rounded-md px-3 py-2 text-sm focus:ring-gray-800/20 focus:border-gray-800" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Institute *</label>
-                  <input type="text" name="institute" required value={formData.institute} onChange={handleChange} className="w-full border rounded-md px-3 py-2 text-sm focus:ring-gray-800/20 focus:border-gray-800" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Branch/Department *</label>
-                  <input type="text" name="branch" required value={formData.branch} onChange={handleChange} className="w-full border rounded-md px-3 py-2 text-sm focus:ring-gray-800/20 focus:border-gray-800" />
-                </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="space-y-4">
+              <h3 className="font-bold text-gray-700 uppercase tracking-wider text-sm border-b pb-2">Team Details</h3>
+              <div>
+                <label className="block text-sm text-gray-700 mb-1">Team Name</label>
+                <input type="text" required value={teamDetails.teamName} onChange={e => setTeamDetails({...teamDetails, teamName: e.target.value})} className="w-full border border-gray-200 rounded text-sm px-3 py-2" />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-700 mb-1">Problem Statement</label>
+                <input type="text" required value={teamDetails.problemStatement} onChange={e => setTeamDetails({...teamDetails, problemStatement: e.target.value})} className="w-full border border-gray-200 rounded text-sm px-3 py-2" />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-700 mb-1">Description</label>
+                <textarea rows="3" value={teamDetails.description} onChange={e => setTeamDetails({...teamDetails, description: e.target.value})} className="w-full border border-gray-200 rounded text-sm px-3 py-2" />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-700 mb-1">PPT Link</label>
+                <input type="url" value={teamDetails.pptLink} onChange={e => setTeamDetails({...teamDetails, pptLink: e.target.value})} className="w-full border border-gray-200 rounded text-sm px-3 py-2" />
               </div>
             </div>
 
-            {/* Paper Info */}
-            <div className="border border-gray-800/10 rounded-lg p-4 bg-green-50/30">
-              <h3 className="text-sm font-bold text-green-700 uppercase tracking-wider mb-4 border-b border-gray-300 pb-2">
-                Paper Details
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Paper ID *</label>
-                  <input type="text" name="paperId" disabled value={formData.paperId} className="w-full border rounded-md px-3 py-2 text-sm bg-gray-100 cursor-not-allowed text-gray-500" />
-                  <p className="text-xs text-gray-500 mt-1">Paper ID cannot be changed after creation.</p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Presentation Mode *</label>
-                  <select name="mode" required value={formData.mode} onChange={handleChange} className="w-full border rounded-md px-3 py-2 text-sm focus:ring-gray-800/20 focus:border-gray-800">
-                    <option value="">Select Mode...</option>
-                    <option value="Online">Online</option>
-                    <option value="Offline">Offline</option>
-                  </select>
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Paper Title *</label>
-                  <input type="text" name="paperTitle" required value={formData.paperTitle} onChange={handleChange} className="w-full border rounded-md px-3 py-2 text-sm focus:ring-gray-800/20 focus:border-gray-800" />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Submission Drive Link</label>
-                  <input type="url" name="submissionLink" value={formData.submissionLink} onChange={handleChange} placeholder="https://drive.google.com/..." className="w-full border rounded-md px-3 py-2 text-sm focus:ring-gray-800/20 focus:border-gray-800" />
-                </div>
-              </div>
-            </div>
-
-            {/* Co-Authors */}
-            <div className="border border-gray-800/10 rounded-lg p-4 bg-green-50/30">
-              <div className="flex justify-between items-center mb-4 border-b border-gray-300 pb-2">
-                <h3 className="text-sm font-bold text-green-700 uppercase tracking-wider">
-                  Co-Authors
-                </h3>
-                <button type="button" onClick={addCoAuthor} className="text-sm text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1 bg-blue-50 px-3 py-1 rounded hover:bg-blue-100">
-                  + Add Co-Author
-                </button>
-              </div>
-              
-              <div className="space-y-4">
-                {formData.coAuthors.map((author, idx) => (
-                  <div key={idx} className="p-4 bg-white border border-gray-800/10 rounded-md relative">
-                    <button type="button" onClick={() => removeCoAuthor(idx)} className="absolute top-2 right-2 text-red-500 hover:text-red-700 p-1">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                    </button>
-                    <h4 className="text-xs font-semibold text-gray-500 mb-3">Co-Author {idx + 1}</h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <input type="text" placeholder="Name" value={author.name} onChange={(e) => handleCoAuthorChange(idx, 'name', e.target.value)} className="w-full border rounded-md px-3 py-2 text-sm" />
-                      <input type="email" placeholder="Email" value={author.email} onChange={(e) => handleCoAuthorChange(idx, 'email', e.target.value)} className="w-full border rounded-md px-3 py-2 text-sm" />
+            <div className="space-y-4">
+              <h3 className="font-bold text-gray-700 uppercase tracking-wider text-sm border-b pb-2">Members</h3>
+              <div className="max-h-96 overflow-y-auto space-y-4 pr-2">
+                {members.map((member, index) => (
+                  <div key={index} className="border border-gray-200 rounded-lg p-3 bg-gray-50/50 relative text-sm">
+                    <div className="flex justify-between items-center mb-2">
+                      <label className="flex items-center gap-2 font-medium text-gray-700">
+                        <input type="radio" checked={member.isLeader} onChange={() => handleMemberChange(index, "isLeader", true)} />
+                        Leader
+                      </label>
+                      <button type="button" onClick={() => handleRemoveMember(index)} className="text-red-500 hover:text-red-700"><Trash2 size={16} /></button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <input type="text" placeholder="Name" value={member.name} onChange={e => handleMemberChange(index, "name", e.target.value)} className="border border-gray-200 rounded px-2 py-1" required />
+                      <input type="email" placeholder="Email" value={member.email} onChange={e => handleMemberChange(index, "email", e.target.value)} className="border border-gray-200 rounded px-2 py-1" required />
+                      <input type="text" placeholder="Institute" value={member.institute} onChange={e => handleMemberChange(index, "institute", e.target.value)} className="border border-gray-200 rounded px-2 py-1" />
+                      <input type="text" placeholder="Branch" value={member.branch} onChange={e => handleMemberChange(index, "branch", e.target.value)} className="border border-gray-200 rounded px-2 py-1" />
                     </div>
                   </div>
                 ))}
-                {formData.coAuthors.length === 0 && (
-                  <p className="text-sm text-gray-500 italic text-center py-2">No co-authors added.</p>
-                )}
+                <button type="button" onClick={handleAddMember} className="w-full py-2 border-2 border-dashed border-gray-300 rounded text-gray-500 flex items-center justify-center">
+                  <Plus size={16} className="mr-1" /> Add Member
+                </button>
               </div>
             </div>
-            
-          </form>
+          </div>
         </div>
 
-        {/* Footer */}
-        <div className="px-6 py-4 border-t border-gray-200 bg-green-50 rounded-b-xl flex justify-end gap-3 sticky bottom-0 z-10">
-          <button type="button" onClick={handleClose} disabled={isSubmitting} className="px-4 py-2 border rounded-md text-sm font-medium hover:bg-gray-100">
-            Cancel
-          </button>
-          <button type="submit" form="editParticipantForm" disabled={isSubmitting} className="px-4 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700 disabled:bg-green-400 flex items-center gap-2">
-            {isSubmitting ? "Updating..." : "Update Participant"}
+        <div className="px-6 py-4 border-t bg-gray-50 flex justify-end gap-3">
+          <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 rounded-lg">Cancel</button>
+          <button type="button" onClick={handleSubmit} disabled={loading} className="px-6 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50">
+            {loading ? "Saving..." : "Save Changes"}
           </button>
         </div>
       </div>

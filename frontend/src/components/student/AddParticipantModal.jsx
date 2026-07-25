@@ -1,188 +1,299 @@
-import React from "react";
-import { useParticipantForm } from "../../hooks/useParticipantForm";
+import React, { useState } from "react";
+import { X, Plus, Trash2, ArrowRight, ArrowLeft } from "lucide-react";
+import { studentApi } from "../../services/studentApi";
 
 export default function AddParticipantModal({ isOpen, onClose, eventId, trackId, allEvents, onSuccess }) {
-  const [selectedEventId, setSelectedEventId] = React.useState('');
-  const [selectedTrackId, setSelectedTrackId] = React.useState('');
-  const isGlobal = eventId === 'global';
+  const [step, setStep] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
+  const [selectedEventId, setSelectedEventId] = useState("");
+  const [selectedTrackId, setSelectedTrackId] = useState("");
+  const isGlobal = eventId === "global";
   const finalEventId = isGlobal ? selectedEventId : eventId;
   const finalTrackId = isGlobal ? selectedTrackId : trackId;
-  const {
-    formData,
-    isSubmitting,
-    error,
-    handleChange,
-    addCoAuthor,
-    removeCoAuthor,
-    handleCoAuthorChange,
-    handleSubmit,
-    resetForm
-  } = useParticipantForm(finalEventId, finalTrackId, () => {
-    onSuccess();
-    onClose();
+
+  const [teamDetails, setTeamDetails] = useState({
+    teamName: "",
+    problemStatement: "",
+    description: "",
+    pptLink: "",
   });
+
+  const [members, setMembers] = useState([
+    {
+      name: "",
+      gender: "Male",
+      institute: "",
+      branch: "",
+      year: "",
+      phone: "",
+      email: "",
+      isLeader: true, // first member is leader by default
+    }
+  ]);
 
   if (!isOpen) return null;
 
-  const handleClose = () => {
-    if (!isSubmitting) {
-      resetForm();
+  const handleNext = () => {
+    if (isGlobal && (!selectedEventId || !selectedTrackId)) {
+      setError("Please select Event and Track");
+      return;
+    }
+    if (!teamDetails.teamName || !teamDetails.problemStatement) {
+      setError("Please fill in the required team details");
+      return;
+    }
+    setError(null);
+    setStep(2);
+  };
+
+  const handleAddMember = () => {
+    setMembers([
+      ...members,
+      {
+        name: "",
+        gender: "Male",
+        institute: "",
+        branch: "",
+        year: "",
+        phone: "",
+        email: "",
+        isLeader: false,
+      }
+    ]);
+  };
+
+  const handleRemoveMember = (index) => {
+    const newMembers = [...members];
+    if (newMembers[index].isLeader && newMembers.length > 1) {
+      // If removing leader, make someone else leader
+      const otherIndex = index === 0 ? 1 : 0;
+      newMembers[otherIndex].isLeader = true;
+    }
+    newMembers.splice(index, 1);
+    setMembers(newMembers);
+  };
+
+  const handleMemberChange = (index, field, value) => {
+    const newMembers = [...members];
+    if (field === "isLeader" && value === true) {
+      // Only one leader allowed
+      newMembers.forEach(m => m.isLeader = false);
+    }
+    newMembers[index][field] = value;
+    setMembers(newMembers);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!finalEventId || !finalTrackId) {
+      setError("Event or Track is missing");
+      return;
+    }
+
+    // Validate members
+    const incomplete = members.some(m => !m.name || !m.email);
+    if (incomplete) {
+      setError("Please provide at least Name and Email for all members");
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    try {
+      await studentApi.addParticipant(finalEventId, finalTrackId, {
+        ...teamDetails,
+        members
+      });
+      setTeamDetails({ teamName: "", problemStatement: "", description: "", pptLink: "" });
+      setMembers([{ name: "", gender: "Male", institute: "", branch: "", year: "", phone: "", email: "", isLeader: true }]);
+      setStep(1);
+      onSuccess();
       onClose();
+    } catch (err) {
+      setError(err.message || "Failed to add participant");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col my-auto">
-        <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white rounded-t-xl z-10">
-          <h2 className="text-xl font-bold text-gray-800">Add New Participant</h2>
-          <button 
-            onClick={handleClose} 
-            disabled={isSubmitting}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
-            </svg>
+    <div className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
+        {/* Header */}
+        <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50/50">
+          <h2 className="text-xl font-bold text-gray-800">
+            {step === 1 ? "Step 1: Team Details" : "Step 2: Team Members"}
+          </h2>
+          <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full transition-colors text-gray-500">
+            <X size={20} />
           </button>
         </div>
 
+        {/* Body */}
         <div className="p-6 overflow-y-auto">
           {error && (
-            <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded text-sm">
-              {error}
+            <div className="mb-6 p-4 bg-red-50 text-red-600 rounded-lg text-sm border border-red-100 flex items-start gap-3">
+              <span className="font-medium mt-0.5">Error:</span> {error}
             </div>
           )}
 
-          <form id="participantForm" onSubmit={handleSubmit} className="space-y-6">
-            
-            
-            {isGlobal && (
-              <div className="border border-gray-800/10 rounded-lg p-4 bg-green-50/30 mb-6">
-                <h3 className="text-sm font-bold text-green-700 uppercase tracking-wider mb-4 border-b border-gray-300 pb-2">
-                  Global Assignment
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Select Event *</label>
-                    <select value={selectedEventId} onChange={e => { setSelectedEventId(e.target.value); setSelectedTrackId(''); }} className="w-full border rounded-md px-3 py-2 text-sm">
-                      <option value="">-- Select Event --</option>
-                      {(allEvents || []).map(e => <option key={e._id} value={e._id}>{e.title}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Select Track *</label>
-                    <select value={selectedTrackId} onChange={e => setSelectedTrackId(e.target.value)} className="w-full border rounded-md px-3 py-2 text-sm">
-                      <option value="">-- Select Track --</option>
-                      {selectedEventId && (allEvents || []).find(e => String(e._id) === String(selectedEventId))?.tracks?.map(t => (
-                        <option key={t.id} value={t.id}>{t.title}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              </div>
-            )}
-            
-            {/* Presenter Info */}
-            <div className="border border-gray-800/10 rounded-lg p-4 bg-green-50/30">
-              <h3 className="text-sm font-bold text-green-700 uppercase tracking-wider mb-4 border-b border-gray-300 pb-2">
-                Presenter Information
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
-                  <input type="text" name="presenterName" required value={formData.presenterName} onChange={handleChange} className="w-full border rounded-md px-3 py-2 text-sm focus:ring-gray-800/20 focus:border-gray-800" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
-                  <input type="email" name="email" required value={formData.email} onChange={handleChange} className="w-full border rounded-md px-3 py-2 text-sm focus:ring-gray-800/20 focus:border-gray-800" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Phone *</label>
-                  <input type="tel" name="phone" required value={formData.phone} onChange={handleChange} className="w-full border rounded-md px-3 py-2 text-sm focus:ring-gray-800/20 focus:border-gray-800" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Institute *</label>
-                  <input type="text" name="institute" required value={formData.institute} onChange={handleChange} className="w-full border rounded-md px-3 py-2 text-sm focus:ring-gray-800/20 focus:border-gray-800" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Branch/Department *</label>
-                  <input type="text" name="branch" required value={formData.branch} onChange={handleChange} className="w-full border rounded-md px-3 py-2 text-sm focus:ring-gray-800/20 focus:border-gray-800" />
-                </div>
-              </div>
-            </div>
-
-            {/* Paper Info */}
-            <div className="border border-gray-800/10 rounded-lg p-4 bg-green-50/30">
-              <h3 className="text-sm font-bold text-green-700 uppercase tracking-wider mb-4 border-b border-gray-300 pb-2">
-                Paper Details
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Paper ID *</label>
-                  <input type="text" name="paperId" required value={formData.paperId} onChange={handleChange} className="w-full border rounded-md px-3 py-2 text-sm focus:ring-gray-800/20 focus:border-gray-800" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Presentation Mode *</label>
-                  <select name="mode" required value={formData.mode} onChange={handleChange} className="w-full border rounded-md px-3 py-2 text-sm focus:ring-gray-800/20 focus:border-gray-800">
-                    <option value="">Select Mode...</option>
-                    <option value="Online">Online</option>
-                    <option value="Offline">Offline</option>
-                  </select>
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Paper Title *</label>
-                  <input type="text" name="paperTitle" required value={formData.paperTitle} onChange={handleChange} className="w-full border rounded-md px-3 py-2 text-sm focus:ring-gray-800/20 focus:border-gray-800" />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Submission Drive Link</label>
-                  <input type="url" name="submissionLink" value={formData.submissionLink} onChange={handleChange} placeholder="https://drive.google.com/..." className="w-full border rounded-md px-3 py-2 text-sm focus:ring-gray-800/20 focus:border-gray-800" />
-                </div>
-              </div>
-            </div>
-
-            {/* Co-Authors */}
-            <div className="border border-gray-800/10 rounded-lg p-4 bg-green-50/30">
-              <div className="flex justify-between items-center mb-4 border-b border-gray-300 pb-2">
-                <h3 className="text-sm font-bold text-green-700 uppercase tracking-wider">
-                  Co-Authors
-                </h3>
-                <button type="button" onClick={addCoAuthor} className="text-sm text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1 bg-blue-50 px-3 py-1 rounded hover:bg-blue-100">
-                  + Add Co-Author
-                </button>
-              </div>
-              
-              <div className="space-y-4">
-                {formData.coAuthors.map((author, idx) => (
-                  <div key={idx} className="p-4 bg-white border border-gray-800/10 rounded-md relative">
-                    <button type="button" onClick={() => removeCoAuthor(idx)} className="absolute top-2 right-2 text-red-500 hover:text-red-700 p-1">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                    </button>
-                    <h4 className="text-xs font-semibold text-gray-500 mb-3">Co-Author {idx + 1}</h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <input type="text" placeholder="Name" value={author.name} onChange={(e) => handleCoAuthorChange(idx, 'name', e.target.value)} className="w-full border rounded-md px-3 py-2 text-sm" />
-                      <input type="email" placeholder="Email" value={author.email} onChange={(e) => handleCoAuthorChange(idx, 'email', e.target.value)} className="w-full border rounded-md px-3 py-2 text-sm" />
+          {step === 1 && (
+            <div className="space-y-6">
+              {isGlobal && (
+                <div className="border border-gray-200 rounded-lg p-4 bg-green-50 mb-6">
+                  <h3 className="text-sm font-bold text-green-700 uppercase tracking-wider mb-4 border-b border-gray-300 pb-2">
+                    Global Assignment
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Select Event *</label>
+                      <select 
+                        value={selectedEventId} 
+                        onChange={e => { setSelectedEventId(e.target.value); setSelectedTrackId(""); }} 
+                        className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:ring-gray-800/20 focus:border-gray-800"
+                      >
+                        <option value="">-- Select Event --</option>
+                        {(allEvents || []).map(ev => <option key={ev._id} value={ev._id}>{ev.title}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Select Track *</label>
+                      <select 
+                        value={selectedTrackId} 
+                        onChange={e => setSelectedTrackId(e.target.value)} 
+                        className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:ring-gray-800/20 focus:border-gray-800"
+                      >
+                        <option value="">-- Select Track --</option>
+                        {selectedEventId && (allEvents || []).find(ev => String(ev._id) === String(selectedEventId))?.tracks?.map(t => (
+                          <option key={t.id} value={t.id}>{t.title}</option>
+                        ))}
+                      </select>
                     </div>
                   </div>
-                ))}
-                {formData.coAuthors.length === 0 && (
-                  <p className="text-sm text-gray-500 italic text-center py-2">No co-authors added.</p>
-                )}
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Team Name *</label>
+                  <input type="text" required value={teamDetails.teamName} onChange={e => setTeamDetails({...teamDetails, teamName: e.target.value})} className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:ring-gray-800/20 focus:border-gray-800" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Problem Statement *</label>
+                  <input type="text" required value={teamDetails.problemStatement} onChange={e => setTeamDetails({...teamDetails, problemStatement: e.target.value})} className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:ring-gray-800/20 focus:border-gray-800" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                  <textarea rows="3" value={teamDetails.description} onChange={e => setTeamDetails({...teamDetails, description: e.target.value})} className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:ring-gray-800/20 focus:border-gray-800" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Presentation Link (Cloudinary/Drive)</label>
+                  <input type="url" value={teamDetails.pptLink} onChange={e => setTeamDetails({...teamDetails, pptLink: e.target.value})} placeholder="https://..." className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:ring-gray-800/20 focus:border-gray-800" />
+                </div>
               </div>
             </div>
-            
-          </form>
+          )}
+
+          {step === 2 && (
+            <div className="space-y-6">
+              {members.map((member, index) => (
+                <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50/50 relative">
+                  <div className="flex justify-between items-center mb-4">
+                    <h4 className="font-semibold text-gray-700">Member {index + 1}</h4>
+                    <div className="flex items-center gap-4">
+                      <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                        <input 
+                          type="radio" 
+                          name="leader" 
+                          checked={member.isLeader}
+                          onChange={() => handleMemberChange(index, "isLeader", true)}
+                          className="text-green-600 focus:ring-green-500"
+                        />
+                        Team Leader
+                      </label>
+                      {members.length > 1 && (
+                        <button type="button" onClick={() => handleRemoveMember(index)} className="text-red-500 hover:text-red-700 p-1">
+                          <Trash2 size={16} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Name *</label>
+                      <input type="text" value={member.name} onChange={e => handleMemberChange(index, "name", e.target.value)} className="w-full border border-gray-200 rounded text-sm px-2 py-1.5 focus:border-gray-800 focus:ring-0" required />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Email *</label>
+                      <input type="email" value={member.email} onChange={e => handleMemberChange(index, "email", e.target.value)} className="w-full border border-gray-200 rounded text-sm px-2 py-1.5 focus:border-gray-800 focus:ring-0" required />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Phone</label>
+                      <input type="tel" value={member.phone} onChange={e => handleMemberChange(index, "phone", e.target.value)} className="w-full border border-gray-200 rounded text-sm px-2 py-1.5 focus:border-gray-800 focus:ring-0" />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Gender</label>
+                      <select value={member.gender} onChange={e => handleMemberChange(index, "gender", e.target.value)} className="w-full border border-gray-200 rounded text-sm px-2 py-1.5 focus:border-gray-800 focus:ring-0">
+                        <option>Male</option>
+                        <option>Female</option>
+                        <option>Other</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Institute</label>
+                      <input type="text" value={member.institute} onChange={e => handleMemberChange(index, "institute", e.target.value)} className="w-full border border-gray-200 rounded text-sm px-2 py-1.5 focus:border-gray-800 focus:ring-0" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Branch</label>
+                        <input type="text" value={member.branch} onChange={e => handleMemberChange(index, "branch", e.target.value)} className="w-full border border-gray-200 rounded text-sm px-2 py-1.5 focus:border-gray-800 focus:ring-0" />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Sem / Year</label>
+                        <input type="text" value={member.year} onChange={e => handleMemberChange(index, "year", e.target.value)} className="w-full border border-gray-200 rounded text-sm px-2 py-1.5 focus:border-gray-800 focus:ring-0" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              
+              <button 
+                type="button" 
+                onClick={handleAddMember}
+                className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:text-gray-700 hover:border-gray-400 hover:bg-gray-50 flex items-center justify-center font-medium transition-colors"
+              >
+                <Plus size={18} className="mr-2" /> Add Member
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-gray-200 bg-green-50 rounded-b-xl flex justify-end gap-3 sticky bottom-0 z-10">
-          <button type="button" onClick={handleClose} disabled={isSubmitting} className="px-4 py-2 border rounded-md text-sm font-medium hover:bg-gray-100">
-            Cancel
-          </button>
-          <button type="submit" form="participantForm" disabled={isSubmitting} className="px-4 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700 disabled:bg-green-400 flex items-center gap-2">
-            {isSubmitting ? "Saving..." : "Save Participant"}
-          </button>
+        <div className="px-6 py-4 border-t bg-gray-50 flex justify-between">
+          {step === 2 ? (
+            <button type="button" onClick={() => setStep(1)} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center">
+              <ArrowLeft size={16} className="mr-2" /> Back
+            </button>
+          ) : (
+            <div></div> // empty spacer
+          )}
+
+          <div className="flex gap-3">
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 rounded-lg transition-colors">
+              Cancel
+            </button>
+            {step === 1 ? (
+              <button type="button" onClick={handleNext} className="px-4 py-2 text-sm font-medium text-white bg-gray-800 rounded-lg hover:bg-black flex items-center transition-colors">
+                Next <ArrowRight size={16} className="ml-2" />
+              </button>
+            ) : (
+              <button type="button" onClick={handleSubmit} disabled={loading} className="px-6 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center">
+                {loading ? "Saving..." : "Submit"}
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

@@ -175,21 +175,23 @@ const ParticipantSchema = new mongoose.Schema(
     },
 
     // presenter details
-    paperId: { type: String, required: true },
-    paperTitle: { type: String, required: true },
-    presenterName: { type: String, required: true },
-    email: { type: String, required: true },
-    phone: String,
-    institute: String,
-    branch: String,
-    mode: String,
-    submissionLink: String,
+    // Hackathon details
+    teamName: { type: String, required: true },
+    problemStatement: { type: String, required: true },
+    description: String,
+    pptLink: String, // url uploaded somewhere
 
-    coAuthors: [
+    members: [
       {
         name: String,
+        gender: String,
+        institute: String,
+        branch: String,
+        year: String,
+        phone: String,
         email: String,
-      },
+        isLeader: Boolean
+      }
     ],
 
     // workflow
@@ -223,7 +225,7 @@ const ParticipantSchema = new mongoose.Schema(
 
 // enforce integrity
 ParticipantSchema.index(
-  { eventId: 1, trackId: 1, paperId: 1 },
+  { eventId: 1, trackId: 1, teamName: 1 },
   { unique: true }
 );
 
