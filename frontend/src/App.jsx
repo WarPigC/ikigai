@@ -19,6 +19,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import AdminEventParticipants from "./AdminEventParticipants";
 import ramsitaLogo from "./assets/ramsita-logo.png";
+import StudentDashboard from "./pages/StudentDashboard";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
 export const ASSESSMENT_CRITERIA = [
@@ -5100,16 +5101,7 @@ function ProtectedRoutes({ allowedRoles }) {
 
   {/* STUDENT */}
   <Route element={<ProtectedRoutes allowedRoles={["studentCoordinator"]} />}>
-    <Route
-      path="/student"
-      element={
-        <iframe
-          src="/student.html"
-          className="w-full h-[calc(100vh-0px)] border-none"
-          title="Student Coordinator Dashboard"
-        />
-      }
-    />
+    <Route path="/student" element={<StudentDashboard />} />
   </Route>
 
   {/* FALLBACK */}
@@ -5150,7 +5142,12 @@ export default function App() {
   }, []);
 
   return (
-    <BrowserRouter>
+    <BrowserRouter
+      future={{
+        v7_startTransition: true,
+        v7_relativeSplatPath: true,
+      }}
+    >
       <AppRoutes
         events={events}
         setEvents={setEvents}
