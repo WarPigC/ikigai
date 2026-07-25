@@ -27,11 +27,6 @@ export default function StudentDashboard() {
       <StudentHeader student={sessionData?.student} />
       
       <main className="px-6 py-6 space-y-6">
-        <div className="bg-white/95 border border-purple-100 rounded-2xl p-5 shadow-sm">
-          <div className="flex items-start justify-between gap-6">
-            
-        </div>
-
         <ParticipantList 
           eventId={sessionData?.event?._id}
           trackId={sessionData?.track?.id}
