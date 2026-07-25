@@ -1,11 +1,38 @@
-import React, { useState } from "react";
-import { X, Plus, Trash2, ArrowRight, ArrowLeft } from "lucide-react";
+import React, { useState, useRef } from "react";
+import { X, Plus, Trash2, ArrowRight, ArrowLeft, Upload } from "lucide-react";
 import { studentApi } from "../../services/studentApi";
+
+const defaultMember = (isLeader = false) => ({
+  candidateRole: isLeader ? "Team Leader" : "Team Member",
+  name: "",
+  email: "",
+  mobile: "",
+  location: "",
+  userType: "College Students",
+  domain: "",
+  course: "",
+  specialization: "",
+  courseType: "Full Time",
+  courseDuration: "",
+  classGrade: "",
+  gradYear: "",
+  organisation: "",
+  designation: "",
+  workExperience: "",
+  regStatus: "Complete",
+  refCode: "",
+  paymentStatus: "paid",
+  differentlyAbled: false,
+  isLeader
+});
 
 export default function AddParticipantModal({ isOpen, onClose, eventId, trackId, allEvents, onSuccess }) {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [uploadingPpt, setUploadingPpt] = useState(false);
   const [error, setError] = useState(null);
+
+  const fileInputRef = useRef(null);
 
   const [selectedEventId, setSelectedEventId] = useState("");
   const [selectedTrackId, setSelectedTrackId] = useState("");
@@ -14,30 +41,24 @@ export default function AddParticipantModal({ isOpen, onClose, eventId, trackId,
   const finalTrackId = isGlobal ? selectedTrackId : trackId;
 
   const [teamDetails, setTeamDetails] = useState({
+    teamId: "",
     teamName: "",
     problemStatement: "",
     description: "",
     pptLink: "",
   });
 
-  const [members, setMembers] = useState([
-    {
-      name: "",
-      gender: "Male",
-      institute: "",
-      branch: "",
-      year: "",
-      phone: "",
-      email: "",
-      isLeader: true, // first member is leader by default
-    }
-  ]);
+  const [members, setMembers] = useState([defaultMember(true)]);
 
   if (!isOpen) return null;
 
   const handleNext = () => {
     if (isGlobal && (!selectedEventId || !selectedTrackId)) {
       setError("Please select Event and Track");
+      return;
+    }
+    if (!teamDetails.teamId) {
+      setError("Please provide a Team ID (Required for paid teams)");
       return;
     }
     if (!teamDetails.teamName) {
@@ -48,28 +69,40 @@ export default function AddParticipantModal({ isOpen, onClose, eventId, trackId,
     setStep(2);
   };
 
-  const handleAddMember = () => {
-    setMembers([
-      ...members,
-      {
-        name: "",
-        gender: "Male",
-        institute: "",
-        branch: "",
-        year: "",
-        phone: "",
-        email: "",
-        isLeader: false,
+  const handlePptUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingPpt(true);
+    setError(null);
+    try {
+      const res = await studentApi.uploadPpt(file, teamDetails.teamId, finalEventId);
+      if (res.success) {
+        setTeamDetails(prev => ({ ...prev, pptLink: res.url }));
+      } else if (res.configured === false) {
+        setError("Cloudinary is not configured. Please set env vars to enable uploads.");
+      } else {
+        setError(res.message || "Failed to upload PPT");
       }
-    ]);
+    } catch (err) {
+      setError("Network error during PPT upload");
+    } finally {
+      setUploadingPpt(false);
+      // Reset input so the same file can be selected again if needed
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleAddMember = () => {
+    setMembers([...members, defaultMember(false)]);
   };
 
   const handleRemoveMember = (index) => {
     const newMembers = [...members];
     if (newMembers[index].isLeader && newMembers.length > 1) {
-      // If removing leader, make someone else leader
       const otherIndex = index === 0 ? 1 : 0;
       newMembers[otherIndex].isLeader = true;
+      newMembers[otherIndex].candidateRole = "Team Leader";
     }
     newMembers.splice(index, 1);
     setMembers(newMembers);
@@ -78,8 +111,11 @@ export default function AddParticipantModal({ isOpen, onClose, eventId, trackId,
   const handleMemberChange = (index, field, value) => {
     const newMembers = [...members];
     if (field === "isLeader" && value === true) {
-      // Only one leader allowed
-      newMembers.forEach(m => m.isLeader = false);
+      newMembers.forEach(m => {
+        m.isLeader = false;
+        m.candidateRole = "Team Member";
+      });
+      newMembers[index].candidateRole = "Team Leader";
     }
     newMembers[index][field] = value;
     setMembers(newMembers);
@@ -92,7 +128,6 @@ export default function AddParticipantModal({ isOpen, onClose, eventId, trackId,
       return;
     }
 
-    // Validate members
     const incomplete = members.some(m => !m.name || !m.email);
     if (incomplete) {
       setError("Please provide at least Name and Email for all members");
@@ -106,8 +141,8 @@ export default function AddParticipantModal({ isOpen, onClose, eventId, trackId,
         ...teamDetails,
         members
       });
-      setTeamDetails({ teamName: "", problemStatement: "", description: "", pptLink: "" });
-      setMembers([{ name: "", gender: "Male", institute: "", branch: "", year: "", phone: "", email: "", isLeader: true }]);
+      setTeamDetails({ teamId: "", teamName: "", problemStatement: "", description: "", pptLink: "" });
+      setMembers([defaultMember(true)]);
       setStep(1);
       onSuccess();
       onClose();
@@ -120,8 +155,7 @@ export default function AddParticipantModal({ isOpen, onClose, eventId, trackId,
 
   return (
     <div className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
-        {/* Header */}
+      <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
         <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50/50">
           <h2 className="text-xl font-bold text-gray-800">
             {step === 1 ? "Step 1: Team Details" : "Step 2: Team Members"}
@@ -131,7 +165,6 @@ export default function AddParticipantModal({ isOpen, onClose, eventId, trackId,
           </button>
         </div>
 
-        {/* Body */}
         <div className="p-6 overflow-y-auto">
           {error && (
             <div className="mb-6 p-4 bg-red-50 text-red-600 rounded-lg text-sm border border-red-100 flex items-start gap-3">
@@ -175,22 +208,49 @@ export default function AddParticipantModal({ isOpen, onClose, eventId, trackId,
                 </div>
               )}
 
-              <div className="grid grid-cols-1 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Team ID (Platform ID) *</label>
+                  <input type="text" required value={teamDetails.teamId} onChange={e => setTeamDetails({...teamDetails, teamId: e.target.value})} placeholder="e.g. TM-10294" className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:ring-gray-800/20 focus:border-gray-800" />
+                </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Team Name *</label>
                   <input type="text" required value={teamDetails.teamName} onChange={e => setTeamDetails({...teamDetails, teamName: e.target.value})} className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:ring-gray-800/20 focus:border-gray-800" />
                 </div>
-                <div>
+                <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Problem Statement</label>
                   <input type="text" value={teamDetails.problemStatement} onChange={e => setTeamDetails({...teamDetails, problemStatement: e.target.value})} className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:ring-gray-800/20 focus:border-gray-800" />
                 </div>
-                <div>
+                <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
                   <textarea rows="3" value={teamDetails.description} onChange={e => setTeamDetails({...teamDetails, description: e.target.value})} className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:ring-gray-800/20 focus:border-gray-800" />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Presentation Link (Cloudinary/Drive)</label>
-                  <input type="url" value={teamDetails.pptLink} onChange={e => setTeamDetails({...teamDetails, pptLink: e.target.value})} placeholder="https://..." className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:ring-gray-800/20 focus:border-gray-800" />
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Presentation File (PPT/PDF/ZIP)</label>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploadingPpt}
+                      className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium hover:bg-gray-50 flex items-center gap-2"
+                    >
+                      <Upload size={16} /> {uploadingPpt ? "Uploading..." : "Upload File"}
+                    </button>
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handlePptUpload}
+                      className="hidden"
+                      accept=".pdf,.ppt,.pptx,.zip"
+                    />
+                    <input 
+                      type="url" 
+                      value={teamDetails.pptLink} 
+                      onChange={e => setTeamDetails({...teamDetails, pptLink: e.target.value})} 
+                      placeholder="Or paste external URL directly..." 
+                      className="flex-1 border border-gray-200 rounded-md px-3 py-2 text-sm focus:ring-gray-800/20 focus:border-gray-800" 
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -199,61 +259,94 @@ export default function AddParticipantModal({ isOpen, onClose, eventId, trackId,
           {step === 2 && (
             <div className="space-y-6">
               {members.map((member, index) => (
-                <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50/50 relative">
-                  <div className="flex justify-between items-center mb-4">
-                    <h4 className="font-semibold text-gray-700">Member {index + 1}</h4>
+                <div key={index} className="border border-gray-200 rounded-lg p-5 bg-gray-50/30 relative">
+                  <div className="flex justify-between items-center mb-4 border-b border-gray-200 pb-3">
+                    <h4 className="font-semibold text-gray-800">Member {index + 1}</h4>
                     <div className="flex items-center gap-4">
-                      <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                      <label className="flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer">
                         <input 
                           type="radio" 
                           name="leader" 
                           checked={member.isLeader}
                           onChange={() => handleMemberChange(index, "isLeader", true)}
-                          className="text-green-600 focus:ring-green-500"
+                          className="text-green-600 focus:ring-green-500 cursor-pointer"
                         />
                         Team Leader
                       </label>
                       {members.length > 1 && (
-                        <button type="button" onClick={() => handleRemoveMember(index)} className="text-red-500 hover:text-red-700 p-1">
+                        <button type="button" onClick={() => handleRemoveMember(index)} className="text-red-500 hover:text-red-700 p-1 bg-red-50 rounded-md transition-colors">
                           <Trash2 size={16} />
                         </button>
                       )}
                     </div>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  
+                  {/* CSV Aligned Fields */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Identity */}
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1">Name *</label>
-                      <input type="text" value={member.name} onChange={e => handleMemberChange(index, "name", e.target.value)} className="w-full border border-gray-200 rounded text-sm px-2 py-1.5 focus:border-gray-800 focus:ring-0" required />
+                      <label className="block text-xs font-semibold text-gray-600 mb-1">Name *</label>
+                      <input type="text" value={member.name} onChange={e => handleMemberChange(index, "name", e.target.value)} className="w-full border border-gray-200 rounded text-sm px-2.5 py-1.5 focus:border-gray-800 focus:ring-0 bg-white" required />
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1">Email *</label>
-                      <input type="email" value={member.email} onChange={e => handleMemberChange(index, "email", e.target.value)} className="w-full border border-gray-200 rounded text-sm px-2 py-1.5 focus:border-gray-800 focus:ring-0" required />
+                      <label className="block text-xs font-semibold text-gray-600 mb-1">Email *</label>
+                      <input type="email" value={member.email} onChange={e => handleMemberChange(index, "email", e.target.value)} className="w-full border border-gray-200 rounded text-sm px-2.5 py-1.5 focus:border-gray-800 focus:ring-0 bg-white" required />
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1">Phone</label>
-                      <input type="tel" value={member.phone} onChange={e => handleMemberChange(index, "phone", e.target.value)} className="w-full border border-gray-200 rounded text-sm px-2 py-1.5 focus:border-gray-800 focus:ring-0" />
+                      <label className="block text-xs font-semibold text-gray-600 mb-1">Mobile / Phone</label>
+                      <input type="tel" value={member.mobile} onChange={e => handleMemberChange(index, "mobile", e.target.value)} className="w-full border border-gray-200 rounded text-sm px-2.5 py-1.5 focus:border-gray-800 focus:ring-0 bg-white" />
                     </div>
+
+                    {/* Academic Details */}
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1">Gender</label>
-                      <select value={member.gender} onChange={e => handleMemberChange(index, "gender", e.target.value)} className="w-full border border-gray-200 rounded text-sm px-2 py-1.5 focus:border-gray-800 focus:ring-0">
-                        <option>Male</option>
-                        <option>Female</option>
-                        <option>Other</option>
+                      <label className="block text-xs font-semibold text-gray-600 mb-1">User Type</label>
+                      <select value={member.userType} onChange={e => handleMemberChange(index, "userType", e.target.value)} className="w-full border border-gray-200 rounded text-sm px-2.5 py-1.5 focus:border-gray-800 focus:ring-0 bg-white">
+                        <option>College Students</option>
+                        <option>School Student</option>
+                        <option>Professional</option>
+                        <option>Fresher</option>
                       </select>
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1">Institute</label>
-                      <input type="text" value={member.institute} onChange={e => handleMemberChange(index, "institute", e.target.value)} className="w-full border border-gray-200 rounded text-sm px-2 py-1.5 focus:border-gray-800 focus:ring-0" />
+                      <label className="block text-xs font-semibold text-gray-600 mb-1">Organisation / Institute</label>
+                      <input type="text" value={member.organisation} onChange={e => handleMemberChange(index, "organisation", e.target.value)} className="w-full border border-gray-200 rounded text-sm px-2.5 py-1.5 focus:border-gray-800 focus:ring-0 bg-white" />
                     </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="block text-xs text-gray-500 mb-1">Branch</label>
-                        <input type="text" value={member.branch} onChange={e => handleMemberChange(index, "branch", e.target.value)} className="w-full border border-gray-200 rounded text-sm px-2 py-1.5 focus:border-gray-800 focus:ring-0" />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-500 mb-1">Sem / Year</label>
-                        <input type="text" value={member.year} onChange={e => handleMemberChange(index, "year", e.target.value)} className="w-full border border-gray-200 rounded text-sm px-2 py-1.5 focus:border-gray-800 focus:ring-0" />
-                      </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-600 mb-1">Course (e.g. B.Tech)</label>
+                      <input type="text" value={member.course} onChange={e => handleMemberChange(index, "course", e.target.value)} className="w-full border border-gray-200 rounded text-sm px-2.5 py-1.5 focus:border-gray-800 focus:ring-0 bg-white" />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-600 mb-1">Specialization / Branch</label>
+                      <input type="text" value={member.specialization} onChange={e => handleMemberChange(index, "specialization", e.target.value)} className="w-full border border-gray-200 rounded text-sm px-2.5 py-1.5 focus:border-gray-800 focus:ring-0 bg-white" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-600 mb-1">Domain</label>
+                      <input type="text" value={member.domain} onChange={e => handleMemberChange(index, "domain", e.target.value)} className="w-full border border-gray-200 rounded text-sm px-2.5 py-1.5 focus:border-gray-800 focus:ring-0 bg-white" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-600 mb-1">Graduation Year</label>
+                      <input type="text" value={member.gradYear} onChange={e => handleMemberChange(index, "gradYear", e.target.value)} className="w-full border border-gray-200 rounded text-sm px-2.5 py-1.5 focus:border-gray-800 focus:ring-0 bg-white" />
+                    </div>
+                    
+                    {/* Additional Metadata */}
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-600 mb-1">Location</label>
+                      <input type="text" value={member.location} onChange={e => handleMemberChange(index, "location", e.target.value)} className="w-full border border-gray-200 rounded text-sm px-2.5 py-1.5 focus:border-gray-800 focus:ring-0 bg-white" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-600 mb-1">Payment Status</label>
+                      <select value={member.paymentStatus} onChange={e => handleMemberChange(index, "paymentStatus", e.target.value)} className="w-full border border-gray-200 rounded text-sm px-2.5 py-1.5 focus:border-gray-800 focus:ring-0 bg-white">
+                        <option value="paid">Paid</option>
+                        <option value="not paid">Not Paid</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-600 mb-1">Differently Abled?</label>
+                      <select value={member.differentlyAbled ? "Yes" : "No"} onChange={e => handleMemberChange(index, "differentlyAbled", e.target.value === "Yes")} className="w-full border border-gray-200 rounded text-sm px-2.5 py-1.5 focus:border-gray-800 focus:ring-0 bg-white">
+                        <option value="No">No</option>
+                        <option value="Yes">Yes</option>
+                      </select>
                     </div>
                   </div>
                 </div>
@@ -262,7 +355,7 @@ export default function AddParticipantModal({ isOpen, onClose, eventId, trackId,
               <button 
                 type="button" 
                 onClick={handleAddMember}
-                className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:text-gray-700 hover:border-gray-400 hover:bg-gray-50 flex items-center justify-center font-medium transition-colors"
+                className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:text-gray-900 hover:border-gray-400 hover:bg-gray-50 flex items-center justify-center font-medium transition-colors"
               >
                 <Plus size={18} className="mr-2" /> Add Member
               </button>
@@ -270,7 +363,6 @@ export default function AddParticipantModal({ isOpen, onClose, eventId, trackId,
           )}
         </div>
 
-        {/* Footer */}
         <div className="px-6 py-4 border-t bg-gray-50 flex justify-between">
           {step === 2 ? (
             <button type="button" onClick={() => setStep(1)} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center">
@@ -299,3 +391,4 @@ export default function AddParticipantModal({ isOpen, onClose, eventId, trackId,
     </div>
   );
 }
+
