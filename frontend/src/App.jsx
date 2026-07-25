@@ -2623,7 +2623,7 @@ const exportParticipantsPDF = () => {
   doc.setFont("helvetica", "normal");
 
   /* =========================
-     HEADER (RAMSITA 2026)
+     HEADER (IKIGAI 2026)
   ========================= */
   doc.setFillColor(240, 253, 244);
   doc.rect(0, 0, 210, 34, "F");
@@ -2631,7 +2631,7 @@ const exportParticipantsPDF = () => {
   doc.setFont("helvetica", "bold");
   doc.setFontSize(22);
   doc.setTextColor(21, 128, 61);
-  doc.text("RAMSITA 2026", 14, 20);
+  doc.text("IKIGAI 2026", 14, 20);
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
