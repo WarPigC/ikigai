@@ -55,6 +55,28 @@ export const studentApi = {
     return await res.json();
   },
 
+  /**
+   * Upload a PPT/PDF file to Cloudinary via the backend.
+   * @param {File} file - The file object from an <input type="file" />
+   * @param {string} [teamId] - Optional team ID used to name the file in Cloudinary
+   * @param {string} [eventId] - Optional event ID used to organise the file in a folder
+   * @returns {{ success: boolean, url?: string, configured?: boolean, message?: string }}
+   */
+  async uploadPpt(file, teamId = null, eventId = null) {
+    const formData = new FormData();
+    formData.append("file", file);
+    if (teamId) formData.append("teamId", teamId);
+    if (eventId) formData.append("eventId", eventId);
+
+    // Do NOT set Content-Type — browser sets it automatically with the correct boundary
+    const res = await fetch(`${API_BASE}/api/upload-ppt`, {
+      method: "POST",
+      body: formData,
+    });
+    return await res.json();
+  },
+
+
   async fetchProofStatus(participantId) {
     try {
       const res = await fetch(`${API_BASE}/api/proof/${participantId}`);

@@ -5,6 +5,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import crypto from "crypto";
 import proofRoutes from "./proof.routes.js";
+import pptRoutes from "./ppt.routes.js";
 import { sendMail } from "./mailer.js";
 
 
@@ -27,6 +28,7 @@ app.use(
 
 app.use(express.json({ limit: "25mb" }));
 app.use("/api/proof", proofRoutes);
+app.use("/api/upload-ppt", pptRoutes);
 
 app.use(express.urlencoded({ extended: true }));
 
@@ -174,33 +176,53 @@ const ParticipantSchema = new mongoose.Schema(
       index: true,
     },
 
-    // presenter details
-    // Hackathon details
+    // Team-level details
     teamId: { type: String, unique: true, sparse: true },
     teamName: { type: String, required: true },
+    track: { type: String, required: false },          // human-readable track title, auto-derived from trackId on save
     problemStatement: { type: String, required: false },
     description: { type: String, required: false },
-    pptLink: { type: String, required: false }, // url uploaded somewhere
+    pptLink: { type: String, required: false },        // Cloudinary secure URL once uploaded
 
+    // Member-level details — CSV-aligned fields
     members: [
       {
+        // Identity
+        candidateRole: String,   // "Team Leader" | "Team Member"
         name: String,
-        gender: String,
-        institute: String,
-        branch: String,
-        year: String,
-        phone: String,
         email: String,
+        mobile: String,
         location: String,
-        category: String,
-        stream: String,
-        degree: String,
-        mode: String,
+
+        // Academic / Professional background
+        userType: String,        // "Fresher" | "College Students" | "Professional" | "School Student"
+        domain: String,          // e.g. "Engineering", "Arts & Science", "Management"
+        course: String,          // e.g. "B.Tech/BE", "B.Sc.", "BBA"
+        specialization: String,  // e.g. "Computer Science and Engineering"
+        courseType: String,      // "Full Time" | "Part Time" | "Distance Learning"
+        courseDuration: String,  // "3", "4", etc.
+        classGrade: String,      // for school students
         gradYear: String,
-        isLeader: Boolean
+        organisation: String,    // institute / company name
+        designation: String,     // for professionals
+
+        // Registration metadata
+        // Mixed type used intentionally to prevent data loss on malformed values.
+        // A valid ISO string will be stored as-is; parsing happens at read time if needed.
+        registrationTime: { type: mongoose.Schema.Types.Mixed },
+        // Mixed type: "Yes" → true, "No" → false at import time; raw value preserved if ambiguous.
+        differentlyAbled: { type: mongoose.Schema.Types.Mixed },
+        workExperience: String,
+        regStatus: String,       // "Complete" | "Incomplete"
+        refCode: String,
+        paymentStatus: String,   // "paid" | "not paid"
+
+        // Internal flag
+        isLeader: { type: Boolean, default: false },
       }
     ],
-    // workflow
+
+    // Workflow
     status: {
       type: String,
       enum: ["DRAFT", "SUBMITTED", "EVALUATED"],
@@ -229,8 +251,9 @@ const ParticipantSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// enforce integrity
-// Removed strict unique index to allow incomplete CSV imports
+// teamId is a globally sparse unique index.
+// Paid teams (paymentStatus: "paid") have reliable, consistent teamIds and are the source of truth.
+// Unpaid teams may have empty/null teamIds — handled gracefully via the sparse index.
 
 const Participant = mongoose.model("Participant", ParticipantSchema);
 
@@ -1028,14 +1051,25 @@ app.post("/api/student/participants", async (req, res) => {
       });
     }
 
+    // Auto-derive the human-readable track name from the event
+    let trackName = null;
+    try {
+      const event = await Event.findById(eventId);
+      if (event) {
+        const matchedTrack = event.tracks.find((t) => String(t.id) === String(trackId));
+        if (matchedTrack) trackName = matchedTrack.title;
+      }
+    } catch (_) {
+      // Non-fatal — track name derivation failure should not block participant save
+    }
+
     const participant = await Participant.create({
       ...participantData,
-      paperId: participantData.paperId.trim(), // ✅ FIX
       eventId: new mongoose.Types.ObjectId(eventId),
       trackId,
+      track: trackName,
       createdBy: submittedBy,
     });
-
 
     console.log("✅ PARTICIPANT SAVED:", participant._id);
 
@@ -1049,20 +1083,29 @@ app.post("/api/student/participants", async (req, res) => {
   }
 });
 
+
 app.put("/api/student/participants/:id", async (req, res) => {
   try {
+    const {
+      teamName,
+      track,
+      problemStatement,
+      description,
+      pptLink,
+      members,
+    } = req.body;
+
     const updated = await Participant.findByIdAndUpdate(
       req.params.id,
       {
-        presenterName: req.body.presenterName,
-        paperTitle: req.body.paperTitle,
-        institute: req.body.institute,
-        branch: req.body.branch,
-        email: req.body.email,
-        phone: req.body.phone,
-        mode: req.body.mode,
-        submissionLink: req.body.submissionLink,
-        coAuthors: req.body.coAuthors,
+        $set: {
+          ...(teamName !== undefined && { teamName }),
+          ...(track !== undefined && { track }),
+          ...(problemStatement !== undefined && { problemStatement }),
+          ...(description !== undefined && { description }),
+          ...(pptLink !== undefined && { pptLink }),
+          ...(members !== undefined && { members }),
+        },
       },
       { new: true, runValidators: false }
     );
@@ -1084,6 +1127,31 @@ app.put("/api/student/participants/:id", async (req, res) => {
       success: false,
       message: "Failed to update participant",
     });
+  }
+});
+
+
+// ✅ Session Chair: fetch participants for their assigned track (read-only)
+app.get("/api/session/participants", async (req, res) => {
+  try {
+    const { eventId, trackId } = req.query;
+
+    if (!eventId || !trackId) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing eventId or trackId",
+      });
+    }
+
+    const participants = await Participant.find({
+      eventId: new mongoose.Types.ObjectId(eventId),
+      trackId: String(trackId),
+    }).sort({ createdAt: 1 });
+
+    res.json({ success: true, participants });
+  } catch (err) {
+    console.error("❌ Session chair participants fetch error:", err);
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 
@@ -1696,12 +1764,17 @@ app.get("/api/admin/events/:id", async (req, res) => {
 
 
 app.get("/api/admin/participants/:eventId", async (req, res) => {
-  const participants = await Participant.find({
-    eventId: req.params.eventId,
-  });
-
-  res.json({ success: true, participants });
+  try {
+    const participants = await Participant.find({
+      eventId: new mongoose.Types.ObjectId(req.params.eventId),
+    });
+    res.json({ success: true, participants });
+  } catch (err) {
+    console.error("❌ Admin participants fetch error:", err);
+    res.status(500).json({ success: false, message: "Failed to fetch participants" });
+  }
 });
+
 // ✅ Admin: Fetch Session Chairs (SOURCE OF TRUTH)
 app.get("/api/admin/session-chairs/:eventId", async (req, res) => {
   try {
