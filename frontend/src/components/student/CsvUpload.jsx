@@ -149,7 +149,7 @@ export default function CsvUpload({ eventId, onSuccess }) {
         <div className="mt-4 p-3 bg-green-50 text-green-700 rounded-lg text-sm border border-green-200 flex justify-between items-center">
           <div className="flex items-center">
             <CheckCircle size={16} className="mr-2 shrink-0" /> 
-            Successfully processed: {result.added} added, {result.updated} updated. {result.errors > 0 ? \`(\${result.errors} errors)\` : ''}
+            Successfully processed: {result.added} added, {result.updated} updated. {result.errors > 0 ? `(${result.errors} errors)` : ''}
           </div>
           <button onClick={() => setResult(null)} className="text-green-700 hover:text-green-900"><X size={16}/></button>
         </div>
