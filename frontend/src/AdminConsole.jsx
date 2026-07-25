@@ -1,0 +1,593 @@
+import React, { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
+
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
+
+// --- Components ---
+
+function ConfirmDeleteModal({ isOpen, onClose, onConfirm, itemName, itemType }) {
+  const [input, setInput] = useState("");
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+        <h3 className="text-xl font-bold text-red-600 mb-2">Delete {itemType}</h3>
+        <p className="text-gray-600 text-sm mb-4">
+          This action cannot be undone. This will permanently delete the {itemType.toLowerCase()} <strong>{itemName}</strong> and all associated data.
+        </p>
+        <p className="text-gray-700 text-sm mb-2">Please type <strong>{itemName}</strong> to confirm.</p>
+        <input 
+          type="text" 
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          className="w-full border border-gray-300 rounded px-3 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-red-500"
+        />
+        <div className="flex justify-end gap-3">
+          <button onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Cancel</button>
+          <button 
+            onClick={() => { onConfirm(); onClose(); setInput(""); }} 
+            disabled={input !== itemName}
+            className={`px-4 py-2 rounded font-semibold ${input === itemName ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-red-300 text-white cursor-not-allowed'}`}
+          >
+            I understand the consequences, delete this {itemType.toLowerCase()}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EvaluatorList({ event, track, refreshEvents }) {
+  const [evaluators, setEvaluators] = useState([]);
+  const [showCreate, setShowCreate] = useState(false);
+  const [form, setForm] = useState({ title: "Mr.", firstName: "", lastName: "", email: "", phone: "" });
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/admin/session-chairs/${event._id}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.chairs) {
+          setEvaluators(data.chairs.filter(c => c.trackId === track.id));
+        }
+      });
+  }, [event._id, track.id]);
+
+  const handleCreate = async (e) => {
+    e.preventDefault();
+    const fullName = `${form.title} ${form.firstName} ${form.lastName}`.trim();
+    const res = await fetch(`${API_BASE}/api/admin/evaluators`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ 
+        name: fullName, 
+        firstName: form.firstName, // Passed to backend for password generation
+        email: form.email, 
+        phone: form.phone, 
+        eventId: event._id, 
+        trackId: track.id 
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      setEvaluators([...evaluators, data.evaluator]);
+      setShowCreate(false);
+      setForm({ title: "Mr.", firstName: "", lastName: "", email: "", phone: "" });
+      refreshEvents();
+    } else {
+      alert(data.message || "Failed to create evaluator");
+    }
+  };
+
+  const handleDelete = async (evaluatorId) => {
+    if (!confirm("Delete this evaluator?")) return;
+    const res = await fetch(`${API_BASE}/api/admin/evaluators/${evaluatorId}`, { method: "DELETE" });
+    if (res.ok) {
+      setEvaluators(evaluators.filter(e => e._id !== evaluatorId));
+      refreshEvents();
+    }
+  };
+
+  return (
+    <div className="ml-6 mt-4 pl-4 border-l-2 border-green-200">
+      <div className="flex justify-between items-center mb-3">
+        <h5 className="font-semibold text-gray-700">Evaluators</h5>
+        <button onClick={() => setShowCreate(!showCreate)} className="text-sm px-3 py-1 bg-green-100 text-green-700 rounded hover:bg-green-200 transition">
+          + Add Evaluator
+        </button>
+      </div>
+
+      {showCreate && (
+        <form onSubmit={handleCreate} className="bg-gray-50 p-4 rounded-lg mb-4 flex flex-col gap-3 border border-gray-200">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <select value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} className="border px-2 py-1 rounded bg-white w-full sm:w-24">
+              <option value="Mr.">Mr.</option>
+              <option value="Mrs.">Mrs.</option>
+              <option value="Ms.">Ms.</option>
+              <option value="Dr.">Dr.</option>
+              <option value="Prof.">Prof.</option>
+              <option value="Prof. Dr.">Prof. Dr.</option>
+            </select>
+            <input required type="text" placeholder="First Name" value={form.firstName} onChange={e => setForm({ ...form, firstName: e.target.value })} className="flex-1 border px-2 py-1 rounded" />
+            <input required type="text" placeholder="Last Name" value={form.lastName} onChange={e => setForm({ ...form, lastName: e.target.value })} className="flex-1 border px-2 py-1 rounded" />
+          </div>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <input required type="email" placeholder="Email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} className="flex-1 border px-2 py-1 rounded" />
+            <input required type="text" placeholder="Phone" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} className="flex-1 border px-2 py-1 rounded" />
+            <button type="submit" className="bg-green-600 text-white px-4 py-1 rounded font-semibold hover:bg-green-700 w-full sm:w-auto">Save Evaluator</button>
+          </div>
+        </form>
+      )}
+
+      {evaluators.length === 0 && !showCreate && <p className="text-sm text-gray-500 italic">No evaluators found.</p>}
+      
+      <div className="space-y-2">
+        {evaluators.map(ev => (
+          <div key={ev._id} className="flex justify-between items-center bg-white border border-gray-200 p-2 rounded shadow-sm text-sm">
+            <div>
+              <p className="font-semibold">{ev.name}</p>
+              <p className="text-gray-500 text-xs">{ev.email} • {ev.phone}</p>
+            </div>
+            <button onClick={() => handleDelete(ev._id)} className="text-red-500 hover:text-red-700 px-2 py-1">Delete</button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TrackItem({ event, track, refreshEvents }) {
+  const [expanded, setExpanded] = useState(false);
+  const [deleteModal, setDeleteModal] = useState(false);
+
+  const handleDelete = async () => {
+    const res = await fetch(`${API_BASE}/api/admin/events/${event._id}/tracks/${track.id}`, { method: "DELETE" });
+    if (res.ok) refreshEvents();
+  };
+
+  return (
+    <div className="mb-3 bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+      <div className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition" onClick={() => setExpanded(!expanded)}>
+        <div className="flex-1">
+          <h4 className="font-bold text-gray-800 text-lg flex items-center gap-2">
+            <span className={`text-green-600 transition-transform ${expanded ? 'rotate-90' : ''}`}>▶</span> {track.title}
+          </h4>
+          <p className="text-sm text-gray-600 mt-1">{track.description}</p>
+        </div>
+        <button 
+          onClick={(e) => { e.stopPropagation(); setDeleteModal(true); }}
+          className="text-red-500 hover:text-red-700 hover:bg-red-50 px-3 py-1 rounded transition ml-4"
+        >
+          Delete Track
+        </button>
+      </div>
+      
+      {expanded && (
+        <div className="p-4 pt-0 border-t border-gray-100 bg-gray-50">
+          <EvaluatorList event={event} track={track} refreshEvents={refreshEvents} />
+        </div>
+      )}
+
+      <ConfirmDeleteModal 
+        isOpen={deleteModal} 
+        onClose={() => setDeleteModal(false)} 
+        onConfirm={handleDelete} 
+        itemName={track.title} 
+        itemType="Track" 
+      />
+    </div>
+  );
+}
+
+function TrackList({ event, refreshEvents }) {
+  const [showCreate, setShowCreate] = useState(false);
+  const [form, setForm] = useState({ title: "", description: "" });
+
+  const handleCreate = async (e) => {
+    e.preventDefault();
+    const res = await fetch(`${API_BASE}/api/admin/events/${event._id}/tracks`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(form)
+    });
+    if (res.ok) {
+      setShowCreate(false);
+      setForm({ title: "", description: "" });
+      refreshEvents();
+    } else {
+      alert("Failed to create track");
+    }
+  };
+
+  return (
+    <div className="mt-4 border-t border-gray-200 pt-4">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-xl font-bold text-gray-700">Tracks</h3>
+        <button onClick={() => setShowCreate(!showCreate)} className="px-4 py-2 bg-green-100 text-green-700 rounded-md font-semibold hover:bg-green-200 transition">
+          + Create Track
+        </button>
+      </div>
+
+      {showCreate && (
+        <form onSubmit={handleCreate} className="bg-white p-4 rounded-lg border border-green-200 shadow-sm mb-4">
+          <div className="mb-3">
+            <label className="block text-sm font-semibold text-gray-700 mb-1">Track Name</label>
+            <input required type="text" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} className="w-full border border-gray-300 rounded px-3 py-2" placeholder="e.g. AI & Machine Learning" />
+          </div>
+          <div className="mb-3">
+            <label className="block text-sm font-semibold text-gray-700 mb-1">Track Description</label>
+            <textarea required value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} className="w-full border border-gray-300 rounded px-3 py-2 h-20" placeholder="Brief description of the track" />
+          </div>
+          <div className="flex justify-end gap-2">
+            <button type="button" onClick={() => setShowCreate(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded font-semibold">Cancel</button>
+            <button type="submit" className="px-4 py-2 bg-green-600 text-white rounded font-semibold hover:bg-green-700">Save Track</button>
+          </div>
+        </form>
+      )}
+
+      {event.tracks && event.tracks.length > 0 ? (
+        <div className="space-y-3">
+          {event.tracks.map(track => (
+            <TrackItem key={track.id} event={event} track={track} refreshEvents={refreshEvents} />
+          ))}
+        </div>
+      ) : (
+        !showCreate && <div className="text-center p-6 bg-gray-50 border border-dashed border-gray-300 rounded-lg text-gray-500">No tracks found. Create one to get started.</div>
+      )}
+    </div>
+  );
+}
+
+function EventCard({ event, refreshEvents }) {
+  const [expanded, setExpanded] = useState(false);
+  const [deleteModal, setDeleteModal] = useState(false);
+
+  const handleDelete = async () => {
+    const res = await fetch(`${API_BASE}/api/admin/events/${event._id}`, { method: "DELETE" });
+    if (res.ok) refreshEvents();
+  };
+
+  return (
+    <div className="bg-white border border-green-200 rounded-2xl shadow-sm hover:shadow-md transition mb-6 overflow-hidden">
+      <div className="p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 cursor-pointer" onClick={() => setExpanded(!expanded)}>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className={`text-green-600 transition-transform ${expanded ? 'rotate-90' : ''}`}>▶</span>
+            <h3 className="text-2xl font-extrabold text-green-700 truncate">{event.title}</h3>
+          </div>
+          <p className="text-sm text-gray-500 mt-1">Date: {event.date || "—"}</p>
+          <p className="text-sm text-gray-600 mt-2 line-clamp-2">{event.description}</p>
+        </div>
+        <div className="flex items-center gap-3 shrink-0">
+          <Link to={`/admin/events/${event._id}/participants`} onClick={(e) => e.stopPropagation()} className="px-4 py-2 bg-green-700 hover:bg-green-800 text-white rounded-md text-sm font-semibold transition">
+            View Participants
+          </Link>
+          <button onClick={(e) => { e.stopPropagation(); setDeleteModal(true); }} className="px-4 py-2 border-2 border-red-500 text-red-500 hover:bg-red-500 hover:text-white rounded-md text-sm font-semibold transition">
+            Delete Event
+          </button>
+        </div>
+      </div>
+      
+      {expanded && (
+        <div className="p-6 pt-0 bg-white">
+          <TrackList event={event} refreshEvents={refreshEvents} />
+        </div>
+      )}
+
+      <ConfirmDeleteModal 
+        isOpen={deleteModal} 
+        onClose={() => setDeleteModal(false)} 
+        onConfirm={handleDelete} 
+        itemName={event.title} 
+        itemType="Event" 
+      />
+    </div>
+  );
+}
+
+// --- Views ---
+
+export function EventsView({ events, refreshEvents }) {
+  const [showCreateEvent, setShowCreateEvent] = useState(false);
+  const [form, setForm] = useState({ title: "", description: "", date: "" });
+  const [loading, setLoading] = useState(false);
+
+  const handleCreateEvent = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/events`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...form, tracks: [], sessionChairs: [] })
+      });
+      if (res.ok) {
+        setShowCreateEvent(false);
+        setForm({ title: "", description: "", date: "" });
+        refreshEvents();
+      } else {
+        alert("Failed to create event");
+      }
+    } catch (err) {
+      alert("Error creating event");
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div className="animate-fade-in w-full max-w-7xl mx-auto px-6 py-8 md:px-10">
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h2 className="text-3xl font-extrabold text-gray-800 tracking-tight">Events Management</h2>
+          <p className="text-gray-500 mt-1">Manage events, tracks, and evaluators.</p>
+        </div>
+        <button
+          onClick={() => setShowCreateEvent(!showCreateEvent)}
+          className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-bold shadow-md transition transform hover:-translate-y-0.5"
+        >
+          {showCreateEvent ? "Cancel" : "+ Create Event"}
+        </button>
+      </div>
+
+      {showCreateEvent && (
+        <div className="mb-8 bg-white p-6 border border-green-200 rounded-2xl shadow-lg">
+          <h3 className="text-xl font-bold text-green-700 mb-4">Create New Event Shell</h3>
+          <form onSubmit={handleCreateEvent}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Event Name</label>
+                <input required type="text" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-400 focus:outline-none" placeholder="Hackathon 2026" />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Date</label>
+                <input required type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-400 focus:outline-none" />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Description</label>
+                <textarea required value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} className="w-full border border-gray-300 rounded-lg px-4 py-2 h-24 focus:ring-2 focus:ring-green-400 focus:outline-none" placeholder="Brief description..." />
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <button type="submit" disabled={loading} className="px-8 py-2 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition disabled:opacity-50">
+                {loading ? "Saving..." : "Create Event"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      <div className="space-y-2">
+        {!events || events.length === 0 ? (
+          <div className="p-12 text-center bg-white/80 border-2 border-dashed border-green-200 rounded-2xl text-gray-500">
+            <p className="text-lg">No events found.</p>
+            <p className="text-sm mt-2">Click "Create Event" to build your first event shell.</p>
+          </div>
+        ) : (
+          events.map(ev => <EventCard key={ev._id} event={ev} refreshEvents={refreshEvents} />)
+        )}
+      </div>
+    </div>
+  );
+}
+
+export function ProgressView({ events }) {
+  const navigate = useNavigate();
+  const [selectedEventId, setSelectedEventId] = useState("");
+
+  const handleSelect = (e) => {
+    const id = e.target.value;
+    setSelectedEventId(id);
+    if (id) {
+      navigate(`/event/${id}`);
+    }
+  };
+
+  return (
+    <div className="animate-fade-in w-full max-w-7xl mx-auto px-6 py-8 md:px-10">
+      <h2 className="text-3xl font-extrabold text-gray-800 tracking-tight mb-2">Event Progress</h2>
+      <p className="text-gray-500 mb-8">Select an event from the dropdown below to view its full evaluation progress.</p>
+      
+      <div className="bg-white p-6 border border-green-200 rounded-2xl shadow-sm w-full">
+        <label className="block text-sm font-semibold text-gray-700 mb-2">Choose an Event</label>
+        <select 
+          value={selectedEventId} 
+          onChange={handleSelect} 
+          className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-green-400 focus:outline-none"
+        >
+          <option value="">-- Select an Event --</option>
+          {events.map(ev => (
+            <option key={ev._id} value={ev._id}>{ev.title} ({ev.date})</option>
+          ))}
+        </select>
+        
+        {selectedEventId === "" && (
+          <div className="mt-6 p-4 bg-gray-50 text-gray-500 text-sm text-center rounded-lg border border-dashed border-gray-300">
+            Select an event to open the detailed progress tracking console.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export function UsersView() {
+  const [evaluators, setEvaluators] = useState([]);
+  const [students, setStudents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [expandedId, setExpandedId] = useState(null);
+
+  const [showCreate, setShowCreate] = useState(false);
+  const [form, setForm] = useState({ firstName: "", lastName: "", role: "Student Coordinator", email: "", phone: "" });
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const resEv = await fetch(`${API_BASE}/api/admin/evaluators/all`);
+      const dataEv = await resEv.json();
+      if (dataEv.success) setEvaluators(dataEv.chairs || []);
+
+      const resSc = await fetch(`${API_BASE}/api/admin/student-coordinators/global`);
+      const dataSc = await resSc.json();
+      if (dataSc.success) setStudents(dataSc.students || []);
+    } catch (e) {
+      console.error(e);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const handleCreate = async (e) => {
+    e.preventDefault();
+    if (form.role === "Student Coordinator") {
+      const fullName = `${form.firstName} ${form.lastName}`.trim();
+      const res = await fetch(`${API_BASE}/api/admin/student-coordinators/global`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: fullName, firstName: form.firstName, email: form.email, phone: form.phone })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setShowCreate(false);
+        setForm({ firstName: "", lastName: "", role: "Student Coordinator", email: "", phone: "" });
+        fetchData();
+      } else {
+        alert(data.message || "Failed to create Student Coordinator");
+      }
+    }
+  };
+
+  return (
+    <div className="animate-fade-in w-full max-w-7xl mx-auto px-6 py-8 md:px-10">
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h2 className="text-3xl font-extrabold text-gray-800 tracking-tight">Users Management</h2>
+          <p className="text-gray-500 mt-1">Manage evaluators and student coordinators across all events.</p>
+        </div>
+        <button
+          onClick={() => setShowCreate(!showCreate)}
+          className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-bold shadow-md transition"
+        >
+          {showCreate ? "Cancel" : "+ Add User"}
+        </button>
+      </div>
+
+      {showCreate && (
+        <form onSubmit={handleCreate} className="bg-white p-6 border border-green-200 rounded-2xl shadow-lg mb-8">
+          <h3 className="text-xl font-bold text-green-700 mb-4">Create New User</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Role</label>
+              <select value={form.role} onChange={e => setForm({ ...form, role: e.target.value })} className="w-full border border-gray-300 rounded px-3 py-2 bg-gray-50 text-gray-700" disabled>
+                <option value="Student Coordinator">Student Coordinator</option>
+              </select>
+              <p className="text-xs text-gray-500 mt-1">Evaluators are created from inside an Event Track.</p>
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">First Name</label>
+              <input required type="text" value={form.firstName} onChange={e => setForm({ ...form, firstName: e.target.value })} className="w-full border border-gray-300 rounded px-3 py-2" />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Last Name</label>
+              <input required type="text" value={form.lastName} onChange={e => setForm({ ...form, lastName: e.target.value })} className="w-full border border-gray-300 rounded px-3 py-2" />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Email</label>
+              <input required type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} className="w-full border border-gray-300 rounded px-3 py-2" />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Phone</label>
+              <input required type="text" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} className="w-full border border-gray-300 rounded px-3 py-2" />
+            </div>
+          </div>
+          <div className="flex justify-end">
+            <button type="submit" className="px-6 py-2 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700">Save User</button>
+          </div>
+        </form>
+      )}
+
+      {/* Student Coordinators */}
+      <div className="bg-white border border-green-200 rounded-2xl shadow-sm overflow-hidden mb-6">
+        <div className="bg-green-50 px-6 py-4 border-b border-green-100 font-bold text-green-800 text-lg">
+          Student Coordinators ({students.length})
+        </div>
+        {loading ? (
+          <div className="p-6 text-gray-500">Loading users...</div>
+        ) : students.length === 0 ? (
+          <div className="p-6 text-gray-500">No student coordinators have been created yet.</div>
+        ) : (
+          <div className="divide-y divide-gray-100">
+            {students.map(sc => (
+              <div key={sc._id} className="p-4 hover:bg-gray-50 transition cursor-pointer" onClick={() => setExpandedId(expandedId === sc._id ? null : sc._id)}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-semibold text-gray-800 flex items-center gap-2">
+                      <span className={`text-green-600 transition-transform ${expandedId === sc._id ? 'rotate-90' : ''}`}>▶</span>
+                      {sc.name}
+                    </h4>
+                    <p className="text-sm text-gray-500 ml-5">{sc.email}</p>
+                  </div>
+                </div>
+                {expandedId === sc._id && (
+                  <div className="ml-5 mt-4 p-4 bg-gray-100 rounded-lg text-sm grid grid-cols-2 gap-2">
+                    <div><span className="font-semibold text-gray-700">Phone:</span> {sc.phone || 'N/A'}</div>
+                    <div><span className="font-semibold text-gray-700">Type:</span> Student Coordinator (Global)</div>
+                    <div className="col-span-2 mt-2 pt-2 border-t border-gray-200">
+                      <span className="font-semibold text-gray-700">Temporary Password:</span> 
+                      <span className="ml-2 font-mono bg-white px-2 py-1 rounded border border-gray-300">
+                        {sc.name.split(' ')[0]?.toLowerCase() || 'student'}123
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Evaluators */}
+      <div className="bg-white border border-green-200 rounded-2xl shadow-sm overflow-hidden mb-6">
+        <div className="bg-green-50 px-6 py-4 border-b border-green-100 font-bold text-green-800 text-lg">
+          Evaluators ({evaluators.length})
+        </div>
+        {loading ? (
+          <div className="p-6 text-gray-500">Loading users...</div>
+        ) : evaluators.length === 0 ? (
+          <div className="p-6 text-gray-500">No evaluators have been created yet.</div>
+        ) : (
+          <div className="divide-y divide-gray-100">
+            {evaluators.map(ev => (
+              <div key={ev._id} className="p-4 hover:bg-gray-50 transition cursor-pointer" onClick={() => setExpandedId(expandedId === ev._id ? null : ev._id)}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-semibold text-gray-800 flex items-center gap-2">
+                      <span className={`text-green-600 transition-transform ${expandedId === ev._id ? 'rotate-90' : ''}`}>▶</span>
+                      {ev.name}
+                    </h4>
+                    <p className="text-sm text-gray-500 ml-5">{ev.email}</p>
+                  </div>
+                </div>
+                {expandedId === ev._id && (
+                  <div className="ml-5 mt-4 p-4 bg-gray-100 rounded-lg text-sm grid grid-cols-2 gap-2">
+                    <div><span className="font-semibold text-gray-700">Phone:</span> {ev.phone || 'N/A'}</div>
+                    <div><span className="font-semibold text-gray-700">Type:</span> Evaluator</div>
+                    <div><span className="font-semibold text-gray-700">Event ID:</span> {ev.eventId}</div>
+                    <div><span className="font-semibold text-gray-700">Track ID:</span> {ev.trackId}</div>
+                    <div className="col-span-2 mt-2 pt-2 border-t border-gray-200">
+                      <span className="font-semibold text-gray-700">Temporary Password:</span> 
+                      <span className="ml-2 font-mono bg-white px-2 py-1 rounded border border-gray-300">
+                        {ev.name.split(' ')[1]?.toLowerCase() || 'user'}123
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

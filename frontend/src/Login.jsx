@@ -179,32 +179,15 @@ const handleOtpChange = async (e, index) => {
       <div className="w-full max-w-xl bg-white/90 backdrop-blur-md border border-green-200 rounded-2xl shadow-xl p-10">
         {/* Logo */}
         <div className="text-center mb-8">
-{/* RAMSITA HEADER */}
-<div className="mb-10 flex flex-col items-center gap-4 md:flex-row md:items-center md:justify-center relative">
-  {/* Logo */}
+{/* Hackathon Logo Header */}
+<div className="mb-10 flex justify-center">
   <img
     src={ramsitaLogo}
-    alt="Logo"
-    className="w-16 h-16 md:w-20 md:h-20 object-contain md:absolute md:left-0"
+    alt="Hackathon Logo"
+    className="h-24 md:h-32 object-contain"
   />
-
-  {/* Title */}
-  <h1 className="text-center text-2xl sm:text-3xl md:text-4xl font-extrabold
-                 bg-gradient-to-r from-green-700 via-green-600 to-green-500
-                 bg-clip-text text-transparent">
-    RAMSITA – 2026
-  </h1>
 </div>
-
-
-{/* SUBTITLE: Centered below */}
-<p className="mb-8 mx-auto max-w-lg text-center text-xs sm:text-sm leading-relaxed text-gray-500 italic px-2">
-  <span className="text-green-700/80 font-semibold">
-    Recent Advancement and Modernization in Sustainable Intelligent Technologies & Applications
-  </span>
-</p>
-
-</div>
+        </div>
         {/* Login Form */}
         <form onSubmit={handleLogin} className="space-y-6">
           <div>
@@ -347,7 +330,7 @@ const handleOtpChange = async (e, index) => {
 
         {/* Footer */}
         <div className="mt-8 text-center text-xs text-gray-500">
-  © 2026 RAMSITA — Towards Sustainable Research Evaluation
+  © 2026 HackEval — Towards Sustainable Research Evaluation
 </div>
 
       </div>

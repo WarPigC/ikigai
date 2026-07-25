@@ -3,8 +3,22 @@
 /* 👇 This tells Tailwind to apply global utilities in this file */
 @reference tailwindcss;
 
+@theme {
+  --color-green-50: #fcf2ef;
+  --color-green-100: #fae4ea;
+  --color-green-200: #f5c7d8;
+  --color-green-300: #f09cb8;
+  --color-green-400: #eb749a;
+  --color-green-500: #e34e89;
+  --color-green-600: #ba3b78;
+  --color-green-700: #753a99;
+  --color-green-800: #582678;
+  --color-green-900: #42185c;
+  --color-green-950: #290a3d;
+}
+
 body {
-  background: linear-gradient(to bottom right, #ecfdf5, #d1fae5, #a7f3d0);
+  background: linear-gradient(to bottom right, #fcf2ef, #fae4ea, #f5c7d8);
   font-family: system-ui, sans-serif;
   color: #1f2937;
 }

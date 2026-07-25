@@ -12,7 +12,9 @@ import {
   Navigate,
   Outlet,
 } from "react-router-dom";
-import Login from "./Login";
+import Login from './Login';
+import { EventsView, ProgressView, UsersView } from './AdminConsole';
+import AdminLayout from './AdminLayout';
 import "./index.css";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
@@ -37,25 +39,13 @@ function Header({ user, onLogout }) {
     <header className="w-full bg-white/70 backdrop-blur-md border-b border-green-200 shadow-sm">
       <div className="flex items-center justify-between px-4 md:px-6 py-3 md:h-20">
 
-        <div className="flex items-center gap-3 min-w-0">
+        <div className="flex items-center min-w-0 w-1/2">
   {/* LOGO */}
   <img
     src={ramsitaLogo}
-    alt="RAMSITA 2026 Logo"
-    className="w-12 h-12 object-contain shrink-0"
+    alt="Hackathon Logo"
+    className="h-12 md:h-16 object-contain w-auto max-w-full"
   />
-
-  {/* TITLE + SUBTITLE */}
-  <div className="flex flex-col min-w-0">
-    <h1 className="text-xl md:text-3xl font-extrabold text-green-700 leading-tight truncate">
-      RAMSITA 2026
-    </h1>
-
-    <span className="text-xs md:text-sm text-gray-600 leading-snug line-clamp-2 md:line-clamp-none">
-      Recent Advancement and Modernization in Sustainable Intelligent
-      Technologies & Applications
-    </span>
-  </div>
 </div>
 
 
@@ -196,17 +186,16 @@ useEffect(() => {
         </div>
       </div>
 
-      {/* ACTIONS */}
       <div className="flex gap-3">
         <Link
           to={`/event/${ev._id || ev.id}`}
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-semibold"
+          className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-md text-sm font-semibold"
         >
           View Details
         </Link>
 <Link
     to={`/admin/events/${ev._id || ev.id}/participants`}
-    className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md text-sm font-semibold"
+    className="px-4 py-2 bg-green-700 hover:bg-green-800 text-white rounded-md text-sm font-semibold"
   >
     View Participants
   </Link>
@@ -5080,16 +5069,20 @@ function ProtectedRoutes({ allowedRoles }) {
   <Route path="/" element={<Navigate to="/login" replace />} />
   <Route path="/login" element={<Login />} />
 
+  
   {/* ADMIN */}
   <Route element={<ProtectedRoutes allowedRoles={["admin"]} />}>
-    <Route path="/dashboard" element={<Dashboard events={events} refreshEvents={refreshEvents} />} />
+    
+    <Route element={<AdminLayout />}>
+      <Route path="/dashboard" element={<EventsView events={events} refreshEvents={refreshEvents} />} />
+      <Route path="/progress" element={<ProgressView events={events} />} />
+      <Route path="/users" element={<UsersView />} />
+      <Route path="/event/:id" element={<EventDetails events={events} setEvents={setEvents} />} />
+    </Route>
+
     <Route path="/create" element={<CreateEvent onEventSaved={(ev) => setEvents((prev) => [ev, ...prev])} events={events} setEvents={setEvents} />} />
-    <Route path="/event/:id" element={<EventDetails events={events} setEvents={setEvents} />} />
     <Route path="/edit/:id" element={<EditEventWrapper events={events} setEvents={setEvents} />} />
-    <Route
-  path="/admin/events/:eventId/participants"
-  element={<AdminEventParticipants />}
-/>
+    <Route path="/admin/events/:eventId/participants" element={<AdminEventParticipants />} />
 
   </Route>
 

@@ -347,14 +347,14 @@ app.post("/api/admin/events", async (req, res) => {
       });
 
       await sendMail({
-        from: `"RAMSITA 2026" <${process.env.MAIL_USER}>`,
+        from: `"HackEval" <${process.env.MAIL_USER}>`,
         to: sc.email,
-        subject: "RAMSITA Student Coordinator Access",
+        subject: "HackEval Student Coordinator Access",
         html: `
           <p>Hello ${sc.name},</p>
           <p>You have been assigned as <b>Student Coordinator</b>.</p>
           <p><b>Password:</b> ${sc.password}</p>
-          <p>Please login to RAMSITA.</p>
+          <p>Please login to HackEval.</p>
         `,
       });
     }
@@ -489,12 +489,12 @@ console.log("MAIL_USER =", process.env.MAIL_USER);
   try {
 
   await sendMail({
-    from: `"RAMSITA 2026" <${process.env.MAIL_USER}>`,
+    from: `"HackEval" <${process.env.MAIL_USER}>`,
     to: email,
-    subject: "RAMSITA 2026 review platform Login OTP",
+    subject: "HackEval review platform Login OTP",
     html: `
       <p>Hello,</p>
-      <p>Your <b>RAMSITA login OTP</b> is:</p>
+      <p>Your <b>HackEval login OTP</b> is:</p>
       <h2 style="letter-spacing:4px">${otp}</h2>
       <p>This OTP is valid for <b>5 minutes</b>.</p>
     `,
@@ -1388,6 +1388,7 @@ app.get("/api/session/track-status", async (req, res) => {
 
 
 /*  STUDENT COORDINATOR DASHBOARD FETCH  */
+
 app.get("/api/student/session/:email", async (req, res) => {
   try {
     const student = await StudentCoordinator.findOne({
@@ -1401,87 +1402,40 @@ app.get("/api/student/session/:email", async (req, res) => {
       });
     }
 
+    // Global Student Coordinator logic
+    if (student.eventId === "global") {
+      const allEvents = await Event.find({}).lean();
+      const allParticipants = await Participant.find({}).lean();
+      return res.json({
+        success: true,
+        student,
+        event: { _id: "global", title: "Global Events" },
+        track: { id: "global", title: "All Tracks" },
+        participants: allParticipants,
+        sessionChairs: [],
+        allEvents // send events to frontend to populate dropdowns
+      });
+    }
+
     const event = await Event.findById(student.eventId);
     if (!event) {
-      return res.status(404).json({
-        success: false,
-        message: "Event not found",
-      });
+      return res.status(404).json({ success: false, message: "Event not found" });
     }
 
-    const track = event.tracks.find(
-  (t) => String(t.id) === String(student.trackId)
-);
-
-if (!track) {
-  console.error("❌ TRACK NOT FOUND", {
-    studentTrackId: student.trackId,
-    availableTracks: event.tracks.map(t => ({
-      id: t.id,
-      _id: t._id.toString(),
-      title: t.title,
-    })),
-  });
-
-  return res.status(404).json({
-    success: false,
-    message: "Assigned track not found",
-  });
-}
-
-
+    const track = event.tracks.find((t) => String(t.id) === String(student.trackId));
     if (!track) {
-      return res.status(404).json({
-        success: false,
-        message: "Assigned track not found",
-      });
+      return res.status(404).json({ success: false, message: "Assigned track not found" });
     }
 
-    const participants = await Participant.find({
-      eventId: student.eventId,
-      trackId: student.trackId,   // ✅ STRING "002"
-    }).sort({ createdAt: 1 });
+    const participants = await Participant.find({ eventId: event._id, trackId: track.id }).lean();
+    const sessionChairs = await SessionChair.find({ eventId: event._id, trackId: track.id }).lean();
 
-    const sessionChairs = await SessionChair.find({
-      eventId: student.eventId,
-      trackId: student.trackId,
-    }).select("name email type -_id");
-
-
-
-    res.json({
-      success: true,
-      student: {
-        name: student.name,
-        email: student.email,
-        eventId: student.eventId,
-        trackId: student.trackId,
-      },
-      event: {
-        _id: event._id,          // ✅ MongoDB ID
-        title: event.title,
-        date: event.date,
-      },
-      track: {
-  _id: track._id,
-  id: track.id,
-  title: track.title,
-  description: track.description,
-  meetingLink: track.meetingLink || "",
-},
-
-      sessionChairs,
-      participants,
-    });
-
-
+    res.json({ success: true, event, track, participants, sessionChairs, student });
   } catch (err) {
-    console.error("❌ Student session fetch error:", err);
-    res.status(500).json({ success: false });
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 
-// ✅ Session Chair: Fetch participants for assessment
 app.get("/api/session/participants", async (req, res) => {
   try {
     const { eventId, trackId } = req.query;
@@ -1908,14 +1862,14 @@ app.post(
       // 📧 send mail
       await sendMail({
         to: chair.email,
-        subject: "RAMSITA 2026 – Session Chair Invitation",
+        subject: "HackEval – Session Chair Invitation",
         html: `
         <div style="background:#f0fdf4;padding:24px;font-family:Arial,Helvetica,sans-serif;">
           <table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:auto;background:#ffffff;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.08);overflow:hidden;">
             
             <tr>
               <td style="background:#16a34a;padding:20px;text-align:center;">
-                <h1 style="margin:0;color:#ffffff;">RAMSITA 2026</h1>
+                <h1 style="margin:0;color:#ffffff;">HackEval</h1>
               </td>
             </tr>
 
@@ -1956,7 +1910,7 @@ app.post(
                 <div style="text-align:center;margin:24px 0;">
                   <a href="https://care-zeta.vercel.app"
                      style="background:#16a34a;color:#ffffff;padding:12px 24px;border-radius:8px;text-decoration:none;">
-                    Login to RAMSITA 2026
+                    Login to HackEval
                   </a>
                 </div>
               </td>
@@ -1964,7 +1918,7 @@ app.post(
 
             <tr>
               <td style="background:#f9fafb;padding:16px;text-align:center;font-size:12px;color:#6b7280;">
-                © ${new Date().getFullYear()} RAMSITA
+                © ${new Date().getFullYear()} HackEval
               </td>
             </tr>
 
@@ -1997,6 +1951,194 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 5000;
+
+
+
+
+  // Event DELETE
+  app.delete("/api/admin/events/:id", async (req, res) => {
+    try {
+      const eventId = req.params.id;
+      await Event.findByIdAndDelete(eventId);
+      await SessionChair.deleteMany({ eventId });
+      await Participant.deleteMany({ eventId });
+      res.json({ success: true, message: "Event deleted" });
+    } catch (error) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  });
+
+  // Track POST
+  app.post("/api/admin/events/:id/tracks", async (req, res) => {
+    try {
+      const event = await Event.findById(req.params.id);
+      if (!event) return res.status(404).json({ success: false });
+      
+      const existingIds = event.tracks.map(t => parseInt(t.id, 10)).filter(n => !isNaN(n));
+      const nextId = existingIds.length > 0 ? Math.max(...existingIds) + 1 : 1;
+      const trackId = nextId.toString().padStart(3, "0");
+
+      const newTrack = {
+        id: trackId,
+        title: req.body.title,
+        description: req.body.description,
+        assessmentLocked: true,
+        meetingLink: ""
+      };
+      
+      event.tracks.push(newTrack);
+      await event.save();
+      res.json({ success: true, track: newTrack });
+    } catch (error) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  });
+
+  // Track PUT
+  app.put("/api/admin/events/:id/tracks/:trackId", async (req, res) => {
+    try {
+      const event = await Event.findById(req.params.id);
+      if (!event) return res.status(404).json({ success: false });
+      
+      const track = event.tracks.find(t => t.id === req.params.trackId);
+      if (!track) return res.status(404).json({ success: false });
+      
+      track.title = req.body.title;
+      track.description = req.body.description;
+      await event.save();
+      res.json({ success: true, track });
+    } catch (error) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  });
+
+  // Track DELETE
+  app.delete("/api/admin/events/:id/tracks/:trackId", async (req, res) => {
+    try {
+      const event = await Event.findById(req.params.id);
+      if (!event) return res.status(404).json({ success: false });
+      
+      event.tracks = event.tracks.filter(t => t.id !== req.params.trackId);
+      await event.save();
+      
+      // Also delete related evaluators and participants
+      await SessionChair.deleteMany({ eventId: req.params.id, trackId: req.params.trackId });
+      await Participant.deleteMany({ eventId: req.params.id, trackId: req.params.trackId });
+      
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  });
+
+  // Evaluator POST
+  app.post("/api/admin/evaluators", async (req, res) => {
+    try {
+      const { eventId, trackId, name, email, phone } = req.body;
+      const exists = await SessionChair.findOne({ email, eventId, trackId });
+      if (exists) return res.status(400).json({ success: false, message: "Evaluator with this email already exists in this track." });
+      
+      const tempPassword = (req.body.firstName || "evaluator").toLowerCase().replace(/[^a-z0-9]/g, "") + "123";
+      const evaluator = await SessionChair.create({
+        name,
+        email: email.trim().toLowerCase(),
+        phone,
+        type: "Evaluator", // Default for legacy compatibility
+        passwordHash: hashPassword(tempPassword),
+        trackId,
+        eventId
+      });
+
+      // Attempt to send email but don't fail if it doesn't work
+      try {
+        await sendMail({
+          from: `"HackEval" <${process.env.MAIL_USER}>`,
+          to: email,
+          subject: "HackEval – Evaluator Invitation",
+          html: `<p>Hello <b>${name}</b>,</p><p>You have been assigned as an Evaluator.</p><p><b>Track:</b> ${trackId}</p><p><b>Login Email:</b> ${email}</p><p><b>Temporary Password:</b> ${tempPassword}</p>`
+        });
+      } catch (e) {
+        console.error("Email failed", e);
+      }
+      
+      res.json({ success: true, evaluator });
+    } catch (error) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  });
+
+  // Evaluator PUT
+  app.put("/api/admin/evaluators/:id", async (req, res) => {
+    try {
+      const { name, email, phone } = req.body;
+      const evaluator = await SessionChair.findByIdAndUpdate(req.params.id, {
+        name, email: email.trim().toLowerCase(), phone
+      }, { new: true });
+      res.json({ success: true, evaluator });
+    } catch (error) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  });
+
+  // Evaluator DELETE
+  app.delete("/api/admin/evaluators/:id", async (req, res) => {
+    try {
+      await SessionChair.findByIdAndDelete(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  });
+
+
+
+app.get('/api/admin/evaluators/all', async (req, res) => {
+  try {
+    const chairs = await SessionChair.find({});
+    res.json({ success: true, chairs });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+
+// ✅ Admin: Create Global Student Coordinator
+app.post("/api/admin/student-coordinators/global", async (req, res) => {
+  try {
+    const { name, firstName, email, phone } = req.body;
+    
+    // Check if exists
+    const exists = await StudentCoordinator.findOne({ email });
+    if (exists) {
+      return res.status(400).json({ success: false, message: "Email already in use" });
+    }
+
+    const tempPassword = (firstName || "student").toLowerCase().replace(/[^a-z0-9]/g, "") + "123";
+    const passwordHash = await hashPassword(tempPassword);
+
+    const newStudent = await StudentCoordinator.create({
+      name,
+      email,
+      phone,
+      passwordHash,
+      eventId: "global",
+      trackId: "global"
+    });
+
+    res.json({ success: true, user: { ...newStudent.toObject(), tempPassword } });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.get("/api/admin/student-coordinators/global", async (req, res) => {
+  try {
+    const students = await StudentCoordinator.find({ eventId: "global" });
+    res.json({ success: true, students });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
 
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Server running on port ${PORT}`);

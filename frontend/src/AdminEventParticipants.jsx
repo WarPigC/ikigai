@@ -325,7 +325,7 @@ const exportParticipantsPDF = () => {
   const headerY = 20;
 
   doc.setTextColor(21, 128, 61);
-  doc.text("RAMSITA 2026", x, headerY); x += 10;
+  doc.text("Hackathon 2026", x, headerY); x += 10;
 
 
   doc.setFont("helvetica", "normal");
