@@ -4,18 +4,29 @@ import ParticipantRow from "./ParticipantRow";
 import AddParticipantModal from "./AddParticipantModal";
 import EditParticipantModal from "./EditParticipantModal";
 import CsvUpload from "./CsvUpload";
+import { useParticipants } from "../../hooks/useParticipants";
+import { studentApi } from "../../services/studentApi";
 
 export default function ParticipantList({ 
-  participants, 
   eventId, 
   trackId, 
-  onDelete, 
-  onSuccess,
   allEvents 
 }) {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingParticipant, setEditingParticipant] = useState(null);
+  
+  const { participants, loading, refresh } = useParticipants(eventId, trackId);
 
+  const handleDelete = async (id) => {
+    if (window.confirm("Are you sure you want to delete this participant?")) {
+      await studentApi.deleteParticipant(id);
+      refresh();
+    }
+  };
+
+  const onSuccess = () => refresh();
+
+  if (loading) return <div>Loading participants...</div>;
   if (!participants) return null;
 
   return (
@@ -60,7 +71,7 @@ export default function ParticipantList({
                   participant={participant} 
                   index={index}
                   onEdit={setEditingParticipant}
-                  onDelete={onDelete}
+                  onDelete={handleDelete}
                 />
               ))}
             </div>
