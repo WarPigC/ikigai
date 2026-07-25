@@ -8,7 +8,7 @@ export default function SessionChairsList({ chairs }) {
 
   return (
     <div className="flex flex-col">
-      <h3 className="text-sm font-semibold text-purple-700 mb-2 text-center">
+      <h3 className="text-sm font-semibold text-green-700 mb-2 text-center">
         Session Chairs
       </h3>
       <div className="flex gap-3 flex-wrap justify-center items-start">

@@ -2,8 +2,8 @@ import React from 'react';
 
 export default function CoAuthorCard({ author, index }) {
   return (
-    <div className="p-3 bg-white border border-purple-100 rounded-lg shadow-sm">
-      <div className="text-xs font-bold text-purple-600 mb-1">
+    <div className="p-3 bg-white border border-gray-800/10 rounded-lg shadow-sm">
+      <div className="text-xs font-bold text-green-600 mb-1">
         Co-Author {index + 1}
       </div>
       <div className="text-sm font-semibold">{author.name || "N/A"}</div>

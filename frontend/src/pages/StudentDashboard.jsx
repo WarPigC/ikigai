@@ -23,7 +23,7 @@ export default function StudentDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-800">
+    <div className="min-h-screen bg-green-50 text-gray-800">
       <StudentHeader student={sessionData?.student} />
       
       <main className="px-6 py-6 space-y-6">

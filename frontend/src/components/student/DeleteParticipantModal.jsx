@@ -53,7 +53,7 @@ export default function DeleteParticipantModal({ isOpen, onClose, participant, o
           Are you sure you want to permanently delete this participant? This action cannot be undone.
         </p>
 
-        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
+        <div className="bg-green-50 border border-gray-800/10 rounded-lg p-4 mb-6">
           <div className="text-sm">
             <span className="font-semibold text-gray-500">Presenter:</span>{" "}
             <span className="font-bold text-gray-800">{participant.presenterName}</span>

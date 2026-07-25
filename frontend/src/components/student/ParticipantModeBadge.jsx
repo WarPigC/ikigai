@@ -3,7 +3,7 @@ import React from "react";
 export default function ParticipantModeBadge({ mode }) {
   const isOnline = mode === "Online";
   const badgeClass = isOnline
-    ? "bg-purple-100 text-purple-700"
+    ? "bg-green-100 text-green-700"
     : "bg-blue-100 text-blue-700";
 
   return (

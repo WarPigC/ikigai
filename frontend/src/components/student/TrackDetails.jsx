@@ -4,7 +4,7 @@ import MeetingLink from "./MeetingLink";
 export default function TrackDetails({ event, track, onUpdateLink }) {
   return (
     <div>
-      <div className="text-xl font-semibold text-purple-700">
+      <div className="text-xl font-semibold text-green-700">
         {track?.id} — {track?.title}
       </div>
 

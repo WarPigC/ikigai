@@ -29,7 +29,7 @@ export default function MeetingLink({ initialLink, eventId, trackId, onUpdateLin
 
   return (
     <div className="mt-4">
-      <label className="block text-sm font-semibold text-purple-700 mb-1">
+      <label className="block text-sm font-semibold text-green-700 mb-1">
         Online Presentation Meeting Link
       </label>
       <div className="flex items-center gap-2">
@@ -57,7 +57,7 @@ export default function MeetingLink({ initialLink, eventId, trackId, onUpdateLin
             type="button"
             onClick={handleUpdate}
             disabled={isUpdating}
-            className="px-4 py-2 bg-purple-700 text-white rounded-md text-sm"
+            className="px-4 py-2 bg-green-600 text-white rounded-md text-sm"
           >
             {isUpdating ? "Updating..." : "Update"}
           </button>

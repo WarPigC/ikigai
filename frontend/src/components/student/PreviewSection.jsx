@@ -2,8 +2,8 @@ import React from 'react';
 
 export default function PreviewSection({ title, children }) {
   return (
-    <div className="mb-6 border border-purple-100 rounded-lg p-4 bg-pink-50/30">
-      <h3 className="text-sm font-bold text-purple-700 uppercase tracking-wider mb-4 border-b border-purple-200 pb-2">
+    <div className="mb-6 border border-gray-800/10 rounded-lg p-4 bg-green-50/30">
+      <h3 className="text-sm font-bold text-green-700 uppercase tracking-wider mb-4 border-b border-gray-300 pb-2">
         {title}
       </h3>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

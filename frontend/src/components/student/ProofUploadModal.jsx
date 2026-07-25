@@ -98,7 +98,7 @@ export default function ProofUploadModal({ isOpen, onClose, participant, eventId
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border p-6">
-        <h3 className="text-lg font-semibold text-purple-700 mb-4">
+        <h3 className="text-lg font-semibold text-green-700 mb-4">
           Upload Presentation Proof
         </h3>
 
@@ -132,10 +132,10 @@ export default function ProofUploadModal({ isOpen, onClose, participant, eventId
                 accept="image/*"
                 capture="environment"
                 onChange={handleFileChange}
-                className="w-full mt-1 border border-dashed rounded-md px-3 py-2 text-sm cursor-pointer bg-gray-50 hover:bg-gray-100"
+                className="w-full mt-1 border border-dashed rounded-md px-3 py-2 text-sm cursor-pointer bg-green-50 hover:bg-gray-100"
               />
             ) : (
-              <div className="mt-1 flex items-center justify-between border rounded-md px-3 py-2 bg-gray-50">
+              <div className="mt-1 flex items-center justify-between border rounded-md px-3 py-2 bg-green-50">
                 <span className="text-sm text-gray-600 truncate mr-2">{file.name}</span>
                 <button
                   type="button"
@@ -176,7 +176,7 @@ export default function ProofUploadModal({ isOpen, onClose, participant, eventId
             <button
               type="submit"
               disabled={isUploading || !file}
-              className="px-4 py-2 bg-purple-600 text-white rounded-md text-sm font-medium hover:bg-purple-700 transition disabled:bg-purple-400 flex items-center gap-2"
+              className="px-4 py-2 bg-purple-600 text-white rounded-md text-sm font-medium hover:bg-green-600 transition disabled:bg-purple-400 flex items-center gap-2"
             >
               {isUploading ? "Uploading..." : "Upload Proof"}
             </button>

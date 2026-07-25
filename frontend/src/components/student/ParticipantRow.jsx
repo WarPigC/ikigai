@@ -20,7 +20,7 @@ export default function ParticipantRow({ index, participant, proofStatus, onPrev
   };
 
   return (
-    <div className="border rounded-md p-3 bg-pink-50 flex justify-between">
+    <div className="border rounded-md p-3 bg-green-50 flex justify-between">
       <div className="grid grid-cols-1 md:grid-cols-[40px_90px_140px_240px_160px_80px_auto] gap-2 text-sm items-center w-full">
         
         {/* Mobile: S.no + Paper ID */}

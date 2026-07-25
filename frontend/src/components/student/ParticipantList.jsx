@@ -53,7 +53,7 @@ export default function ParticipantList({ eventId, trackId, allEvents }) {
         onAddParticipant={handleAddParticipant}
       />
 
-      <div className="bg-white rounded-2xl shadow-sm border border-purple-100 p-4">
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-800/10 p-4">
         <div className="relative">
           {/* TABLE HEADER */}
           <div className="hidden md:grid grid-cols-[40px_90px_160px_240px_160px_80px_auto] gap-2 text-xs font-semibold text-gray-600 border-b pb-2">
@@ -69,7 +69,7 @@ export default function ParticipantList({ eventId, trackId, allEvents }) {
           {/* ADD PARTICIPANT BUTTON */}
           <button
             onClick={handleAddParticipant}
-            className="absolute top-0 right-0 w-8 h-8 flex items-center justify-center bg-purple-700 text-white rounded-lg text-lg font-bold hover:bg-purple-800 transition"
+            className="absolute top-0 right-0 w-8 h-8 flex items-center justify-center bg-green-600 text-white rounded-lg text-lg font-bold hover:bg-green-700 transition"
             title="Add Participant"
           >
             +
