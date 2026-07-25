@@ -110,7 +110,7 @@ export default function ParticipantRow({ participant, index, onEdit, onDelete })
                     {m.name} 
                     {m.isLeader && <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded uppercase font-bold tracking-wider">Leader</span>}
                   </div>
-                  <div className="text-xs text-gray-500">{m.degree || m.stream ? \`\${m.degree} \${m.stream}\` : m.category || ''}</div>
+                  <div className="text-xs text-gray-500">{m.degree || m.stream ? `${m.degree} ${m.stream}` : m.category || ''}</div>
                 </div>
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-1 gap-x-3 mt-2 text-xs text-gray-600">
