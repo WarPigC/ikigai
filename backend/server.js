@@ -163,7 +163,7 @@ const ParticipantSchema = new mongoose.Schema(
     },
     trackId: {
       type: String,
-      required: true,
+      required: false,
       index: true,
     },
 
@@ -176,10 +176,11 @@ const ParticipantSchema = new mongoose.Schema(
 
     // presenter details
     // Hackathon details
+    teamId: { type: String, unique: true, sparse: true },
     teamName: { type: String, required: true },
-    problemStatement: { type: String, required: true },
-    description: String,
-    pptLink: String, // url uploaded somewhere
+    problemStatement: { type: String, required: false },
+    description: { type: String, required: false },
+    pptLink: { type: String, required: false }, // url uploaded somewhere
 
     members: [
       {
@@ -190,10 +191,15 @@ const ParticipantSchema = new mongoose.Schema(
         year: String,
         phone: String,
         email: String,
+        location: String,
+        category: String,
+        stream: String,
+        degree: String,
+        mode: String,
+        gradYear: String,
         isLeader: Boolean
       }
     ],
-
     // workflow
     status: {
       type: String,
@@ -224,10 +230,7 @@ const ParticipantSchema = new mongoose.Schema(
 );
 
 // enforce integrity
-ParticipantSchema.index(
-  { eventId: 1, trackId: 1, teamName: 1 },
-  { unique: true }
-);
+// Removed strict unique index to allow incomplete CSV imports
 
 const Participant = mongoose.model("Participant", ParticipantSchema);
 

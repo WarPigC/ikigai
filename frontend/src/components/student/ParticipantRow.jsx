@@ -1,97 +1,129 @@
 import React, { useState } from "react";
-import { Edit2, Trash2, Mail, ExternalLink, ChevronDown, ChevronUp, CheckCircle, Clock } from "lucide-react";
+import { Edit2, Trash2, Mail, ExternalLink, ChevronDown, ChevronUp, User, MapPin, Phone, GraduationCap } from "lucide-react";
 
 export default function ParticipantRow({ participant, index, onEdit, onDelete }) {
   const [expanded, setExpanded] = useState(false);
+  
+  // Try to find a leader, otherwise fallback to first member
   const leader = participant.members?.find(m => m.isLeader) || participant.members?.[0];
+  const members = participant.members || [];
 
   return (
-    <>
-      <tr className="border-b border-gray-100 hover:bg-gray-50/50 transition-colors group">
-        <td className="px-4 md:px-6 py-4 text-gray-500 font-medium w-16">
-          <button onClick={() => setExpanded(!expanded)} className="p-1 hover:bg-gray-200 rounded">
-            {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow duration-300 flex flex-col h-full">
+      {/* Card Header - Team Name & Basic Info */}
+      <div className="p-5 border-b border-gray-100 bg-gradient-to-r from-purple-50/50 to-pink-50/50 relative">
+        <div className="absolute top-4 right-4 flex gap-2">
+          <button onClick={() => onEdit(participant)} className="p-1.5 text-gray-400 hover:text-purple-600 bg-white/80 rounded shadow-sm hover:shadow transition-all">
+            <Edit2 size={14} />
           </button>
-        </td>
-        <td className="px-4 md:px-6 py-4">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-green-100 text-green-700 flex items-center justify-center font-bold text-xs shrink-0">
-              {participant.teamName?.[0]?.toUpperCase() || 'T'}
-            </div>
-            <div className="font-medium text-gray-900">{participant.teamName}</div>
+          <button onClick={() => onDelete(participant._id)} className="p-1.5 text-gray-400 hover:text-red-600 bg-white/80 rounded shadow-sm hover:shadow transition-all">
+            <Trash2 size={14} />
+          </button>
+        </div>
+        
+        <div className="flex items-center gap-3 mb-2 pr-16">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 text-white flex items-center justify-center font-bold text-lg shadow-sm shrink-0">
+            {participant.teamName?.[0]?.toUpperCase() || 'T'}
           </div>
-        </td>
-        <td className="px-4 md:px-6 py-4 text-gray-600">
-          <div className="truncate max-w-xs">{participant.problemStatement || '-'}</div>
-        </td>
-        <td className="px-4 md:px-6 py-4 text-gray-600 hidden md:table-cell">
-          {leader?.name || '-'} <br/>
-          <span className="text-xs text-gray-400">{leader?.email || ''}</span>
-        </td>
-        <td className="px-4 md:px-6 py-4 hidden sm:table-cell">
-          {participant.status === "EVALUATED" ? (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-50 text-green-700 border border-green-200">
-              <CheckCircle size={14} /> Evaluated
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
-              <Clock size={14} /> Pending
-            </span>
-          )}
-        </td>
-        <td className="px-4 md:px-6 py-4">
-          <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button
-              onClick={() => onEdit(participant)}
-              className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-              title="Edit"
-            >
-              <Edit2 size={16} />
-            </button>
-            <button
-              onClick={() => onDelete(participant._id)}
-              className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-              title="Delete"
-            >
-              <Trash2 size={16} />
-            </button>
+          <div>
+            <h3 className="font-bold text-gray-900 text-lg truncate max-w-[200px]" title={participant.teamName}>
+              {participant.teamName || 'Unnamed Team'}
+            </h3>
+            {participant.teamId && (
+              <span className="text-xs font-mono text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                ID: {participant.teamId}
+              </span>
+            )}
           </div>
-        </td>
-      </tr>
-      {expanded && (
-        <tr>
-          <td colSpan="6" className="px-4 py-4 bg-gray-50 border-b border-gray-100">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4">
-              <div>
-                <h4 className="font-semibold text-gray-700 mb-3 text-sm uppercase tracking-wider">Team Details</h4>
-                <p className="text-sm mb-1"><span className="font-medium">Description:</span> {participant.description || '-'}</p>
-                {participant.pptLink && (
-                  <a href={participant.pptLink} target="_blank" rel="noreferrer" className="text-sm text-blue-600 hover:underline flex items-center mt-2">
-                    <ExternalLink size={14} className="mr-1" /> View Presentation
-                  </a>
+        </div>
+        
+        {participant.problemStatement && (
+          <p className="text-sm text-gray-600 line-clamp-2 mt-2 leading-relaxed">
+            <span className="font-medium text-gray-700">Problem:</span> {participant.problemStatement}
+          </p>
+        )}
+      </div>
+
+      {/* Card Body - Team Leader & Quick Stats */}
+      <div className="p-5 flex-grow flex flex-col">
+        {leader ? (
+          <div className="mb-4">
+            <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Team Leader</h4>
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-full bg-gray-100 text-gray-600 flex items-center justify-center shrink-0">
+                <User size={16} />
+              </div>
+              <div className="overflow-hidden">
+                <p className="text-sm font-semibold text-gray-800 truncate">{leader.name}</p>
+                <div className="flex items-center text-xs text-gray-500 mt-0.5 truncate">
+                  <Mail size={12} className="mr-1 shrink-0" /> <span className="truncate">{leader.email}</span>
+                </div>
+                {leader.institute && (
+                  <div className="flex items-center text-xs text-gray-500 mt-1 truncate">
+                    <GraduationCap size={12} className="mr-1 shrink-0" /> <span className="truncate">{leader.institute}</span>
+                  </div>
                 )}
               </div>
-              <div>
-                <h4 className="font-semibold text-gray-700 mb-3 text-sm uppercase tracking-wider">Members</h4>
-                <ul className="space-y-2">
-                  {participant.members?.map((m, i) => (
-                    <li key={i} className="text-sm bg-white p-2 rounded border border-gray-200 flex justify-between">
-                      <div>
-                        <div className="font-medium">{m.name} {m.isLeader && <span className="text-xs bg-green-100 text-green-800 px-1 rounded ml-1">Leader</span>}</div>
-                        <div className="text-xs text-gray-500">{m.institute} • {m.branch} ({m.year})</div>
-                      </div>
-                      <div className="text-right text-xs text-gray-500">
-                        <div>{m.email}</div>
-                        <div>{m.phone}</div>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </div>
             </div>
-          </td>
-        </tr>
+          </div>
+        ) : (
+          <div className="mb-4 text-sm text-gray-400 italic">No members assigned</div>
+        )}
+
+        <div className="mt-auto pt-4 border-t border-gray-100 flex items-center justify-between">
+          <div className="text-sm font-medium text-purple-600 bg-purple-50 px-3 py-1 rounded-full">
+            {members.length} {members.length === 1 ? 'Member' : 'Members'}
+          </div>
+          <button 
+            onClick={() => setExpanded(!expanded)} 
+            className="text-sm font-medium text-gray-500 hover:text-gray-800 flex items-center gap-1 transition-colors"
+          >
+            {expanded ? "Hide Details" : "View Details"} 
+            {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+          </button>
+        </div>
+      </div>
+
+      {/* Expanded Details Section */}
+      {expanded && (
+        <div className="bg-gray-50 border-t border-gray-200 p-5 animate-in slide-in-from-top-2 duration-200">
+          {participant.description && (
+             <div className="mb-4">
+               <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Description</h4>
+               <p className="text-sm text-gray-700">{participant.description}</p>
+             </div>
+          )}
+          {participant.pptLink && (
+            <div className="mb-5">
+              <a href={participant.pptLink} target="_blank" rel="noreferrer" className="inline-flex items-center text-sm font-medium text-purple-600 hover:text-purple-800 bg-purple-100/50 px-3 py-1.5 rounded-lg transition-colors">
+                <ExternalLink size={14} className="mr-2" /> View Presentation
+              </a>
+            </div>
+          )}
+
+          <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">All Members ({members.length})</h4>
+          <div className="space-y-3 max-h-64 overflow-y-auto pr-1 custom-scrollbar">
+            {members.map((m, i) => (
+              <div key={i} className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm">
+                <div className="flex justify-between items-start mb-1">
+                  <div className="font-semibold text-gray-800 text-sm flex items-center gap-2">
+                    {m.name} 
+                    {m.isLeader && <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded uppercase font-bold tracking-wider">Leader</span>}
+                  </div>
+                  <div className="text-xs text-gray-500">{m.degree || m.stream ? \`\${m.degree} \${m.stream}\` : m.category || ''}</div>
+                </div>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-1 gap-x-3 mt-2 text-xs text-gray-600">
+                  {m.email && <div className="flex items-center gap-1.5"><Mail size={12} className="text-gray-400"/> <span className="truncate">{m.email}</span></div>}
+                  {m.phone && <div className="flex items-center gap-1.5"><Phone size={12} className="text-gray-400"/> {m.phone}</div>}
+                  {m.institute && <div className="flex items-center gap-1.5"><GraduationCap size={12} className="text-gray-400"/> <span className="truncate">{m.institute}</span></div>}
+                  {m.location && <div className="flex items-center gap-1.5"><MapPin size={12} className="text-gray-400"/> <span className="truncate">{m.location}</span></div>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
-    </>
+    </div>
   );
 }

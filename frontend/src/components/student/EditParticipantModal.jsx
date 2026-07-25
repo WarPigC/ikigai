@@ -114,7 +114,7 @@ export default function EditParticipantModal({ isOpen, onClose, participant, onS
               </div>
               <div>
                 <label className="block text-sm text-gray-700 mb-1">Problem Statement</label>
-                <input type="text" required value={teamDetails.problemStatement} onChange={e => setTeamDetails({...teamDetails, problemStatement: e.target.value})} className="w-full border border-gray-200 rounded text-sm px-3 py-2" />
+                <input type="text" value={teamDetails.problemStatement} onChange={e => setTeamDetails({...teamDetails, problemStatement: e.target.value})} className="w-full border border-gray-200 rounded text-sm px-3 py-2" />
               </div>
               <div>
                 <label className="block text-sm text-gray-700 mb-1">Description</label>

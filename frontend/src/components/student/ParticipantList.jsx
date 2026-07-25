@@ -1,142 +1,88 @@
-import React from "react";
-import ParticipantToolbar from "./ParticipantToolbar";
+import React, { useState } from "react";
+import { Plus, Users } from "lucide-react";
 import ParticipantRow from "./ParticipantRow";
-import EmptyState from "./EmptyState";
-
-import LoadingState from "./LoadingState";
-import PreviewModal from "./PreviewModal";
 import AddParticipantModal from "./AddParticipantModal";
 import EditParticipantModal from "./EditParticipantModal";
-import DeleteParticipantModal from "./DeleteParticipantModal";
-import ProofUploadModal from "./ProofUploadModal";
-import { useParticipants } from "../../hooks/useParticipants";
-import { useParticipantFilters } from "../../hooks/useParticipantFilters";
+import CsvUpload from "./CsvUpload";
 
-export default function ParticipantList({ eventId, trackId, allEvents }) {
-  // Fetch logic is abstracted into hooks, preventing render loops
-  const { participants, proofs, loading, error, refresh } = useParticipants(eventId, trackId);
-  
-  // Filter/Sort logic is abstracted into a dedicated hook
-  const {
-    search,
-    setSearch,
-    modeFilter,
-    setModeFilter,
-    sortBy,
-    setSortBy,
-    filteredParticipants,
-  } = useParticipantFilters(participants);
+export default function ParticipantList({ 
+  participants, 
+  eventId, 
+  trackId, 
+  onDelete, 
+  onSuccess,
+  allEvents 
+}) {
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [editingParticipant, setEditingParticipant] = useState(null);
 
-  const [previewParticipant, setPreviewParticipant] = React.useState(null);
-  const [editParticipant, setEditParticipant] = React.useState(null);
-  const [deleteParticipant, setDeleteParticipant] = React.useState(null);
-  const [uploadProofParticipant, setUploadProofParticipant] = React.useState(null);
-  const [isAddModalOpen, setIsAddModalOpen] = React.useState(false);
-
-  if (error) {
-    return <div className="text-red-500 p-4 border rounded-md mt-4">{error}</div>;
-  }
-
-  const handleAddParticipant = () => {
-    setIsAddModalOpen(true);
-  };
+  if (!participants) return null;
 
   return (
-    <>
-      <ParticipantToolbar 
-        search={search}
-        setSearch={setSearch}
-        modeFilter={modeFilter}
-        setModeFilter={setModeFilter}
-        sortBy={sortBy}
-        setSortBy={setSortBy}
-        onAddParticipant={handleAddParticipant}
-      />
+    <div className="space-y-6">
+      {/* CSV Upload Section */}
+      <CsvUpload eventId={eventId} onSuccess={onSuccess} />
 
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-800/10 p-4">
-        <div className="relative">
-          {/* TABLE HEADER */}
-          <div className="hidden md:grid grid-cols-[40px_90px_160px_240px_160px_80px_auto] gap-2 text-xs font-semibold text-gray-600 border-b pb-2">
-            <div>S.no</div>
-            <div>Paper ID</div>
-            <div>Presenter</div>
-            <div>Paper Title</div>
-            <div>Institute</div>
-            <div>Mode</div>
-            <div>Actions</div>
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="p-4 md:p-6 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-gray-50/30">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center text-purple-600">
+              <Users size={20} />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-gray-800">Teams & Participants</h2>
+              <p className="text-sm text-gray-500">Manage hackathon teams and members</p>
+            </div>
           </div>
-
-          {/* ADD PARTICIPANT BUTTON */}
-          <button
-            onClick={handleAddParticipant}
-            className="absolute top-0 right-0 w-8 h-8 flex items-center justify-center bg-green-600 text-white rounded-lg text-lg font-bold hover:bg-green-700 transition"
-            title="Add Participant"
+          
+          <button 
+            onClick={() => setIsAddModalOpen(true)} 
+            className="px-4 py-2.5 bg-purple-600 text-white rounded-xl hover:bg-purple-700 flex items-center justify-center font-medium shadow-sm transition-colors text-sm w-full sm:w-auto"
           >
-            +
+            <Plus size={18} className="mr-2" /> Add Team
           </button>
         </div>
-
-        {/* LIST RENDERER */}
-        <div className="mt-4 space-y-3">
-          {loading ? (
-            <LoadingState />
-          ) : filteredParticipants.length === 0 ? (
-            <EmptyState hasFilters={participants.length > 0} />
+        
+        <div className="p-4 md:p-6 bg-gray-50 min-h-[400px]">
+          {participants.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-64 text-center">
+              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4 text-gray-400">
+                <Users size={32} />
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-1">No teams found</h3>
+              <p className="text-gray-500 text-sm max-w-sm">Get started by creating a new team or uploading a CSV file with team data.</p>
+            </div>
           ) : (
-            filteredParticipants.map((p, index) => (
-              <ParticipantRow 
-                key={p._id} 
-                index={index} 
-                participant={p} 
-                proofStatus={proofs[p._id]}
-                onPreview={() => setPreviewParticipant(p)} 
-                onEdit={() => setEditParticipant(p)}
-                onDelete={() => setDeleteParticipant(p)}
-                onProofUpload={() => setUploadProofParticipant(p)}
-              />
-            ))
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              {participants.map((participant, index) => (
+                <ParticipantRow 
+                  key={participant._id} 
+                  participant={participant} 
+                  index={index}
+                  onEdit={setEditingParticipant}
+                  onDelete={onDelete}
+                />
+              ))}
+            </div>
           )}
         </div>
       </div>
 
-      <PreviewModal 
-        participant={previewParticipant} 
-        onClose={() => setPreviewParticipant(null)} 
-      />
-
-      <AddParticipantModal
+      <AddParticipantModal 
+        isOpen={isAddModalOpen} 
+        onClose={() => setIsAddModalOpen(false)} 
+        eventId={eventId}
+        trackId={trackId}
         allEvents={allEvents}
-        isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
-        eventId={eventId}
-        trackId={trackId}
-        onSuccess={refresh}
+        onSuccess={onSuccess}
       />
 
-      <EditParticipantModal
-        isOpen={!!editParticipant}
-        onClose={() => setEditParticipant(null)}
-        eventId={eventId}
-        trackId={trackId}
-        participant={editParticipant}
-        onSuccess={refresh}
+      <EditParticipantModal 
+        isOpen={!!editingParticipant} 
+        onClose={() => setEditingParticipant(null)} 
+        participant={editingParticipant}
+        onSuccess={onSuccess}
       />
-
-      <DeleteParticipantModal
-        isOpen={!!deleteParticipant}
-        onClose={() => setDeleteParticipant(null)}
-        participant={deleteParticipant}
-        onSuccess={refresh}
-      />
-
-      <ProofUploadModal
-        isOpen={!!uploadProofParticipant}
-        onClose={() => setUploadProofParticipant(null)}
-        participant={uploadProofParticipant}
-        eventId={eventId}
-        trackId={trackId}
-        onSuccess={refresh}
-      />
-    </>
+    </div>
   );
 }

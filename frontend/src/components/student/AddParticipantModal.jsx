@@ -40,8 +40,8 @@ export default function AddParticipantModal({ isOpen, onClose, eventId, trackId,
       setError("Please select Event and Track");
       return;
     }
-    if (!teamDetails.teamName || !teamDetails.problemStatement) {
-      setError("Please fill in the required team details");
+    if (!teamDetails.teamName) {
+      setError("Please provide a Team Name");
       return;
     }
     setError(null);
@@ -181,8 +181,8 @@ export default function AddParticipantModal({ isOpen, onClose, eventId, trackId,
                   <input type="text" required value={teamDetails.teamName} onChange={e => setTeamDetails({...teamDetails, teamName: e.target.value})} className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:ring-gray-800/20 focus:border-gray-800" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Problem Statement *</label>
-                  <input type="text" required value={teamDetails.problemStatement} onChange={e => setTeamDetails({...teamDetails, problemStatement: e.target.value})} className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:ring-gray-800/20 focus:border-gray-800" />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Problem Statement</label>
+                  <input type="text" value={teamDetails.problemStatement} onChange={e => setTeamDetails({...teamDetails, problemStatement: e.target.value})} className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:ring-gray-800/20 focus:border-gray-800" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
