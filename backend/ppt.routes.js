@@ -6,12 +6,12 @@ const router = express.Router();
 
 /* ================== CLOUDINARY ================== */
 // Config is shared from env vars. If not configured, uploads return a graceful error.
-const isCloudinaryConfigured = () =>
-  !!(
-    process.env.CLOUDINARY_CLOUD_NAME &&
-    process.env.CLOUDINARY_API_KEY &&
-    process.env.CLOUDINARY_API_SECRET
-  );
+const isCloudinaryConfigured = () => {
+  const name = process.env.CLOUDINARY_CLOUD_NAME?.trim();
+  const key = process.env.CLOUDINARY_API_KEY?.trim();
+  const secret = process.env.CLOUDINARY_API_SECRET?.trim();
+  return !!(name && key && secret);
+};
 
 cloudinary.v2.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -95,12 +95,33 @@ router.post("/", upload.single("file"), async (req, res) => {
 
     res.json({ success: true, url: result.secure_url });
   } catch (err) {
+    // Cloudinary can throw plain objects, Error instances, or even raw strings.
+    const errString = typeof err === "string" ? err : String(err?.message || err);
+    
+    const isAuthError =
+      err?.http_code === 401 ||
+      err?.http_code === 400 ||
+      errString.toLowerCase().includes("api_key") ||
+      errString.toLowerCase().includes("cloud_name") ||
+      errString.toLowerCase().includes("disabled");
+
+    if (isAuthError) {
+      console.warn("⚠️ PPT upload: Cloudinary credentials are invalid or not configured correctly. Error:", errString);
+      return res.status(200).json({
+        success: false,
+        configured: false,
+        message: "Cloudinary credentials are invalid. Check CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET in your .env file.",
+      });
+    }
+
+
     console.error("❌ PPT upload error:", err);
     res.status(500).json({
       success: false,
-      message: err.message || "Upload failed",
+      message: err?.message || "Upload failed",
     });
   }
+
 });
 
 export default router;

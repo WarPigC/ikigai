@@ -50,15 +50,19 @@ app.get("/api/test-mail", async (_req, res) => {
 
 
 /* --------------------------- MongoDB Atlas Connection --------------------------- */
-mongoose
-  .connect(process.env.MONGO_URI, {
-    serverSelectionTimeoutMS: 10000,
-  })
-  .then(() => console.log("✅ MongoDB Atlas Connected"))
-  .catch((err) => {
-    console.error("❌ MongoDB Connection Error:", err.message);
-    process.exit(1);
-  });
+// Only connect to the real DB when not running tests.
+// Integration tests inject their own mongoose connection via mongodb-memory-server.
+if (process.env.NODE_ENV !== "test") {
+  mongoose
+    .connect(process.env.MONGO_URI, {
+      serverSelectionTimeoutMS: 10000,
+    })
+    .then(() => console.log("\u2705 MongoDB Atlas Connected"))
+    .catch((err) => {
+      console.error("\u274c MongoDB Connection Error:", err.message);
+      process.exit(1);
+    });
+}
 process.on("unhandledRejection", (err) => {
   console.error("UNHANDLED PROMISE:", err);
 });
@@ -2277,8 +2281,14 @@ app.get("/api/admin/student-coordinators/global", async (req, res) => {
   }
 });
 
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-});
+// Export app for integration testing (supertest imports this)
+export { app };
+
+// Only start listening when not under test
+if (process.env.NODE_ENV !== "test") {
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`\uD83D\uDE80 Server running on port ${PORT}`);
+  });
+}
 
 /* ------------------------------- Server Start --------------------------- */
