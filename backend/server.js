@@ -1331,20 +1331,30 @@ app.get("/api/session/:email", async (req, res) => {
 
 
 app.get("/api/student/participants", async (req, res) => {
-  const { eventId, trackId } = req.query;
+  try {
+    const { eventId, trackId } = req.query;
 
-if (!eventId || !trackId) {
-  return res.status(400).json({
-    success: false,
-    message: "Missing eventId or trackId",
-  });
-}
-const participants = await Participant.find({
-  eventId: new mongoose.Types.ObjectId(eventId),
-  trackId: trackId
-}).sort({ createdAt: 1 });
+    if (!eventId || !trackId) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing eventId or trackId",
+      });
+    }
 
-  res.json({ success: true, participants });
+    let participants;
+    if (eventId === "global") {
+      participants = await Participant.find({}).sort({ createdAt: 1 });
+    } else {
+      participants = await Participant.find({
+        eventId: new mongoose.Types.ObjectId(eventId),
+        trackId: trackId
+      }).sort({ createdAt: 1 });
+    }
+
+    res.json({ success: true, participants });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
 
 // SESSION CHAIR: get current track lock status
