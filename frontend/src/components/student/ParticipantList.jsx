@@ -32,7 +32,7 @@ export default function ParticipantList({
   return (
     <div className="space-y-6">
       {/* CSV Upload Section */}
-      <CsvUpload eventId={eventId} onSuccess={onSuccess} />
+      <CsvUpload eventId={eventId} allEvents={allEvents} onSuccess={onSuccess} />
 
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="p-4 md:p-6 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-gray-50/30">

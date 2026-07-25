@@ -45,6 +45,16 @@ export const studentApi = {
     return await res.json();
   },
 
+  async bulkUploadParticipants(eventId, participants) {
+    const createdBy = sessionStorage.getItem("care_email") || "bulk-import";
+    const res = await fetch(`${API_BASE}/api/student/participants/bulk`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ eventId, participants, createdBy })
+    });
+    return await res.json();
+  },
+
   async fetchProofStatus(participantId) {
     try {
       const res = await fetch(`${API_BASE}/api/proof/${participantId}`);

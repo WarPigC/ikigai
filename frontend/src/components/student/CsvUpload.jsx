@@ -1,27 +1,20 @@
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import Papa from 'papaparse';
-import { Upload, FileText, CheckCircle, AlertCircle, X } from 'lucide-react';
+import { Upload, CheckCircle, AlertCircle, X } from 'lucide-react';
 import { studentApi } from '../../services/studentApi';
 
-export default function CsvUpload({ eventId, onSuccess }) {
-  const fileInputRef = useRef(null);
-  const [file, setFile] = useState(null);
+export default function CsvUpload({ eventId, allEvents, onSuccess }) {
+  const [csvText, setCsvText] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [result, setResult] = useState(null);
-
-  const handleFileChange = (e) => {
-    const f = e.target.files[0];
-    if (f) {
-      setFile(f);
-      setError(null);
-      setResult(null);
-    }
-  };
+  const [selectedEvent, setSelectedEvent] = useState("");
 
   const processCsv = () => {
-    if (!file) return;
-    if (!eventId || eventId === "global") {
+    if (!csvText.trim()) return;
+    
+    const activeEventId = eventId === "global" ? selectedEvent : eventId;
+    if (!activeEventId || activeEventId === "global") {
       setError("Please select a specific event first before uploading CSV.");
       return;
     }
@@ -30,7 +23,9 @@ export default function CsvUpload({ eventId, onSuccess }) {
     setError(null);
     setResult(null);
 
-    Papa.parse(file, {
+    const delimiter = csvText.includes('\\t') ? '\\t' : ',';
+    Papa.parse(csvText.trim(), {
+      delimiter: delimiter,
       header: false,
       skipEmptyLines: true,
       complete: async (results) => {
@@ -64,22 +59,23 @@ export default function CsvUpload({ eventId, onSuccess }) {
               };
             }
 
-            const role = row[2]?.trim() || "Team Member";
+            const isLeader = row[2]?.trim().toLowerCase().includes('leader');
             
             teamsMap[teamId].members.push({
-              name: row[3]?.trim() || "",
-              email: row[4]?.trim() || "",
-              phone: row[5]?.trim() || "",
-              location: row[6]?.trim() || "",
-              category: row[7]?.trim() || "",
-              stream: row[8]?.trim() || "",
-              degree: row[9]?.trim() || "",
-              mode: row[10]?.trim() || "",
-              year: row[11]?.trim() || "",
-              gradYear: row[12]?.trim() || "",
-              institute: row[13]?.trim() || "",
-              gender: "Not Specified",
-              isLeader: role.toLowerCase().includes("leader")
+              name: row[3]?.trim(),
+              email: row[4]?.trim(),
+              phone: row[5]?.trim(),
+              location: row[6]?.trim(),
+              category: row[7]?.trim(),
+              stream: row[8]?.trim(),
+              degree: row[9]?.trim(),
+              branch: row[10]?.trim(),
+              mode: row[11]?.trim(),
+              year: row[12]?.trim(),
+              gradYear: row[14]?.trim() || row[13]?.trim(),
+              institute: row[15]?.trim() || row[14]?.trim(),
+              isLeader,
+              gender: "Not Specified"
             });
           });
 
@@ -88,14 +84,13 @@ export default function CsvUpload({ eventId, onSuccess }) {
             throw new Error("No valid teams found in the CSV");
           }
 
-          const res = await studentApi.bulkUploadParticipants(eventId, participants);
+          const res = await studentApi.bulkUploadParticipants(activeEventId, participants);
           setResult({
             added: res.results.added,
             updated: res.results.updated,
             errors: res.results.errors.length
           });
-          setFile(null);
-          if (fileInputRef.current) fileInputRef.current.value = "";
+          setCsvText("");
           onSuccess();
         } catch (err) {
           setError(err.message || "Failed to process CSV");
@@ -104,7 +99,7 @@ export default function CsvUpload({ eventId, onSuccess }) {
         }
       },
       error: (err) => {
-        setError("Error reading file: " + err.message);
+        setError("Error parsing CSV: " + err.message);
         setLoading(false);
       }
     });
@@ -114,29 +109,45 @@ export default function CsvUpload({ eventId, onSuccess }) {
     <div className="bg-white border border-gray-200 rounded-xl p-5 mb-6 shadow-sm">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-bold text-gray-800 flex items-center">
-          <Upload className="mr-2 text-purple-600" size={20} /> Bulk CSV Upload
+          <Upload className="mr-2 text-purple-600" size={20} /> Bulk CSV Upload (Paste Data)
         </h3>
       </div>
       
-      <div className="flex flex-col md:flex-row gap-4 items-center">
-        <div className="flex-1 w-full">
-          <label className="flex items-center justify-center w-full h-20 px-4 transition bg-white border-2 border-gray-300 border-dashed rounded-lg appearance-none cursor-pointer hover:border-purple-400 focus:outline-none">
-            <span className="flex items-center space-x-2">
-              <FileText className="w-6 h-6 text-gray-400" />
-              <span className="font-medium text-gray-600">
-                {file ? file.name : "Drop CSV file to Upload, or click to select"}
-              </span>
-            </span>
-            <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".csv" className="hidden" />
-          </label>
+      <div className="flex flex-col gap-4">
+        {eventId === "global" && allEvents && allEvents.length > 0 && (
+          <div className="w-full md:w-1/2">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Target Event *</label>
+            <select 
+              value={selectedEvent} 
+              onChange={(e) => setSelectedEvent(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-purple-500 focus:border-purple-500"
+            >
+              <option value="">-- Select Event to Upload To --</option>
+              {allEvents.map(evt => (
+                <option key={evt._id} value={evt._id}>{evt.title}</option>
+              ))}
+            </select>
+          </div>
+        )}
+        
+        <div className="w-full">
+          <textarea
+            value={csvText}
+            onChange={(e) => setCsvText(e.target.value)}
+            placeholder="Paste CSV data here... (e.g. copied from Excel/Google Sheets)&#10;Format: Team ID, Team Name, Role, Name, Email, Phone, Location, Category, Stream, Degree, Mode, Semester, GradYear, Institute"
+            className="w-full h-32 p-3 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500 text-sm font-mono whitespace-pre"
+          />
         </div>
-        <button 
-          onClick={processCsv}
-          disabled={!file || loading}
-          className="px-6 py-4 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors whitespace-nowrap h-20"
-        >
-          {loading ? "Processing..." : "Upload & Sync Data"}
-        </button>
+        
+        <div className="flex justify-end">
+          <button 
+            onClick={processCsv}
+            disabled={!csvText.trim() || loading || (eventId === "global" && !selectedEvent)}
+            className="px-6 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
+          >
+            {loading ? "Processing..." : "Upload & Sync Data"}
+          </button>
+        </div>
       </div>
 
       {error && (

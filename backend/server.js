@@ -1330,6 +1330,55 @@ app.get("/api/session/:email", async (req, res) => {
 
 
 
+
+app.post("/api/student/participants/bulk", async (req, res) => {
+  try {
+    const { eventId, participants, createdBy } = req.body;
+    if (!eventId || !participants || !Array.isArray(participants)) {
+      return res.status(400).json({ success: false, message: "Invalid payload" });
+    }
+    const creatorEmail = createdBy || "bulk-import@system";
+
+    let added = 0;
+    let updated = 0;
+    let errors = [];
+
+    for (const pData of participants) {
+      try {
+        const existing = await Participant.findOne({ eventId, teamId: pData.teamId });
+        if (existing) {
+          // Update existing
+          existing.teamName = pData.teamName || existing.teamName;
+          existing.members = pData.members || existing.members;
+          await existing.save();
+          updated++;
+        } else {
+          // Add new
+          await Participant.create({
+            eventId,
+            teamId: pData.teamId,
+            teamName: pData.teamName,
+            members: pData.members,
+            trackId: pData.trackId || null,
+            problemStatement: pData.problemStatement || "",
+            description: pData.description || "",
+            createdBy: creatorEmail
+          });
+          added++;
+        }
+      } catch (err) {
+        errors.push({ teamId: pData.teamId, error: err.message });
+      }
+    }
+
+    res.json({
+      success: true,
+      results: { added, updated, errors }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
 app.get("/api/student/participants", async (req, res) => {
   try {
     const { eventId, trackId } = req.query;
