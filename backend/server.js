@@ -188,6 +188,14 @@ const ParticipantSchema = new mongoose.Schema(
     description: { type: String, required: false },
     pptLink: { type: String, required: false },        // Cloudinary secure URL once uploaded
 
+    // Evaluator assignment — set by admin via the assignment modal
+    assignedEvaluatorId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "SessionChair",
+      default: null,
+      index: true,
+    },
+
     // Member-level details — CSV-aligned fields
     members: [
       {
