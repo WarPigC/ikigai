@@ -328,3 +328,294 @@ describe("PPT Upload — Graceful degradation", () => {
     expect(res.body.message).toMatch(/cloudinary/i);
   });
 });
+
+
+// ─── Evaluator ↔ Team Assignment ──────────────────────────────────────────────
+
+describe("Assignment — GET /api/participants/by-track", () => {
+
+  test("returns all teams when no evaluatorId is given", async () => {
+    // Seed two teams
+    await request(app).post("/api/student/participants").send(sampleTeamPayload({ teamId: "TM-BY-TRACK-01", teamName: "Team Alpha" }));
+    await request(app).post("/api/student/participants").send(sampleTeamPayload({ teamId: "TM-BY-TRACK-02", teamName: "Team Beta" }));
+
+    const res = await request(app)
+      .get(`/api/participants/by-track?eventId=${TEST_EVENT_ID}&trackId=${TEST_TRACK_ID}`)
+      .expect(200);
+
+    expect(res.body.success).toBe(true);
+    expect(res.body.participants).toHaveLength(2);
+  });
+
+  test("returns only assigned teams when evaluatorId is given", async () => {
+    // Seed evaluator
+    const SessionChair = mongoose.models.SessionChair;
+    const evaluator = await SessionChair.create({
+      name: "Dr. Filter Tester",
+      email: "filter@eval.com",
+      trackId: TEST_TRACK_ID,
+      eventId: TEST_EVENT_ID,
+      type: "Evaluator",
+    });
+
+    // Seed two teams
+    const r1 = await request(app).post("/api/student/participants").send(sampleTeamPayload({ teamId: "TM-FILTER-01", teamName: "Assigned Team" }));
+    const r2 = await request(app).post("/api/student/participants").send(sampleTeamPayload({ teamId: "TM-FILTER-02", teamName: "Unassigned Team" }));
+    const assignedId = r1.body.participant._id;
+
+    // Assign only team 1 to this evaluator
+    await request(app)
+      .patch(`/api/admin/participants/${assignedId}/assign`)
+      .send({ evaluatorId: evaluator._id.toString() })
+      .expect(200);
+
+    // Fetch with evaluatorId — should return ONLY team 1
+    const res = await request(app)
+      .get(`/api/participants/by-track?eventId=${TEST_EVENT_ID}&trackId=${TEST_TRACK_ID}&evaluatorId=${evaluator._id}`)
+      .expect(200);
+
+    expect(res.body.success).toBe(true);
+    expect(res.body.participants).toHaveLength(1);
+    expect(res.body.participants[0].teamName).toBe("Assigned Team");
+
+    await SessionChair.deleteOne({ _id: evaluator._id });
+  });
+
+  test("returns empty array when evaluatorId has no assigned teams", async () => {
+    const SessionChair = mongoose.models.SessionChair;
+    const evaluator = await SessionChair.create({
+      name: "Dr. Empty",
+      email: "empty@eval.com",
+      trackId: TEST_TRACK_ID,
+      eventId: TEST_EVENT_ID,
+      type: "Evaluator",
+    });
+
+    // Seed a team but don't assign it
+    await request(app).post("/api/student/participants").send(sampleTeamPayload({ teamId: "TM-EMPTY-01" }));
+
+    const res = await request(app)
+      .get(`/api/participants/by-track?eventId=${TEST_EVENT_ID}&trackId=${TEST_TRACK_ID}&evaluatorId=${evaluator._id}`)
+      .expect(200);
+
+    expect(res.body.success).toBe(true);
+    expect(res.body.participants).toHaveLength(0);
+
+    await SessionChair.deleteOne({ _id: evaluator._id });
+  });
+
+  test("returns 400 when eventId or trackId is missing", async () => {
+    const r1 = await request(app)
+      .get(`/api/participants/by-track?trackId=${TEST_TRACK_ID}`)
+      .expect(400);
+    expect(r1.body.success).toBe(false);
+
+    const r2 = await request(app)
+      .get(`/api/participants/by-track?eventId=${TEST_EVENT_ID}`)
+      .expect(400);
+    expect(r2.body.success).toBe(false);
+  });
+});
+
+
+describe("Assignment — PATCH /api/admin/participants/:id/assign", () => {
+
+  test("assigns an evaluator to a team — happy path", async () => {
+    const SessionChair = mongoose.models.SessionChair;
+    const evaluator = await SessionChair.create({
+      name: "Prof. Assign Happy",
+      email: "happy@eval.com",
+      trackId: TEST_TRACK_ID,
+      eventId: TEST_EVENT_ID,
+      type: "Evaluator",
+    });
+
+    const createRes = await request(app).post("/api/student/participants").send(sampleTeamPayload({ teamId: "TM-ASSIGN-01" }));
+    const participantId = createRes.body.participant._id;
+
+    const res = await request(app)
+      .patch(`/api/admin/participants/${participantId}/assign`)
+      .send({ evaluatorId: evaluator._id.toString() })
+      .expect(200);
+
+    expect(res.body.success).toBe(true);
+    expect(res.body.participant.assignedEvaluatorId.toString()).toBe(evaluator._id.toString());
+
+    await SessionChair.deleteOne({ _id: evaluator._id });
+  });
+
+  test("unassigns a team by passing null — returns to Unassigned pool", async () => {
+    const SessionChair = mongoose.models.SessionChair;
+    const evaluator = await SessionChair.create({
+      name: "Prof. Unassign",
+      email: "unassign@eval.com",
+      trackId: TEST_TRACK_ID,
+      eventId: TEST_EVENT_ID,
+      type: "Evaluator",
+    });
+
+    const createRes = await request(app).post("/api/student/participants").send(sampleTeamPayload({ teamId: "TM-UNASSIGN-01" }));
+    const participantId = createRes.body.participant._id;
+
+    // First assign
+    await request(app)
+      .patch(`/api/admin/participants/${participantId}/assign`)
+      .send({ evaluatorId: evaluator._id.toString() })
+      .expect(200);
+
+    // Then unassign with null
+    const res = await request(app)
+      .patch(`/api/admin/participants/${participantId}/assign`)
+      .send({ evaluatorId: null })
+      .expect(200);
+
+    expect(res.body.success).toBe(true);
+    expect(res.body.participant.assignedEvaluatorId).toBeNull();
+
+    await SessionChair.deleteOne({ _id: evaluator._id });
+  });
+
+  test("reassignment overwrites previous evaluator — admin can always reassign", async () => {
+    const SessionChair = mongoose.models.SessionChair;
+    const ev1 = await SessionChair.create({ name: "Eval One", email: "ev1@eval.com", trackId: TEST_TRACK_ID, eventId: TEST_EVENT_ID, type: "Evaluator" });
+    const ev2 = await SessionChair.create({ name: "Eval Two", email: "ev2@eval.com", trackId: TEST_TRACK_ID, eventId: TEST_EVENT_ID, type: "Evaluator" });
+
+    const createRes = await request(app).post("/api/student/participants").send(sampleTeamPayload({ teamId: "TM-REASSIGN-01" }));
+    const participantId = createRes.body.participant._id;
+
+    // Assign to ev1
+    await request(app)
+      .patch(`/api/admin/participants/${participantId}/assign`)
+      .send({ evaluatorId: ev1._id.toString() })
+      .expect(200);
+
+    // Reassign to ev2
+    const res = await request(app)
+      .patch(`/api/admin/participants/${participantId}/assign`)
+      .send({ evaluatorId: ev2._id.toString() })
+      .expect(200);
+
+    expect(res.body.success).toBe(true);
+    expect(res.body.participant.assignedEvaluatorId.toString()).toBe(ev2._id.toString());
+
+    // Confirm via by-track that ev1 sees 0 teams and ev2 sees 1 team
+    const ev1Teams = await request(app)
+      .get(`/api/participants/by-track?eventId=${TEST_EVENT_ID}&trackId=${TEST_TRACK_ID}&evaluatorId=${ev1._id}`)
+      .expect(200);
+    expect(ev1Teams.body.participants).toHaveLength(0);
+
+    const ev2Teams = await request(app)
+      .get(`/api/participants/by-track?eventId=${TEST_EVENT_ID}&trackId=${TEST_TRACK_ID}&evaluatorId=${ev2._id}`)
+      .expect(200);
+    expect(ev2Teams.body.participants).toHaveLength(1);
+
+    await SessionChair.deleteMany({ _id: { $in: [ev1._id, ev2._id] } });
+  });
+
+  test("returns 404 when participant does not exist", async () => {
+    const fakeId = new mongoose.Types.ObjectId().toString();
+    const SessionChair = mongoose.models.SessionChair;
+    const evaluator = await SessionChair.create({ name: "Ghost Eval", email: "ghost@eval.com", trackId: TEST_TRACK_ID, eventId: TEST_EVENT_ID, type: "Evaluator" });
+
+    const res = await request(app)
+      .patch(`/api/admin/participants/${fakeId}/assign`)
+      .send({ evaluatorId: evaluator._id.toString() })
+      .expect(404);
+
+    expect(res.body.success).toBe(false);
+    expect(res.body.message).toMatch(/not found/i);
+
+    await SessionChair.deleteOne({ _id: evaluator._id });
+  });
+
+  test("returns 404 when evaluatorId does not exist", async () => {
+    const createRes = await request(app).post("/api/student/participants").send(sampleTeamPayload({ teamId: "TM-NOTEVAL-01" }));
+    const participantId = createRes.body.participant._id;
+    const fakeEvalId = new mongoose.Types.ObjectId().toString();
+
+    const res = await request(app)
+      .patch(`/api/admin/participants/${participantId}/assign`)
+      .send({ evaluatorId: fakeEvalId })
+      .expect(404);
+
+    expect(res.body.success).toBe(false);
+    expect(res.body.message).toMatch(/not found/i);
+  });
+
+  test("returns 400 when evaluator belongs to a different track", async () => {
+    const SessionChair = mongoose.models.SessionChair;
+    const wrongTrackEval = await SessionChair.create({
+      name: "Wrong Track Eval",
+      email: "wrongtrack@eval.com",
+      trackId: "track-different-999", // different track!
+      eventId: TEST_EVENT_ID,
+      type: "Evaluator",
+    });
+
+    const createRes = await request(app).post("/api/student/participants").send(sampleTeamPayload({ teamId: "TM-WRONGTRACK-01" }));
+    const participantId = createRes.body.participant._id;
+
+    const res = await request(app)
+      .patch(`/api/admin/participants/${participantId}/assign`)
+      .send({ evaluatorId: wrongTrackEval._id.toString() })
+      .expect(400);
+
+    expect(res.body.success).toBe(false);
+    expect(res.body.message).toMatch(/same event\/track/i);
+
+    await SessionChair.deleteOne({ _id: wrongTrackEval._id });
+  });
+
+  test("returns 400 when evaluator belongs to a different event", async () => {
+    const SessionChair = mongoose.models.SessionChair;
+    const differentEventId = new mongoose.Types.ObjectId().toString();
+    const wrongEventEval = await SessionChair.create({
+      name: "Wrong Event Eval",
+      email: "wrongevent@eval.com",
+      trackId: TEST_TRACK_ID,
+      eventId: differentEventId, // different event!
+      type: "Evaluator",
+    });
+
+    const createRes = await request(app).post("/api/student/participants").send(sampleTeamPayload({ teamId: "TM-WRONGEVENT-01" }));
+    const participantId = createRes.body.participant._id;
+
+    const res = await request(app)
+      .patch(`/api/admin/participants/${participantId}/assign`)
+      .send({ evaluatorId: wrongEventEval._id.toString() })
+      .expect(400);
+
+    expect(res.body.success).toBe(false);
+    expect(res.body.message).toMatch(/same event\/track/i);
+
+    await SessionChair.deleteOne({ _id: wrongEventEval._id });
+  });
+
+  test("assignedEvaluatorId persists correctly after assessment is also patched", async () => {
+    const SessionChair = mongoose.models.SessionChair;
+    const evaluator = await SessionChair.create({ name: "Persistence Eval", email: "persist@eval.com", trackId: TEST_TRACK_ID, eventId: TEST_EVENT_ID, type: "Evaluator" });
+
+    const createRes = await request(app).post("/api/student/participants").send(sampleTeamPayload({ teamId: "TM-PERSIST-01" }));
+    const participantId = createRes.body.participant._id;
+
+    // Assign evaluator
+    await request(app).patch(`/api/admin/participants/${participantId}/assign`).send({ evaluatorId: evaluator._id.toString() }).expect(200);
+
+    // Patch assessment (session chair action)
+    await request(app)
+      .patch(`/api/session/participants/${participantId}/assessment`)
+      .send({ assessment: { criteria: [9, 8], total: 17, mode: "criteria" } })
+      .expect(200);
+
+    // Verify assignedEvaluatorId is still set after assessment update
+    const fetchRes = await request(app)
+      .get(`/api/participants/by-track?eventId=${TEST_EVENT_ID}&trackId=${TEST_TRACK_ID}&evaluatorId=${evaluator._id}`)
+      .expect(200);
+
+    expect(fetchRes.body.participants).toHaveLength(1);
+    expect(fetchRes.body.participants[0].assessment.total).toBe(17);
+    expect(fetchRes.body.participants[0].assignedEvaluatorId.toString()).toBe(evaluator._id.toString());
+
+    await SessionChair.deleteOne({ _id: evaluator._id });
+  });
+});
