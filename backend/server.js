@@ -188,6 +188,14 @@ const ParticipantSchema = new mongoose.Schema(
     description: { type: String, required: false },
     pptLink: { type: String, required: false },        // Cloudinary secure URL once uploaded
 
+    // Evaluator assignment — set by admin via the assignment modal
+    assignedEvaluatorId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "SessionChair",
+      default: null,
+      index: true,
+    },
+
     // Member-level details — CSV-aligned fields
     members: [
       {
@@ -1135,10 +1143,15 @@ app.put("/api/student/participants/:id", async (req, res) => {
 });
 
 
-// ✅ Session Chair: fetch participants for their assigned track (read-only)
-app.get("/api/session/participants", async (req, res) => {
+// ═══════════════════════════════════════════════════════════════════
+// SHARED: Fetch participants by track (all 3 roles)
+// ═══════════════════════════════════════════════════════════════════
+// Query: eventId (required), trackId (required), evaluatorId (optional)
+// - evaluatorId present → only teams assigned to that evaluator
+// - evaluatorId absent  → all teams in the track
+app.get("/api/participants/by-track", async (req, res) => {
   try {
-    const { eventId, trackId } = req.query;
+    const { eventId, trackId, evaluatorId } = req.query;
 
     if (!eventId || !trackId) {
       return res.status(400).json({
@@ -1147,10 +1160,98 @@ app.get("/api/session/participants", async (req, res) => {
       });
     }
 
-    const participants = await Participant.find({
+    const filter = {
       eventId: new mongoose.Types.ObjectId(eventId),
       trackId: String(trackId),
-    }).sort({ createdAt: 1 });
+    };
+
+    // If evaluatorId is provided, scope to only assigned teams
+    if (evaluatorId) {
+      filter.assignedEvaluatorId = new mongoose.Types.ObjectId(evaluatorId);
+    }
+
+    const participants = await Participant.find(filter).sort({ createdAt: 1 });
+
+    res.json({ success: true, participants });
+  } catch (err) {
+    console.error("❌ Fetch participants by-track error:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+
+// ═══════════════════════════════════════════════════════════════════
+// ADMIN: Assign a team to an evaluator (or unassign)
+// ═══════════════════════════════════════════════════════════════════
+// Body: { evaluatorId: "<ObjectId>" | null }
+// - Passing a valid SessionChair ObjectId assigns the team.
+// - Passing null unassigns the team (returns to Unassigned pool).
+app.patch("/api/admin/participants/:id/assign", async (req, res) => {
+  try {
+    const { evaluatorId } = req.body;
+    const participantId = req.params.id;
+
+    const participant = await Participant.findById(participantId);
+    if (!participant) {
+      return res.status(404).json({ success: false, message: "Participant not found" });
+    }
+
+    // Unassign case
+    if (evaluatorId === null || evaluatorId === undefined) {
+      participant.assignedEvaluatorId = null;
+      await participant.save();
+      return res.json({ success: true, participant });
+    }
+
+    // Validate: evaluator must exist
+    const evaluator = await SessionChair.findById(evaluatorId);
+    if (!evaluator) {
+      return res.status(404).json({ success: false, message: "Evaluator not found" });
+    }
+
+    // Validate: evaluator must belong to the same track as the participant
+    if (String(evaluator.trackId) !== String(participant.trackId) ||
+        String(evaluator.eventId) !== String(participant.eventId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Evaluator does not belong to the same event/track as this team",
+      });
+    }
+
+    participant.assignedEvaluatorId = new mongoose.Types.ObjectId(evaluatorId);
+    await participant.save();
+
+    res.json({ success: true, participant });
+  } catch (err) {
+    console.error("❌ Assign evaluator error:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+
+// ✅ Session Chair: fetch participants assigned to THIS evaluator (read-only)
+app.get("/api/session/participants", async (req, res) => {
+  try {
+    const { eventId, trackId, evaluatorId } = req.query;
+
+    if (!eventId || !trackId) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing eventId or trackId",
+      });
+    }
+
+    const filter = {
+      eventId: new mongoose.Types.ObjectId(eventId),
+      trackId: String(trackId),
+    };
+
+    // If evaluatorId provided, scope to only their assigned teams
+    if (evaluatorId) {
+      filter.assignedEvaluatorId = new mongoose.Types.ObjectId(evaluatorId);
+    }
+
+    const participants = await Participant.find(filter).sort({ createdAt: 1 });
 
     res.json({ success: true, participants });
   } catch (err) {
