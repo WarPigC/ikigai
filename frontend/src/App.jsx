@@ -3656,7 +3656,7 @@ const normalizedMeetingLink =
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
                         <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-semibold">
-  Paper ID: {p.paperId}
+  Team ID: {p.paperId}
 </span>
 
 
@@ -3680,7 +3680,7 @@ const normalizedMeetingLink =
                       </div>
 
                       <div className="text-xs text-gray-500">
-                        Mode: {p.mode} • {p.email}
+                        {p.mode} • {p.email}
                       </div>
                     </div>
 
@@ -4144,15 +4144,14 @@ const normalizeCriteriaValue = (raw, max = 10) => {
     </div>
 
     <span className="px-3 py-1 rounded-full bg-green-600 text-white text-sm font-semibold">
-      Paper ID: {p.paperId}
-
+      Team ID: {p.paperId}
     </span>
   </div>
 
   {/* PAPER DETAILS */}
   <div className="mb-3">
     <div className="text-sm font-semibold text-gray-700">
-      Paper Title
+      Problem Statement
     </div>
     <div className="text-sm text-gray-800">
       {p.paperTitle}
@@ -4623,9 +4622,15 @@ function SessionChairConsole() {
   list.map((p) => ({
     ...p,
     _id: p._id,                 // Mongo ID (ONLY identity)
-    paperId: p.paperId,         // display only
-   assessment: p.assessment || null,
-
+    paperId: p.teamId || p.paperId,
+    presenterName: p.teamName || p.presenterName,
+    paperTitle: p.problemStatement || p.description || p.paperTitle,
+    institute: p.members?.[0]?.organisation || p.institute || "Unknown Institute",
+    branch: p.members?.[0]?.specialization || p.branch || "Unknown Branch",
+    mode: `${p.members?.length || 0} members` || p.mode,
+    email: p.members?.[0]?.email || p.email || "Unknown",
+    phone: p.members?.[0]?.mobile || p.phone || "Unknown",
+    assessment: p.assessment || null,
   }));
 
 

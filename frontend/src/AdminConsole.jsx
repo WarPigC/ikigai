@@ -143,9 +143,9 @@ function TrackItem({ event, track, refreshEvents }) {
   const [assignStats, setAssignStats] = useState(null); // { total, assigned }
   const [trackEvaluators, setTrackEvaluators] = useState([]);
 
-  // Fetch assignment stats and evaluators for the badge whenever expanded
+  // Fetch assignment stats and evaluators for the badge whenever expanded or modal is open
   useEffect(() => {
-    if (!expanded) return;
+    if (!expanded && !assignModal) return;
     // Fetch all participants in this track to compute the badge
     fetch(`${API_BASE}/api/participants/by-track?eventId=${event._id}&trackId=${track.id}`)
       .then((r) => r.json())
@@ -167,7 +167,7 @@ function TrackItem({ event, track, refreshEvents }) {
         }
       })
       .catch(console.error);
-  }, [expanded, event._id, track.id]);
+  }, [expanded, assignModal, event._id, track.id]);
 
   const handleDelete = async () => {
     const res = await fetch(`${API_BASE}/api/admin/events/${event._id}/tracks/${track.id}`, { method: "DELETE" });
@@ -197,7 +197,7 @@ function TrackItem({ event, track, refreshEvents }) {
           {/* Assign Teams button */}
           <button
             onClick={(e) => { e.stopPropagation(); setAssignModal(true); }}
-            className="text-sm px-3 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition font-medium"
+            className="text-sm px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 transition font-medium"
           >
             Assign Teams
           </button>
