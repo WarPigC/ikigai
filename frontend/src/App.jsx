@@ -2410,7 +2410,7 @@ useEffect(() => {
   const fetchParticipants = async () => {
     try {
       const res = await fetch(
-        `${API_BASE}/api/admin/participants?eventId=${eventId}&trackId=${trackId}`
+        `${API_BASE}/api/participants/by-track?eventId=${eventId}&trackId=${trackId}`
       );
 
       const data = await res.json();
@@ -4659,7 +4659,7 @@ function SessionChairConsole() {
         setTrack(data.track || {});
 
         const pRes = await fetch(
-          `${API_BASE}/api/student/participants?eventId=${data.chair.eventId}&trackId=${data.chair.trackId}`
+          `${API_BASE}/api/participants/by-track?eventId=${data.chair.eventId}&trackId=${data.chair.trackId}&evaluatorId=${data.chair._id}`
         );
 
         const pData = await pRes.json();

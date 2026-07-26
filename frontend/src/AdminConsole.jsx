@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import AssignTeamsModal from "./components/admin/AssignTeamsModal";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
 
@@ -138,6 +139,35 @@ function EvaluatorList({ event, track, refreshEvents }) {
 function TrackItem({ event, track, refreshEvents }) {
   const [expanded, setExpanded] = useState(false);
   const [deleteModal, setDeleteModal] = useState(false);
+  const [assignModal, setAssignModal] = useState(false);
+  const [assignStats, setAssignStats] = useState(null); // { total, assigned }
+  const [trackEvaluators, setTrackEvaluators] = useState([]);
+
+  // Fetch assignment stats and evaluators for the badge whenever expanded
+  useEffect(() => {
+    if (!expanded) return;
+    // Fetch all participants in this track to compute the badge
+    fetch(`${API_BASE}/api/participants/by-track?eventId=${event._id}&trackId=${track.id}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success) {
+          const total = data.participants.length;
+          const assigned = data.participants.filter((p) => p.assignedEvaluatorId).length;
+          setAssignStats({ total, assigned });
+        }
+      })
+      .catch(console.error);
+
+    // Fetch evaluators for this track (reuse existing session-chairs endpoint)
+    fetch(`${API_BASE}/api/admin/session-chairs/${event._id}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success && data.chairs) {
+          setTrackEvaluators(data.chairs.filter((c) => c.trackId === track.id));
+        }
+      })
+      .catch(console.error);
+  }, [expanded, event._id, track.id]);
 
   const handleDelete = async () => {
     const res = await fetch(`${API_BASE}/api/admin/events/${event._id}/tracks/${track.id}`, { method: "DELETE" });
@@ -147,18 +177,37 @@ function TrackItem({ event, track, refreshEvents }) {
   return (
     <div className="mb-3 bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
       <div className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition" onClick={() => setExpanded(!expanded)}>
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <h4 className="font-bold text-gray-800 text-lg flex items-center gap-2">
             <span className={`text-green-600 transition-transform ${expanded ? 'rotate-90' : ''}`}>▶</span> {track.title}
           </h4>
           <p className="text-sm text-gray-600 mt-1">{track.description}</p>
         </div>
-        <button 
-          onClick={(e) => { e.stopPropagation(); setDeleteModal(true); }}
-          className="text-red-500 hover:text-red-700 hover:bg-red-50 px-3 py-1 rounded transition ml-4"
-        >
-          Delete Track
-        </button>
+        <div className="flex items-center gap-2 ml-4 flex-shrink-0">
+          {/* Assignment badge */}
+          {assignStats !== null && (
+            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${
+              assignStats.assigned === assignStats.total && assignStats.total > 0
+                ? "bg-green-50 text-green-700 border-green-200"
+                : "bg-amber-50 text-amber-700 border-amber-200"
+            }`}>
+              {assignStats.assigned}/{assignStats.total} assigned
+            </span>
+          )}
+          {/* Assign Teams button */}
+          <button
+            onClick={(e) => { e.stopPropagation(); setAssignModal(true); }}
+            className="text-sm px-3 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition font-medium"
+          >
+            Assign Teams
+          </button>
+          <button 
+            onClick={(e) => { e.stopPropagation(); setDeleteModal(true); }}
+            className="text-red-500 hover:text-red-700 hover:bg-red-50 px-3 py-1 rounded transition"
+          >
+            Delete Track
+          </button>
+        </div>
       </div>
       
       {expanded && (
@@ -173,6 +222,14 @@ function TrackItem({ event, track, refreshEvents }) {
         onConfirm={handleDelete} 
         itemName={track.title} 
         itemType="Track" 
+      />
+
+      <AssignTeamsModal
+        isOpen={assignModal}
+        onClose={() => { setAssignModal(false); setAssignStats(null); }}
+        event={event}
+        track={track}
+        evaluators={trackEvaluators}
       />
     </div>
   );
