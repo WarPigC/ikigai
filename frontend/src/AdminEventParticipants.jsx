@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { X, User, MapPin, Building2, BookOpen, GraduationCap, CheckCircle, Mail, Phone, ExternalLink, Link2, FileText, AlertCircle } from "lucide-react";
 
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
@@ -51,6 +52,7 @@ const [showFilters, setShowFilters] = useState(false);
           const mapped = (data.participants || []).map((p) => {
             const leader = p.members?.find((m) => m.isLeader) || p.members?.[0] || {};
             return {
+              ...p,
               paperId: p.teamId || p._id,
               teamName: p.teamName || "",
               paperTitle: p.problemStatement || "",
@@ -699,42 +701,204 @@ const exportParticipantsPDF = () => {
 
 </div>
 {selectedParticipant && (
-  <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center">
-    <div className="bg-white rounded-2xl w-full max-w-2xl p-6 relative">
-
-      <button
-        onClick={() => setSelectedParticipant(null)}
-        className="absolute top-3 right-4 text-gray-400 hover:text-gray-600"
-      >
-        ✕
-      </button>
-
-      <h3 className="text-xl font-semibold text-green-700 mb-4">
-        Participant Details
-      </h3>
-
-      <div className="space-y-3 text-sm text-gray-700">
-        <div><b>Presenter:</b> {selectedParticipant.presenterName}</div>
-        <div><b>Email:</b> {selectedParticipant.email}</div>
-        <div><b>Phone:</b> {selectedParticipant.phone}</div>
-        <div><b>Institute:</b> {selectedParticipant.institute}</div>
-        {selectedParticipant.branch && <div><b>Branch:</b> {selectedParticipant.branch}</div>}
-
-        <div className="pt-2">
-          <b>Team ID:</b> {selectedParticipant.paperId}
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+    <div className="relative bg-white w-full max-w-5xl max-h-[90vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      
+      {/* Modal Header */}
+      <div className="flex-shrink-0 border-b border-gray-100 bg-gray-50/80 px-6 py-5 relative">
+        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 to-violet-500"></div>
+        <button
+          onClick={() => setSelectedParticipant(null)}
+          className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+        >
+          <X size={20} />
+        </button>
+        <div className="flex items-start justify-between pr-10">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-3 mb-1">
+              <h2 className="text-2xl font-extrabold text-gray-900 tracking-tight truncate">
+                {selectedParticipant.teamName || "Unnamed Team"}
+              </h2>
+              <span className="px-2.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200 font-mono text-xs font-bold shadow-sm">
+                {selectedParticipant.paperId}
+              </span>
+            </div>
+            <div className="flex items-center gap-4 text-sm text-gray-500">
+              <span className="flex items-center gap-1.5 font-medium text-gray-700">
+                <CheckCircle size={15} className="text-emerald-500" />
+                {selectedParticipant.trackName || selectedParticipant.track || "No Track"}
+              </span>
+              {(selectedParticipant.status || selectedParticipant.regStatus) && (
+                <>
+                  <span className="text-gray-300">•</span>
+                  <span className="uppercase tracking-wider text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                    {selectedParticipant.status || selectedParticipant.regStatus}
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
         </div>
-        <div><b>Team Name:</b> {selectedParticipant.teamName}</div>
-        <div><b>Problem Statement:</b> {selectedParticipant.paperTitle}</div>
+      </div>
 
-        <div>
-          <b>Track:</b> {selectedParticipant.trackName}
-        </div>
+      {/* Modal Body (Scrollable) */}
+      <div className="flex-1 overflow-y-auto p-6 bg-gray-50/30">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
+          {/* Left Column (Project & Eval Info) */}
+          <div className="space-y-6 lg:col-span-1">
+            
+            {/* Project Details Card */}
+            <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-5">
+              <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wider mb-4 flex items-center gap-2">
+                <FileText size={16} className="text-indigo-500" /> Project Details
+              </h3>
+              
+              <div className="space-y-4 text-sm text-gray-700">
+                <div>
+                  <span className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Problem Statement</span>
+                  <p className="font-medium text-gray-900 leading-relaxed">{selectedParticipant.paperTitle || selectedParticipant.problemStatement || "—"}</p>
+                </div>
+                
+                {selectedParticipant.description && (
+                  <div>
+                    <span className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Description</span>
+                    <p className="text-gray-600 leading-relaxed whitespace-pre-wrap">{selectedParticipant.description}</p>
+                  </div>
+                )}
 
-        <div>
-          <b>Marks:</b>{" "}
-          {typeof selectedParticipant.assessment?.total === "number"
-            ? selectedParticipant.assessment.total
-            : "Pending"}
+                {selectedParticipant.pptLink && (
+                  <div>
+                    <span className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1.5">Presentation</span>
+                  <a 
+                    href={
+                      (selectedParticipant.pptLink.includes('drive.google.com') || selectedParticipant.pptLink.includes('docs.google.com'))
+                        ? selectedParticipant.pptLink 
+                        : `https://docs.google.com/viewer?url=${encodeURIComponent(selectedParticipant.pptLink)}`
+                    } 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="inline-flex items-center gap-2 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-sm font-semibold transition-colors border border-indigo-200"
+                  >
+                    <Link2 size={15} /> View PPT
+                  </a>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Evaluation Card */}
+            <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-5">
+              <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wider mb-4 flex items-center gap-2">
+                <CheckCircle size={16} className="text-emerald-500" /> Evaluation
+              </h3>
+              
+              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-100">
+                <div>
+                  <span className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-0.5">Total Marks</span>
+                  <div className="text-2xl font-extrabold text-gray-900">
+                    {typeof selectedParticipant.assessment?.total === "number" ? selectedParticipant.assessment.total : <span className="text-gray-400 text-lg">Pending</span>}
+                  </div>
+                </div>
+                {typeof selectedParticipant.assessment?.total === "number" && (
+                  <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-lg shadow-inner">
+                    {selectedParticipant.assessment.total}
+                  </div>
+                )}
+              </div>
+            </div>
+
+          </div>
+
+          {/* Right Column (Team Members) */}
+          <div className="lg:col-span-2 space-y-4">
+            {/* The heading was removed here as per user request */}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Fallback to presenter if members array doesn't exist */}
+              {(!selectedParticipant.members || selectedParticipant.members.length === 0) ? (
+                <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm relative overflow-hidden">
+                  <div className="absolute top-0 left-0 w-1 h-full bg-indigo-400"></div>
+                  <h4 className="font-bold text-gray-900 text-base mb-1">{selectedParticipant.presenterName}</h4>
+                  <span className="text-xs font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded uppercase tracking-wider">Presenter</span>
+                  
+                  <div className="mt-4 space-y-2 text-sm text-gray-600">
+                    {selectedParticipant.email && (
+                      <div className="flex items-center gap-2 truncate" title={selectedParticipant.email}>
+                        <Mail size={14} className="text-gray-400 flex-shrink-0" /> <span className="truncate">{selectedParticipant.email}</span>
+                      </div>
+                    )}
+                    {selectedParticipant.phone && (
+                      <div className="flex items-center gap-2">
+                        <Phone size={14} className="text-gray-400 flex-shrink-0" /> <span>{selectedParticipant.phone}</span>
+                      </div>
+                    )}
+                    {selectedParticipant.institute && (
+                      <div className="flex items-center gap-2 truncate" title={selectedParticipant.institute}>
+                        <Building2 size={14} className="text-gray-400 flex-shrink-0" /> <span className="truncate">{selectedParticipant.institute}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                selectedParticipant.members.map((m, idx) => (
+                  <div key={idx} className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm relative overflow-hidden group hover:border-indigo-200 hover:shadow-md transition-all">
+                    <div className={`absolute top-0 left-0 w-1 h-full ${m.isLeader ? 'bg-indigo-500' : 'bg-gray-300 group-hover:bg-indigo-300'}`}></div>
+                    
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="min-w-0 pr-2">
+                        <h4 className="font-bold text-gray-900 text-base truncate" title={m.name}>{m.name || "Unknown"}</h4>
+                        <span className={`inline-block mt-1 text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded ${m.isLeader ? 'text-indigo-700 bg-indigo-50 border border-indigo-100' : 'text-gray-500 bg-gray-100'}`}>
+                          {m.candidateRole || (m.isLeader ? "Team Leader" : "Team Member")}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2.5 text-sm text-gray-600">
+                      {m.email && (
+                        <div className="flex items-center gap-2.5 truncate" title={m.email}>
+                          <Mail size={15} className="text-gray-400 flex-shrink-0" /> <span className="truncate">{m.email}</span>
+                        </div>
+                      )}
+                      {m.mobile && (
+                        <div className="flex items-center gap-2.5">
+                          <Phone size={15} className="text-gray-400 flex-shrink-0" /> <span>{m.mobile}</span>
+                        </div>
+                      )}
+                      {m.location && (
+                        <div className="flex items-center gap-2.5 truncate" title={m.location}>
+                          <MapPin size={15} className="text-gray-400 flex-shrink-0" /> <span className="truncate">{m.location}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="mt-4 pt-3 border-t border-gray-100 space-y-2">
+                      {m.organisation && (
+                        <div className="flex items-center gap-2 text-xs text-gray-500 truncate" title={m.organisation}>
+                          <Building2 size={13} className="text-gray-400 flex-shrink-0" />
+                          <span className="truncate font-medium">{m.organisation}</span>
+                        </div>
+                      )}
+                      {(m.domain || m.specialization || m.course) && (
+                        <div className="flex items-center gap-2 text-xs text-gray-500 truncate" title={`${m.course ? m.course + ' - ' : ''}${m.specialization || m.domain}`}>
+                          <BookOpen size={13} className="text-gray-400 flex-shrink-0" />
+                          <span className="truncate">{m.course ? m.course + ' - ' : ''}{m.specialization || m.domain}</span>
+                        </div>
+                      )}
+                      {m.userType && (
+                        <div className="flex items-center gap-2 text-xs text-gray-500">
+                          <GraduationCap size={13} className="text-gray-400 flex-shrink-0" />
+                          <span>{m.userType}</span>
+                        </div>
+                      )}
+                    </div>
+
+                  </div>
+                ))
+              )}
+            </div>
+            
+          </div>
         </div>
       </div>
     </div>

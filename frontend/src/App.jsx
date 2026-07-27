@@ -22,7 +22,7 @@ import autoTable from "jspdf-autotable";
 import AdminEventParticipants from "./AdminEventParticipants";
 import StudentDashboard from "./pages/StudentDashboard";
 import ramsitaLogo from "./assets/ramsita-logo.png";
-
+import { FileText, CheckCircle, Link2, User, Mail, Phone, Building2, BookOpen, GraduationCap, MapPin, X } from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
 export const ASSESSMENT_CRITERIA = [
@@ -2406,6 +2406,7 @@ useEffect(() => {
         const mapped = data.participants.map(p => {
           const leader = p.members?.find(m => m.isLeader) || p.members?.[0] || {};
           return {
+            ...p,
             paperId: p.teamId || p._id,
             teamName: p.teamName || "",
             paperTitle: p.problemStatement || "",
@@ -3101,238 +3102,330 @@ const submissionUrl =
     </div>
   ))}
 </div>
-{selectedParticipant && (
-  <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
-    <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col relative">
+{selectedParticipant && (() => {
+  const displayMembers = selectedParticipant.members?.length > 0 
+    ? selectedParticipant.members 
+    : [
+        { 
+          name: selectedParticipant.presenterName || "Unknown", 
+          email: selectedParticipant.email, 
+          mobile: selectedParticipant.phone, 
+          institute: selectedParticipant.institute, 
+          course: selectedParticipant.branch,
+          isLeader: true, 
+          candidateRole: 'Presenter' 
+        },
+        ...(selectedParticipant.coAuthors || []).map(c => ({ 
+          name: c.name, 
+          email: c.email, 
+          candidateRole: 'Co-Author', 
+          isLeader: false 
+        }))
+      ];
 
-
-      {/* Header */}
-      <div className="flex justify-between items-start px-6 py-4 border-b">
-  <h3 className="text-lg font-semibold text-green-700">
-    Participant Details
-  </h3>
-  
-</div>
-<div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
-      {/* Presenter */}
-      <div>
-    <div className="font-semibold text-gray-800 mb-1">Presenter</div>
-    <div className="text-sm text-gray-700 space-y-1">
-      <div>{selectedParticipant.presenterName}</div>
-      <div>{selectedParticipant.email}</div>
-      <div>{selectedParticipant.phone}</div>
-      <div>
-        {selectedParticipant.institute} • {selectedParticipant.branch}
-      </div>
-    </div>
-  </div>
-      {/* Paper */}
-      <div>
-    <div className="font-semibold text-gray-800 mb-1">Team Details</div>
-    <div className="text-sm text-gray-700 space-y-1">
-      <div>Team ID: {selectedParticipant.paperId}</div>
-      <div>Team Name: {selectedParticipant.teamName}</div>
-      <div>Problem Statement: {selectedParticipant.paperTitle}</div>
-    </div>
-  </div>
-      {/* Submission */}
-      <div>
-    <div className="font-semibold text-gray-800 mb-1">Submission</div>
-    {selectedParticipant.submissionLink ? (
-      <a
-  href={submissionUrl}
-  target="_blank"
-  rel="noreferrer"
-  className="text-sm text-green-700 hover:underline break-all"
->
-  Open Drive Folder
-</a>
-
-
-    ) : (
-      <div className="text-sm text-gray-500">No submission link</div>
-    )}
-  </div>
-
-      {/* Co-authors */}
-      <div>
-    <div className="font-semibold text-gray-800 mb-1">Co-authors</div>
-    {selectedParticipant.coAuthors?.length ? (
-      <ul className="text-sm text-gray-700 space-y-1">
-        {selectedParticipant.coAuthors.map((c, i) => (
-          <li key={i}>
-            {c.name} ({c.email})
-          </li>
-        ))}
-      </ul>
-    ) : (
-      <div className="text-sm text-gray-500">No co-authors added</div>
-    )}
-  </div>
-
-     {/* Assessment */}
-<div>
-  <h4 className="text-lg font-semibold text-green-700 mb-2">
-    Assessment Breakdown
-  </h4>
-
-  {/* ===== MODE TABS ===== */}
-  {isAdmin && (
-    <div className="flex gap-2 mb-3">
-      <button
-        disabled={editingAssessment}
-        onClick={() => setAssessmentMode("criteria")}
-        className={`px-3 py-1.5 rounded-md text-sm font-semibold ${
-          assessmentMode === "criteria"
-            ? "bg-green-600 text-white"
-            : "bg-gray-100 text-gray-700"
-        } ${editingAssessment ? "opacity-50 cursor-not-allowed" : ""}`}
-      >
-        Criteria-wise
-      </button>
-
-      <button
-        disabled={editingAssessment}
-        onClick={() => setAssessmentMode("total")}
-        className={`px-3 py-1.5 rounded-md text-sm font-semibold ${
-          assessmentMode === "total"
-            ? "bg-green-600 text-white"
-            : "bg-gray-100 text-gray-700"
-        } ${editingAssessment ? "opacity-50 cursor-not-allowed" : ""}`}
-      >
-        Direct Total
-      </button>
-    </div>
-  )}
-
-  {/* ===== EDIT BUTTONS ===== */}
-  {isAdmin && (
-    <div className="flex justify-end mb-2 gap-2">
-      {!editingAssessment ? (
-        <button
-          onClick={() => setEditingAssessment(true)}
-          className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm"
-        >
-          Edit Marks
-        </button>
-      ) : (
-        <>
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="relative bg-white w-full max-w-5xl max-h-[90vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        
+        {/* Modal Header */}
+        <div className="flex-shrink-0 border-b border-gray-100 bg-gray-50/80 px-6 py-5 relative">
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 to-violet-500"></div>
           <button
-            onClick={() => setEditingAssessment(false)}
-            className="px-3 py-1.5 border rounded text-sm"
+            onClick={() => setSelectedParticipant(null)}
+            className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
           >
-            Cancel
+            <X size={20} />
           </button>
-          <button
-            onClick={handleAdminSaveMarks}
-            className="px-3 py-1.5 bg-green-600 text-white rounded text-sm"
-          >
-            Save Changes
-          </button>
-        </>
-      )}
-    </div>
-  )}
-
-  <table className="w-full border text-sm">
-    <thead className="bg-green-100">
-      <tr>
-        <th className="border px-3 py-2 text-left">Criteria</th>
-        <th className="border px-3 py-2 text-center">Marks</th>
-      </tr>
-    </thead>
-
-    <tbody>
-      {/* ================= CRITERIA MODE ================= */}
-      {assessmentMode === "criteria" ? (
-        <>
-          {ASSESSMENT_CRITERIA.map((label, idx) => (
-            <tr key={idx}>
-              <td className="border px-3 py-2">{label}</td>
-              <td className="border px-3 py-2 text-center">
-                {editingAssessment ? (
-                  <input
-                    type="number"
-                    min={0}
-                    max={10}
-                    value={adminAssessmentForm.criteria[idx] ?? 0}
-                    onChange={(e) => {
-                      let value = Number(e.target.value) || 0;
-                      value = Math.max(0, Math.min(10, value)); // 🔒 max 10
-
-                      setAdminAssessmentForm((f) => {
-                        const updated = [...f.criteria];
-                        updated[idx] = value;
-                        return { ...f, criteria: updated };
-                      });
-                    }}
-                    className="w-20 border rounded text-center"
-                  />
-                ) : (
-                  <span className="font-semibold">
-                    {adminAssessmentForm.criteria[idx] ?? 0}
-                  </span>
+          <div className="flex items-start justify-between pr-10">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-3 mb-1">
+                <h2 className="text-2xl font-extrabold text-gray-900 tracking-tight truncate">
+                  {selectedParticipant.teamName || "Unnamed Team"}
+                </h2>
+                <span className="px-2.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200 font-mono text-xs font-bold shadow-sm">
+                  {selectedParticipant.paperId}
+                </span>
+              </div>
+              <div className="flex items-center gap-4 text-sm text-gray-500">
+                <span className="flex items-center gap-1.5 font-medium text-gray-700">
+                  <CheckCircle size={15} className="text-emerald-500" />
+                  {selectedParticipant.trackName || selectedParticipant.track || track?.title || "No Track"}
+                </span>
+                {(selectedParticipant.status || selectedParticipant.regStatus) && (
+                  <>
+                    <span className="text-gray-300">•</span>
+                    <span className="uppercase tracking-wider text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                      {selectedParticipant.status || selectedParticipant.regStatus}
+                    </span>
+                  </>
                 )}
-              </td>
-            </tr>
-          ))}
+              </div>
+            </div>
+          </div>
+        </div>
 
-          <tr className="bg-gray-100 font-bold">
-            <td className="border px-3 py-2">Total</td>
-            <td className="border px-3 py-2 text-center">
-              {adminAssessmentForm.criteria.reduce(
-                (s, v) => s + Number(v || 0),
-                0
-              )}
-            </td>
-          </tr>
-        </>
-      ) : (
-        /* ================= TOTAL MODE ================= */
-        <tr className="bg-gray-100 font-bold">
-          <td className="border px-3 py-2">Total</td>
-          <td className="border px-3 py-2 text-center">
-            {editingAssessment ? (
-              <input
-                type="number"
-                min={0}
-                max={50}
-                value={adminAssessmentForm.total}
-                onChange={(e) => {
-                  let value = Number(e.target.value) || 0;
-                  value = Math.max(0, Math.min(50, value)); // 🔒 max 50
-                  setAdminAssessmentForm((f) => ({
-                    ...f,
-                    total: value,
-                  }));
-                }}
-                className="w-20 border rounded text-center"
-              />
-            ) : (
-              adminAssessmentForm.total
-            )}
-          </td>
-        </tr>
-      )}
-    </tbody>
-  </table>
-</div>
+        {/* Modal Body (Scrollable) */}
+        <div className="flex-1 overflow-y-auto p-6 bg-gray-50/30">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            {/* Left Column (Project & Eval Info) */}
+            <div className="space-y-6 lg:col-span-1">
+              
+              {/* Project Details Card */}
+              <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-5">
+                <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wider mb-4 flex items-center gap-2">
+                  <FileText size={16} className="text-indigo-500" /> Project Details
+                </h3>
+                
+                <div className="space-y-4 text-sm text-gray-700">
+                  <div>
+                    <span className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Problem Statement</span>
+                    <p className="font-medium text-gray-900 leading-relaxed">{selectedParticipant.paperTitle || selectedParticipant.problemStatement || "—"}</p>
+                  </div>
+                  
+                  {selectedParticipant.description && (
+                    <div>
+                      <span className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Description</span>
+                      <p className="text-gray-600 leading-relaxed whitespace-pre-wrap">{selectedParticipant.description}</p>
+                    </div>
+                  )}
 
-</div>
-<div className="px-6 py-3 border-t flex justify-end">
-  <button
-    onClick={() => setSelectedParticipant(null)}
-    className="px-4 py-2 border rounded-md"
-  >
-    Close
-  </button>
-</div>
+                  {(selectedParticipant.pptLink || selectedParticipant.submissionLink) && (
+                    <div>
+                      <span className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1.5">Presentation</span>
+                      <a 
+                        href={
+                          (selectedParticipant.pptLink || selectedParticipant.submissionLink).includes('drive.google.com') || (selectedParticipant.pptLink || selectedParticipant.submissionLink).includes('docs.google.com')
+                            ? (selectedParticipant.pptLink || selectedParticipant.submissionLink)
+                            : `https://docs.google.com/viewer?url=${encodeURIComponent(selectedParticipant.pptLink || selectedParticipant.submissionLink)}`
+                        } 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="inline-flex items-center gap-2 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-sm font-semibold transition-colors border border-indigo-200"
+                      >
+                        <Link2 size={15} /> View PPT
+                      </a>
+                    </div>
+                  )}
+                </div>
+              </div>
 
+              {/* Evaluation Card */}
+              <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-5">
+                <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wider mb-4 flex items-center gap-2">
+                  <CheckCircle size={16} className="text-emerald-500" /> Evaluation
+                </h3>
+                
+                {/* Keep existing Assessment Breakdown code */}
+                <div className="mt-2">
+                  {/* ===== MODE TABS ===== */}
+                  {isAdmin && (
+                    <div className="flex gap-2 mb-4">
+                      <button
+                        disabled={editingAssessment}
+                        onClick={() => setAssessmentMode("criteria")}
+                        className={`px-3 py-1.5 rounded-md text-sm font-semibold transition-colors ${
+                          assessmentMode === "criteria"
+                            ? "bg-indigo-600 text-white shadow-sm"
+                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        } ${editingAssessment ? "opacity-50 cursor-not-allowed" : ""}`}
+                      >
+                        Criteria-wise
+                      </button>
+
+                      <button
+                        disabled={editingAssessment}
+                        onClick={() => setAssessmentMode("total")}
+                        className={`px-3 py-1.5 rounded-md text-sm font-semibold transition-colors ${
+                          assessmentMode === "total"
+                            ? "bg-indigo-600 text-white shadow-sm"
+                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        } ${editingAssessment ? "opacity-50 cursor-not-allowed" : ""}`}
+                      >
+                        Direct Total
+                      </button>
+                    </div>
+                  )}
+
+                  {/* ===== EDIT BUTTONS ===== */}
+                  {isAdmin && (
+                    <div className="flex justify-end mb-3 gap-2">
+                      {!editingAssessment ? (
+                        <button
+                          onClick={() => setEditingAssessment(true)}
+                          className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 transition shadow-sm"
+                        >
+                          Edit Marks
+                        </button>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => setEditingAssessment(false)}
+                            className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm font-semibold text-gray-700 hover:bg-gray-50 transition"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={handleAdminSaveMarks}
+                            className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-sm font-semibold hover:bg-emerald-700 transition shadow-sm"
+                          >
+                            Save Changes
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="overflow-hidden rounded-lg border border-gray-200">
+                    <table className="w-full text-sm text-left">
+                      <thead className="bg-gray-50 border-b border-gray-200">
+                        <tr>
+                          <th className="px-4 py-2.5 font-bold text-gray-700">Criteria</th>
+                          <th className="px-4 py-2.5 font-bold text-gray-700 text-center w-24">Marks</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {/* ================= CRITERIA MODE ================= */}
+                        {assessmentMode === "criteria" ? (
+                          <>
+                            {ASSESSMENT_CRITERIA.map((label, idx) => (
+                              <tr key={idx} className="hover:bg-gray-50/50">
+                                <td className="px-4 py-2.5 text-gray-600 font-medium">{label}</td>
+                                <td className="px-4 py-2.5 text-center">
+                                  {editingAssessment ? (
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      max={10}
+                                      value={adminAssessmentForm.criteria[idx] ?? 0}
+                                      onChange={(e) => {
+                                        let value = Number(e.target.value) || 0;
+                                        value = Math.max(0, Math.min(10, value)); // 🔒 max 10
+                                        setAdminAssessmentForm((f) => {
+                                          const updated = [...f.criteria];
+                                          updated[idx] = value;
+                                          return { ...f, criteria: updated };
+                                        });
+                                      }}
+                                      className="w-16 border border-gray-300 rounded px-2 py-1 text-center focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                                    />
+                                  ) : (
+                                    <span className="font-bold text-gray-900">
+                                      {adminAssessmentForm.criteria[idx] ?? 0}
+                                    </span>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                            <tr className="bg-gray-50 font-bold border-t-2 border-gray-200">
+                              <td className="px-4 py-3 text-gray-900 uppercase tracking-wider text-xs">Total</td>
+                              <td className="px-4 py-3 text-center text-lg text-indigo-700">
+                                {adminAssessmentForm.criteria.reduce((s, v) => s + Number(v || 0), 0)}
+                              </td>
+                            </tr>
+                          </>
+                        ) : (
+                          /* ================= TOTAL MODE ================= */
+                          <tr className="bg-gray-50 font-bold">
+                            <td className="px-4 py-4 text-gray-900 uppercase tracking-wider text-xs">Total</td>
+                            <td className="px-4 py-4 text-center">
+                              {editingAssessment ? (
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={50}
+                                  value={adminAssessmentForm.total}
+                                  onChange={(e) => {
+                                    let value = Number(e.target.value) || 0;
+                                    value = Math.max(0, Math.min(50, value)); // 🔒 max 50
+                                    setAdminAssessmentForm((f) => ({
+                                      ...f,
+                                      total: value,
+                                    }));
+                                  }}
+                                  className="w-16 border border-gray-300 rounded px-2 py-1 text-center focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                                />
+                              ) : (
+                                <span className="text-xl text-indigo-700 font-extrabold">{adminAssessmentForm.total}</span>
+                              )}
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+
+                </div>
+              </div>
+
+            </div>
+
+            {/* Right Column (Team Members) */}
+            <div className="lg:col-span-2 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {displayMembers.map((m, idx) => (
+                  <div key={idx} className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm relative overflow-hidden group hover:border-indigo-200 hover:shadow-md transition-all">
+                    <div className={`absolute top-0 left-0 w-1 h-full ${m.isLeader ? 'bg-indigo-500' : 'bg-gray-300 group-hover:bg-indigo-300'}`}></div>
+                    
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="min-w-0 pr-2">
+                        <h4 className="font-bold text-gray-900 text-base truncate" title={m.name}>{m.name || "Unknown"}</h4>
+                        <span className={`inline-block mt-1 text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded ${m.isLeader ? 'text-indigo-700 bg-indigo-50 border border-indigo-100' : 'text-gray-500 bg-gray-100'}`}>
+                          {m.candidateRole || (m.isLeader ? "Team Leader" : "Team Member")}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2.5 text-sm text-gray-600">
+                      {m.email && (
+                        <div className="flex items-center gap-2.5 truncate" title={m.email}>
+                          <Mail size={15} className="text-gray-400 flex-shrink-0" /> <span className="truncate">{m.email}</span>
+                        </div>
+                      )}
+                      {m.mobile && (
+                        <div className="flex items-center gap-2.5">
+                          <Phone size={15} className="text-gray-400 flex-shrink-0" /> <span>{m.mobile}</span>
+                        </div>
+                      )}
+                      {m.location && (
+                        <div className="flex items-center gap-2.5 truncate" title={m.location}>
+                          <MapPin size={15} className="text-gray-400 flex-shrink-0" /> <span className="truncate">{m.location}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="mt-4 pt-3 border-t border-gray-100 space-y-2">
+                      {(m.institute || m.organisation) && (
+                        <div className="flex items-center gap-2 text-xs text-gray-500 truncate" title={m.institute || m.organisation}>
+                          <Building2 size={13} className="text-gray-400 flex-shrink-0" />
+                          <span className="truncate font-medium">{m.institute || m.organisation}</span>
+                        </div>
+                      )}
+                      {(m.course || m.branch || m.domain || m.specialization) && (
+                        <div className="flex items-center gap-2 text-xs text-gray-500 truncate" title={`${m.course || ''} ${m.branch || m.specialization || m.domain || ''}`}>
+                          <BookOpen size={13} className="text-gray-400 flex-shrink-0" />
+                          <span className="truncate">{(m.course || '') + ((m.course && (m.branch || m.specialization || m.domain)) ? ' - ' : '') + (m.branch || m.specialization || m.domain || '')}</span>
+                        </div>
+                      )}
+                      {m.userType && (
+                        <div className="flex items-center gap-2 text-xs text-gray-500">
+                          <GraduationCap size={13} className="text-gray-400 flex-shrink-0" />
+                          <span>{m.userType}</span>
+                        </div>
+                      )}
+                    </div>
+
+                  </div>
+                ))}
+              </div>
+              
+            </div>
+          </div>
+        </div>
       </div>
-      
     </div>
-    
-)}
+  );
+})()}
   </div>
 </div>
     </div>
