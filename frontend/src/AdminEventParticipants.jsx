@@ -900,8 +900,6 @@ export default function AdminEventParticipants() {
     </div>
   </div>
 )}
-      )}
-
     </div>
   );
 }
