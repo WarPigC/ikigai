@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import ikigaiLogo from "./assets/ikigai.png";
 
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
@@ -242,7 +243,7 @@ const exportParticipantsCSV = () => {
   const link = document.createElement("a");
 
   link.href = url;
-  link.download = `participants_${selectedTrack}_top${topNPerTrack || "all"}.csv`;
+  link.download = `IKIGAI_2026_Report_${selectedTrack}_top${topNPerTrack || "all"}.csv`;
   link.click();
 
   URL.revokeObjectURL(url);
@@ -307,7 +308,7 @@ const exportParticipantsXLSX = () => {
   // ✅ SAME naming convention as PDF
   XLSX.writeFile(
     workbook,
-    `CARE_${selectedTrack}_${trackName}_Final_Assessment_Report.xlsx`
+    `IKIGAI_2026_Report_${selectedTrack}_${trackName}.xlsx`
   );
 };
 
@@ -326,6 +327,9 @@ const exportParticipantsPDF = () => {
   doc.setFillColor(240, 253, 244);
   doc.rect(0, 0, 210, 34, "F");
 
+  // Add the IKIGAI logo
+  doc.addImage(ikigaiLogo, "PNG", 165, 5, 30, 24);
+
   doc.setFont("helvetica", "bold");
   doc.setFontSize(22);
 
@@ -333,7 +337,7 @@ const exportParticipantsPDF = () => {
   const headerY = 20;
 
   doc.setTextColor(21, 128, 61);
-  doc.text("Hackathon 2026", x, headerY); x += 10;
+  doc.text("IKIGAI 2026", x, headerY); x += 10;
 
 
   doc.setFont("helvetica", "normal");
@@ -427,7 +431,7 @@ const exportParticipantsPDF = () => {
 
   /* ================= SAVE ================= */
   doc.save(
-    `CARE_${selectedTrack}_${trackName}_Final_Assessment_Report.pdf`
+    `IKIGAI_2026_Report_${selectedTrack}_${trackName}.pdf`
   );
 };
 

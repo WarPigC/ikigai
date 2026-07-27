@@ -1,4 +1,3 @@
-
 // src/App.jsx
 import React, { useEffect, useState } from "react";
 import {
@@ -21,7 +20,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import AdminEventParticipants from "./AdminEventParticipants";
 import StudentDashboard from "./pages/StudentDashboard";
-import ramsitaLogo from "./assets/ramsita-logo.png";
+import ikigaiLogo from "./assets/ikigai.png";
 
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
@@ -44,7 +43,7 @@ function Header({ user, onLogout }) {
         <div className="flex items-center min-w-0 w-1/2">
   {/* LOGO */}
   <img
-    src={ramsitaLogo}
+    src={ikigaiLogo}
     alt="Hackathon Logo"
     className="h-12 md:h-16 object-contain w-auto max-w-full"
   />
@@ -2530,7 +2529,7 @@ const filteredParticipants = participants
   const link = document.createElement("a");
 
   link.href = url;
-  link.download = `participants_track_${trackId}.csv`;
+  link.download = `IKIGAI_2026_Participants_Track_${trackId}.csv`;
   link.click();
 
   URL.revokeObjectURL(url);
@@ -2585,7 +2584,7 @@ const exportParticipantsXLSX = () => {
 
   XLSX.writeFile(
     workbook,
-    `CARE_${track.id}_${track.title}_Report.xlsx`
+    `IKIGAI_2026_Participants_Track_${track.id}.xlsx`
   );
 };
 
@@ -2608,6 +2607,9 @@ const exportParticipantsPDF = () => {
   ========================= */
   doc.setFillColor(240, 253, 244);
   doc.rect(0, 0, 210, 34, "F");
+
+  // Add the IKIGAI logo
+  doc.addImage(ikigaiLogo, "PNG", 165, 5, 30, 24);
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(22);
@@ -2743,7 +2745,7 @@ const exportParticipantsPDF = () => {
      SAVE FILE
   ========================= */
   doc.save(
-    `CARE_${track?.id || "TRACK"}_${track?.title || "REPORT"}_Assessment_Report.pdf`
+    `IKIGAI_2026_Report_Track_${track?.id || "Unknown"}.pdf`
   );
 };
 

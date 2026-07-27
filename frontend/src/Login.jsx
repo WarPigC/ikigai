@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 // or wherever API_BASE is defined
 import "./index.css";
-import ramsitaLogo from "./assets/ramsita-logo.png";
+import ikigaiLogo from "./assets/ikigai.png";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -182,7 +182,7 @@ const handleOtpChange = async (e, index) => {
 {/* Hackathon Logo Header */}
 <div className="mb-10 flex justify-center">
   <img
-    src={ramsitaLogo}
+    src={ikigaiLogo}
     alt="Hackathon Logo"
     className="h-24 md:h-32 object-contain"
   />
