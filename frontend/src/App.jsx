@@ -1,4 +1,3 @@
-
 // src/App.jsx
 import React, { useEffect, useState } from "react";
 import {
@@ -21,7 +20,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import AdminEventParticipants from "./AdminEventParticipants";
 import StudentDashboard from "./pages/StudentDashboard";
-import ramsitaLogo from "./assets/ramsita-logo.png";
+import ikigaiLogo from "./assets/ikigai.png";
 import { FileText, CheckCircle, Link2, User, Mail, Phone, Building2, BookOpen, GraduationCap, MapPin, X } from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
@@ -44,7 +43,7 @@ function Header({ user, onLogout }) {
         <div className="flex items-center min-w-0 w-1/2">
   {/* LOGO */}
   <img
-    src={ramsitaLogo}
+    src={ikigaiLogo}
     alt="Hackathon Logo"
     className="h-12 md:h-16 object-contain w-auto max-w-full"
   />
@@ -2531,7 +2530,7 @@ const filteredParticipants = participants
   const link = document.createElement("a");
 
   link.href = url;
-  link.download = `participants_track_${trackId}.csv`;
+  link.download = `IKIGAI_2026_Participants_Track_${trackId}.csv`;
   link.click();
 
   URL.revokeObjectURL(url);
@@ -2586,7 +2585,7 @@ const exportParticipantsXLSX = () => {
 
   XLSX.writeFile(
     workbook,
-    `CARE_${track.id}_${track.title}_Report.xlsx`
+    `IKIGAI_2026_Participants_Track_${track.id}.xlsx`
   );
 };
 
@@ -2607,18 +2606,11 @@ const exportParticipantsPDF = () => {
   /* =========================
      HEADER (IKIGAI 2026)
   ========================= */
-  doc.setFillColor(240, 253, 244);
+  doc.setFillColor(250, 245, 255); // purple-50
   doc.rect(0, 0, 210, 34, "F");
 
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(22);
-  doc.setTextColor(21, 128, 61);
-  doc.text("IKIGAI 2026", 14, 20);
-
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(10);
-  doc.setTextColor(75, 85, 99);
-  doc.text("Assessment Report", 14, 28);
+  // Add the IKIGAI logo (left aligned, aspect ratio maintained)
+  doc.addImage(ikigaiLogo, "PNG", 14, 8, 45, 15);
 
   doc.setDrawColor(200, 200, 200);
   doc.line(14, 32, 196, 32);
@@ -2707,18 +2699,19 @@ const exportParticipantsPDF = () => {
       valign: "middle",
     },
     headStyles: {
-      fillColor: [22, 163, 74],
+      fillColor: [107, 33, 168], // purple-800
       textColor: 255,
       fontStyle: "bold",
     },
     columnStyles: {
       0: { cellWidth: 10 },
-      1: { cellWidth: 18 },
-      2: { cellWidth: 40 },
-      3: { cellWidth: 30 },
+      1: { cellWidth: 15 },
+      2: { cellWidth: 30 },
+      3: { cellWidth: 25 },
       4: { cellWidth: 25 },
-      5: { cellWidth: 40 },
-      6: { cellWidth: 20 },
+      5: { cellWidth: 22 },
+      6: { cellWidth: 35 },
+      7: { cellWidth: 20 },
     },
     margin: { left: 14, right: 14 },
     pageBreak: "auto",
@@ -2744,7 +2737,7 @@ const exportParticipantsPDF = () => {
      SAVE FILE
   ========================= */
   doc.save(
-    `CARE_${track?.id || "TRACK"}_${track?.title || "REPORT"}_Assessment_Report.pdf`
+    `IKIGAI_2026_Report_Track_${track?.id || "Unknown"}.pdf`
   );
 };
 
