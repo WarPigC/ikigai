@@ -257,6 +257,23 @@ function EvaluatorSection({ evaluator, teams, evaluators, onAssign, assigningId,
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Location Parsing Helper
+// ─────────────────────────────────────────────────────────────────────────────
+const parseLocation = (locString) => {
+  if (!locString) return { city: "", state: "", country: "" };
+  const parts = locString.split(",").map(s => s.trim()).filter(Boolean);
+  
+  if (parts.length >= 3) {
+    return { city: parts[0], state: parts[1], country: parts[2] };
+  } else if (parts.length === 2) {
+    return { city: parts[0], state: parts[1], country: "" };
+  } else if (parts.length === 1) {
+    return { city: parts[0], state: "", country: "" };
+  }
+  return { city: "", state: "", country: "" };
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Main Modal
 // ─────────────────────────────────────────────────────────────────────────────
 const EVALUATOR_COLORS = [
@@ -280,7 +297,9 @@ export default function AssignTeamsModal({ isOpen, onClose, event, track, evalua
   // Filters State
   const [searchQuery, setSearchQuery] = useState("");
   const [filterInstitute, setFilterInstitute] = useState("");
-  const [filterLocation, setFilterLocation] = useState("");
+  const [filterCity, setFilterCity] = useState("");
+  const [filterState, setFilterState] = useState("");
+  const [filterCountry, setFilterCountry] = useState("");
   const [filterBranch, setFilterBranch] = useState("");
 
   const sensors = useSensors(
@@ -394,9 +413,17 @@ export default function AssignTeamsModal({ isOpen, onClose, event, track, evalua
 
   const unassigned = participants.filter((p) => !p.assignedEvaluatorId);
 
+  // Parse locations for unassigned teams
+  const parsedUnassignedLocations = unassigned.map(p => {
+    const leader = p.members?.find(m => m.isLeader);
+    return parseLocation(leader?.location);
+  });
+
   // Extract unique filter options from all unassigned teams
   const uniqueInstitutes = [...new Set(unassigned.map(p => p.members?.find(m => m.isLeader)?.organisation).filter(Boolean))].sort();
-  const uniqueLocations = [...new Set(unassigned.map(p => p.members?.find(m => m.isLeader)?.location).filter(Boolean))].sort();
+  const uniqueCities = [...new Set(parsedUnassignedLocations.map(loc => loc.city).filter(Boolean))].sort();
+  const uniqueStates = [...new Set(parsedUnassignedLocations.map(loc => loc.state).filter(Boolean))].sort();
+  const uniqueCountries = [...new Set(parsedUnassignedLocations.map(loc => loc.country).filter(Boolean))].sort();
   const uniqueBranches = [...new Set(unassigned.map(p => {
     const l = p.members?.find(m => m.isLeader);
     return l?.specialization || l?.domain;
@@ -404,14 +431,19 @@ export default function AssignTeamsModal({ isOpen, onClose, event, track, evalua
 
   const filteredUnassigned = unassigned.filter(p => {
     const leader = p.members?.find(m => m.isLeader);
+    const loc = parseLocation(leader?.location);
+
     const searchMatch = !searchQuery || 
       String(p.teamName || "").toLowerCase().includes(searchQuery.toLowerCase()) || 
       String(p.teamId || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
       String(leader?.name || "").toLowerCase().includes(searchQuery.toLowerCase());
     const instMatch = !filterInstitute || leader?.organisation === filterInstitute;
-    const locMatch = !filterLocation || leader?.location === filterLocation;
+    const cityMatch = !filterCity || loc.city === filterCity;
+    const stateMatch = !filterState || loc.state === filterState;
+    const countryMatch = !filterCountry || loc.country === filterCountry;
     const branchMatch = !filterBranch || (leader?.specialization || leader?.domain) === filterBranch;
-    return searchMatch && instMatch && locMatch && branchMatch;
+
+    return searchMatch && instMatch && cityMatch && stateMatch && countryMatch && branchMatch;
   });
 
   const selectAllUnassigned = () => {
@@ -506,9 +538,25 @@ export default function AssignTeamsModal({ isOpen, onClose, event, track, evalua
                   </div>
                   {selectedTeamIds.size > 0 && (
                     <div className="flex items-center gap-3">
-                      <span className="text-xs font-semibold bg-blue-100 text-blue-700 px-2.5 py-1 rounded-full border border-blue-200 shadow-sm">
+                      <span className="text-xs font-semibold bg-blue-100 text-blue-700 px-2.5 py-1 rounded-full border border-blue-200 shadow-sm whitespace-nowrap">
                         {selectedTeamIds.size} Selected
                       </span>
+                      <select
+                        className="text-xs border border-gray-200 rounded-md px-2 py-1 bg-gray-50 focus:outline-none focus:border-blue-300 w-28 text-gray-700"
+                        value=""
+                        onChange={(e) => {
+                          if (e.target.value) {
+                            handleAssign(Array.from(selectedTeamIds), e.target.value);
+                          }
+                        }}
+                      >
+                        <option value="" disabled>Assign to...</option>
+                        {evaluators.map(ev => (
+                          <option key={ev._id} value={ev._id}>
+                            {ev.name}
+                          </option>
+                        ))}
+                      </select>
                       <button 
                         onClick={clearSelection}
                         className="text-xs text-gray-500 hover:text-gray-700 underline font-medium"
@@ -531,42 +579,70 @@ export default function AssignTeamsModal({ isOpen, onClose, event, track, evalua
                       onChange={(e) => setSearchQuery(e.target.value)}
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="relative col-span-2 sm:col-span-1">
-                      <Filter className="absolute left-2 top-1.5 h-3.5 w-3.5 text-gray-400" />
-                      <select 
-                        className="w-full pl-7 pr-6 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs appearance-none focus:outline-none focus:ring-1 focus:ring-green-500"
-                        value={filterInstitute}
-                        onChange={(e) => setFilterInstitute(e.target.value)}
-                      >
-                        <option value="">All Institutes</option>
-                        {uniqueInstitutes.map(inst => <option key={inst} value={inst}>{inst}</option>)}
-                      </select>
-                      <ChevronDown className="absolute right-2 top-1.5 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+                  <div className="flex flex-col gap-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="relative">
+                        <Filter className="absolute left-2 top-1.5 h-3.5 w-3.5 text-gray-400" />
+                        <select 
+                          className="w-full pl-7 pr-6 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs appearance-none focus:outline-none focus:ring-1 focus:ring-green-500"
+                          value={filterInstitute}
+                          onChange={(e) => setFilterInstitute(e.target.value)}
+                        >
+                          <option value="">All Institutes</option>
+                          {uniqueInstitutes.map(inst => <option key={inst} value={inst}>{inst}</option>)}
+                        </select>
+                        <ChevronDown className="absolute right-2 top-1.5 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+                      </div>
+                      <div className="relative">
+                        <Filter className="absolute left-2 top-1.5 h-3.5 w-3.5 text-gray-400" />
+                        <select 
+                          className="w-full pl-7 pr-6 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs appearance-none focus:outline-none focus:ring-1 focus:ring-green-500"
+                          value={filterBranch}
+                          onChange={(e) => setFilterBranch(e.target.value)}
+                        >
+                          <option value="">All Branches</option>
+                          {uniqueBranches.map(branch => <option key={branch} value={branch}>{branch}</option>)}
+                        </select>
+                        <ChevronDown className="absolute right-2 top-1.5 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+                      </div>
                     </div>
-                    <div className="relative">
-                      <Filter className="absolute left-2 top-1.5 h-3.5 w-3.5 text-gray-400" />
-                      <select 
-                        className="w-full pl-7 pr-6 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs appearance-none focus:outline-none focus:ring-1 focus:ring-green-500"
-                        value={filterLocation}
-                        onChange={(e) => setFilterLocation(e.target.value)}
-                      >
-                        <option value="">All Locations</option>
-                        {uniqueLocations.map(loc => <option key={loc} value={loc}>{loc}</option>)}
-                      </select>
-                      <ChevronDown className="absolute right-2 top-1.5 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
-                    </div>
-                    <div className="relative">
-                      <Filter className="absolute left-2 top-1.5 h-3.5 w-3.5 text-gray-400" />
-                      <select 
-                        className="w-full pl-7 pr-6 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs appearance-none focus:outline-none focus:ring-1 focus:ring-green-500"
-                        value={filterBranch}
-                        onChange={(e) => setFilterBranch(e.target.value)}
-                      >
-                        <option value="">All Branches</option>
-                        {uniqueBranches.map(branch => <option key={branch} value={branch}>{branch}</option>)}
-                      </select>
-                      <ChevronDown className="absolute right-2 top-1.5 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="relative">
+                        <Filter className="absolute left-2 top-1.5 h-3.5 w-3.5 text-gray-400" />
+                        <select 
+                          className="w-full pl-7 pr-6 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs appearance-none focus:outline-none focus:ring-1 focus:ring-green-500"
+                          value={filterCity}
+                          onChange={(e) => setFilterCity(e.target.value)}
+                        >
+                          <option value="">City</option>
+                          {uniqueCities.map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                        <ChevronDown className="absolute right-2 top-1.5 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+                      </div>
+                      <div className="relative">
+                        <Filter className="absolute left-2 top-1.5 h-3.5 w-3.5 text-gray-400" />
+                        <select 
+                          className="w-full pl-7 pr-6 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs appearance-none focus:outline-none focus:ring-1 focus:ring-green-500"
+                          value={filterState}
+                          onChange={(e) => setFilterState(e.target.value)}
+                        >
+                          <option value="">State</option>
+                          {uniqueStates.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                        <ChevronDown className="absolute right-2 top-1.5 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+                      </div>
+                      <div className="relative">
+                        <Filter className="absolute left-2 top-1.5 h-3.5 w-3.5 text-gray-400" />
+                        <select 
+                          className="w-full pl-7 pr-6 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs appearance-none focus:outline-none focus:ring-1 focus:ring-green-500"
+                          value={filterCountry}
+                          onChange={(e) => setFilterCountry(e.target.value)}
+                        >
+                          <option value="">Country</option>
+                          {uniqueCountries.map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                        <ChevronDown className="absolute right-2 top-1.5 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+                      </div>
                     </div>
                   </div>
                 </div>
