@@ -1181,6 +1181,37 @@ app.get("/api/participants/by-track", async (req, res) => {
 
 
 // ═══════════════════════════════════════════════════════════════════
+// ADMIN: Bulk assign multiple teams to an evaluator
+// ═══════════════════════════════════════════════════════════════════
+app.patch("/api/admin/participants/bulk-assign", async (req, res) => {
+  try {
+    const { participantIds, evaluatorId } = req.body;
+    
+    if (!Array.isArray(participantIds)) {
+      return res.status(400).json({ success: false, message: "participantIds must be an array" });
+    }
+
+    if (evaluatorId !== null && evaluatorId !== undefined) {
+      const evaluator = await SessionChair.findById(evaluatorId);
+      if (!evaluator) {
+        return res.status(404).json({ success: false, message: "Evaluator not found" });
+      }
+    }
+
+    // Update all participants in one go
+    await Participant.updateMany(
+      { _id: { $in: participantIds } },
+      { $set: { assignedEvaluatorId: evaluatorId || null } }
+    );
+
+    res.json({ success: true, message: `Successfully assigned ${participantIds.length} teams.` });
+  } catch (err) {
+    console.error("BULK ASSIGN ERROR:", err);
+    res.status(500).json({ success: false, message: "Failed to assign teams" });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════
 // ADMIN: Assign a team to an evaluator (or unassign)
 // ═══════════════════════════════════════════════════════════════════
 // Body: { evaluatorId: "<ObjectId>" | null }
