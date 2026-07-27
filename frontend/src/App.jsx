@@ -3122,7 +3122,7 @@ const submissionUrl =
         
         {/* Modal Header */}
         <div className="flex-shrink-0 border-b border-gray-100 bg-gray-50/80 px-6 py-5 relative">
-          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 to-violet-500"></div>
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-violet-500 to-purple-500"></div>
           <button
             onClick={() => setSelectedParticipant(null)}
             className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
@@ -3135,7 +3135,7 @@ const submissionUrl =
                 <h2 className="text-2xl font-extrabold text-gray-900 tracking-tight truncate">
                   {selectedParticipant.teamName || "Unnamed Team"}
                 </h2>
-                <span className="px-2.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200 font-mono text-xs font-bold shadow-sm">
+                <span className="px-2.5 py-0.5 rounded-md bg-violet-50 text-violet-700 border border-violet-200 font-mono text-xs font-bold shadow-sm">
                   {selectedParticipant.paperId}
                 </span>
               </div>
@@ -3167,7 +3167,7 @@ const submissionUrl =
               {/* Project Details Card */}
               <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-5">
                 <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wider mb-4 flex items-center gap-2">
-                  <FileText size={16} className="text-indigo-500" /> Project Details
+                  <FileText size={16} className="text-violet-500" /> Project Details
                 </h3>
                 
                 <div className="space-y-4 text-sm text-gray-700">
@@ -3194,7 +3194,7 @@ const submissionUrl =
                         } 
                         target="_blank" 
                         rel="noopener noreferrer" 
-                        className="inline-flex items-center gap-2 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-sm font-semibold transition-colors border border-indigo-200"
+                        className="inline-flex items-center gap-2 px-3 py-1.5 bg-violet-50 hover:bg-violet-100 text-violet-700 rounded-lg text-sm font-semibold transition-colors border border-violet-200"
                       >
                         <Link2 size={15} /> View PPT
                       </a>
@@ -3219,7 +3219,7 @@ const submissionUrl =
                         onClick={() => setAssessmentMode("criteria")}
                         className={`px-3 py-1.5 rounded-md text-sm font-semibold transition-colors ${
                           assessmentMode === "criteria"
-                            ? "bg-indigo-600 text-white shadow-sm"
+                            ? "bg-fuchsia-600 text-white shadow-sm"
                             : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                         } ${editingAssessment ? "opacity-50 cursor-not-allowed" : ""}`}
                       >
@@ -3231,7 +3231,7 @@ const submissionUrl =
                         onClick={() => setAssessmentMode("total")}
                         className={`px-3 py-1.5 rounded-md text-sm font-semibold transition-colors ${
                           assessmentMode === "total"
-                            ? "bg-indigo-600 text-white shadow-sm"
+                            ? "bg-fuchsia-600 text-white shadow-sm"
                             : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                         } ${editingAssessment ? "opacity-50 cursor-not-allowed" : ""}`}
                       >
@@ -3246,7 +3246,7 @@ const submissionUrl =
                       {!editingAssessment ? (
                         <button
                           onClick={() => setEditingAssessment(true)}
-                          className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 transition shadow-sm"
+                          className="px-3 py-1.5 bg-fuchsia-600 text-white rounded-lg text-sm font-semibold hover:bg-fuchsia-700 transition shadow-sm"
                         >
                           Edit Marks
                         </button>
@@ -3300,7 +3300,7 @@ const submissionUrl =
                                           return { ...f, criteria: updated };
                                         });
                                       }}
-                                      className="w-16 border border-gray-300 rounded px-2 py-1 text-center focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                                      className="w-16 border border-gray-300 rounded px-2 py-1 text-center focus:ring-2 focus:ring-fuchsia-500 focus:border-fuchsia-500 outline-none"
                                     />
                                   ) : (
                                     <span className="font-bold text-gray-900">
@@ -3312,7 +3312,7 @@ const submissionUrl =
                             ))}
                             <tr className="bg-gray-50 font-bold border-t-2 border-gray-200">
                               <td className="px-4 py-3 text-gray-900 uppercase tracking-wider text-xs">Total</td>
-                              <td className="px-4 py-3 text-center text-lg text-indigo-700">
+                              <td className="px-4 py-3 text-center text-lg text-fuchsia-700">
                                 {adminAssessmentForm.criteria.reduce((s, v) => s + Number(v || 0), 0)}
                               </td>
                             </tr>
@@ -3336,10 +3336,10 @@ const submissionUrl =
                                       total: value,
                                     }));
                                   }}
-                                  className="w-16 border border-gray-300 rounded px-2 py-1 text-center focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                                  className="w-16 border border-gray-300 rounded px-2 py-1 text-center focus:ring-2 focus:ring-fuchsia-500 focus:border-fuchsia-500 outline-none"
                                 />
                               ) : (
-                                <span className="text-xl text-indigo-700 font-extrabold">{adminAssessmentForm.total}</span>
+                                <span className="text-xl text-fuchsia-700 font-extrabold">{adminAssessmentForm.total}</span>
                               )}
                             </td>
                           </tr>
@@ -3357,13 +3357,13 @@ const submissionUrl =
             <div className="lg:col-span-2 space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {displayMembers.map((m, idx) => (
-                  <div key={idx} className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm relative overflow-hidden group hover:border-indigo-200 hover:shadow-md transition-all">
-                    <div className={`absolute top-0 left-0 w-1 h-full ${m.isLeader ? 'bg-indigo-500' : 'bg-gray-300 group-hover:bg-indigo-300'}`}></div>
+                  <div key={idx} className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm relative overflow-hidden group hover:border-fuchsia-200 hover:shadow-md transition-all">
+                    <div className={`absolute top-0 left-0 w-1 h-full ${m.isLeader ? 'bg-fuchsia-500' : 'bg-gray-300 group-hover:bg-fuchsia-300'}`}></div>
                     
                     <div className="flex items-start justify-between mb-3">
                       <div className="min-w-0 pr-2">
                         <h4 className="font-bold text-gray-900 text-base truncate" title={m.name}>{m.name || "Unknown"}</h4>
-                        <span className={`inline-block mt-1 text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded ${m.isLeader ? 'text-indigo-700 bg-indigo-50 border border-indigo-100' : 'text-gray-500 bg-gray-100'}`}>
+                        <span className={`inline-block mt-1 text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded ${m.isLeader ? 'text-fuchsia-700 bg-fuchsia-50 border border-fuchsia-100' : 'text-gray-500 bg-gray-100'}`}>
                           {m.candidateRole || (m.isLeader ? "Team Leader" : "Team Member")}
                         </span>
                       </div>
