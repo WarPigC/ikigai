@@ -2605,21 +2605,11 @@ const exportParticipantsPDF = () => {
   /* =========================
      HEADER (IKIGAI 2026)
   ========================= */
-  doc.setFillColor(240, 253, 244);
+  doc.setFillColor(250, 245, 255); // purple-50
   doc.rect(0, 0, 210, 34, "F");
 
-  // Add the IKIGAI logo
-  doc.addImage(ikigaiLogo, "PNG", 165, 5, 30, 24);
-
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(22);
-  doc.setTextColor(21, 128, 61);
-  doc.text("IKIGAI 2026", 14, 20);
-
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(10);
-  doc.setTextColor(75, 85, 99);
-  doc.text("Assessment Report", 14, 28);
+  // Add the IKIGAI logo (left aligned, aspect ratio maintained)
+  doc.addImage(ikigaiLogo, "PNG", 14, 8, 45, 15);
 
   doc.setDrawColor(200, 200, 200);
   doc.line(14, 32, 196, 32);
@@ -2708,18 +2698,19 @@ const exportParticipantsPDF = () => {
       valign: "middle",
     },
     headStyles: {
-      fillColor: [22, 163, 74],
+      fillColor: [107, 33, 168], // purple-800
       textColor: 255,
       fontStyle: "bold",
     },
     columnStyles: {
       0: { cellWidth: 10 },
-      1: { cellWidth: 18 },
-      2: { cellWidth: 40 },
-      3: { cellWidth: 30 },
+      1: { cellWidth: 15 },
+      2: { cellWidth: 30 },
+      3: { cellWidth: 25 },
       4: { cellWidth: 25 },
-      5: { cellWidth: 40 },
-      6: { cellWidth: 20 },
+      5: { cellWidth: 22 },
+      6: { cellWidth: 35 },
+      7: { cellWidth: 20 },
     },
     margin: { left: 14, right: 14 },
     pageBreak: "auto",
