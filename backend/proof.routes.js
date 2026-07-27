@@ -6,11 +6,21 @@ import cloudinary from "cloudinary";
 const router = express.Router();
 
 /* ================== CLOUDINARY ================== */
-cloudinary.v2.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
+const getCloudinaryConfig = () => {
+  const name = process.env.CLOUDINARY_CLOUD_NAME?.trim();
+  const key = process.env.CLOUDINARY_API_KEY?.trim();
+  const secret = process.env.CLOUDINARY_API_SECRET?.trim();
+  
+  if (name && key && secret) {
+    cloudinary.v2.config({
+      cloud_name: name,
+      api_key: key,
+      api_secret: secret,
+    });
+    return true;
+  }
+  return false;
+};
 
 /* ================== SCHEMA ================== */
 const ProofSchema = new mongoose.Schema(
@@ -48,6 +58,10 @@ router.post(
 
       if (!req.file) {
         return res.status(400).json({ message: "No image provided" });
+      }
+
+      if (!getCloudinaryConfig()) {
+        return res.status(500).json({ success: false, message: "Cloudinary is not configured on server" });
       }
 
       const base64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString(

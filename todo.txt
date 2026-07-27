@@ -1,0 +1,4 @@
+in student's role, when editing a team's detail there is no "global sasignment" fields (the 2 fields). So edit the behaviour of team card edit where on edit, thees 2 fields just like how when creating a team, appeaar.
+Also checkout my cloudinary API (backend/.env). I've found a key and so can you wire it up wiht the ppt upload in student's creating/editing team card. 
+
+Also i've attached an image to show what's wrong. I need a revision of the 'sort'
