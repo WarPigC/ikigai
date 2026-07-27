@@ -1449,6 +1449,50 @@ app.delete("/api/student/participants/:id", async (req, res) => {
 
 
 
+// SESSION CHAIR: get current track lock status
+app.get("/api/session/track-status", async (req, res) => {
+  try {
+    const { eventId, trackId } = req.query;
+
+    if (!eventId || !trackId) {
+      return res.status(400).json({
+        success: false,
+        message: "eventId and trackId are required",
+      });
+    }
+
+    const event = await Event.findById(eventId);
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: "Event not found",
+      });
+    }
+
+    const track = event.tracks.find(
+      (t) => String(t.id) === String(trackId)
+    );
+
+    if (!track) {
+      return res.status(404).json({
+        success: false,
+        message: "Track not found",
+      });
+    }
+
+    res.json({
+      success: true,
+      assessmentLocked: !!track.assessmentLocked,
+    });
+  } catch (err) {
+    console.error("TRACK STATUS ERROR:", err);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch track status",
+    });
+  }
+});
+
 //* 4️⃣ Session Chair Dashboard */
 app.get("/api/session/:email", async (req, res) => {
   try {
@@ -1579,49 +1623,7 @@ app.get("/api/student/participants", async (req, res) => {
   }
 });
 
-// SESSION CHAIR: get current track lock status
-app.get("/api/session/track-status", async (req, res) => {
-  try {
-    const { eventId, trackId } = req.query;
 
-    if (!eventId || !trackId) {
-      return res.status(400).json({
-        success: false,
-        message: "eventId and trackId are required",
-      });
-    }
-
-    const event = await Event.findById(eventId);
-    if (!event) {
-      return res.status(404).json({
-        success: false,
-        message: "Event not found",
-      });
-    }
-
-    const track = event.tracks.find(
-      (t) => String(t.id) === String(trackId)
-    );
-
-    if (!track) {
-      return res.status(404).json({
-        success: false,
-        message: "Track not found",
-      });
-    }
-
-    res.json({
-      success: true,
-      assessmentLocked: !!track.assessmentLocked,
-    });
-  } catch (err) {
-    console.error("TRACK STATUS ERROR:", err);
-    res.status(500).json({
-      success: false,
-      message: "Failed to fetch track status",
-    });
-  }
-});
 
 
 /*  STUDENT COORDINATOR DASHBOARD FETCH  */

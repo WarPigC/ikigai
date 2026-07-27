@@ -30,7 +30,6 @@ const [sortOrder, setSortOrder] = useState("asc");
 const [filterTrack, setFilterTrack] = useState("ALL");
 const [filterInstitute, setFilterInstitute] = useState("");
 const [filterBranch, setFilterBranch] = useState("");
-const [filterMode, setFilterMode] = useState("");
 const [marksRange, setMarksRange] = useState([0, 100]);
 const [showFilters, setShowFilters] = useState(false);
 
@@ -49,7 +48,20 @@ const [showFilters, setShowFilters] = useState(false);
       .then((res) => res.json())
       .then((data) => {
         if (data.success) {
-          setParticipants(data.participants || []);
+          const mapped = (data.participants || []).map((p) => {
+            const leader = p.members?.find((m) => m.isLeader) || p.members?.[0] || {};
+            return {
+              paperId: p.teamId || p._id,
+              teamName: p.teamName || "",
+              paperTitle: p.problemStatement || "",
+              presenterName: leader.name || "Unknown",
+              email: leader.email || "",
+              phone: leader.mobile || "",
+              institute: leader.organisation || "",
+              branch: leader.domain || leader.specialization || ""
+            };
+          });
+          setParticipants(mapped);
           setTracks(data.tracks || []);
         }
       })
@@ -103,10 +115,6 @@ const filteredParticipants = participants
       !filterBranch ||
       p.branch?.toLowerCase().includes(filterBranch.toLowerCase());
 
-    // 🟢 Mode filter
-    const modeMatch =
-      !filterMode || p.mode === filterMode;
-
     // 🟢 Marks filter
     const marks = p.assessment?.total ?? -1;
     const marksMatch =
@@ -117,7 +125,6 @@ const filteredParticipants = participants
       trackMatch &&
       instituteMatch &&
       branchMatch &&
-      modeMatch &&
       marksMatch
     );
   }).sort((a, b) => {
@@ -172,11 +179,10 @@ const participantsWithRank = (() => {
 
 const exportData = () =>
   finalParticipants.map((p) => ({
-    "Paper ID": p.paperId,
+    "Team ID": p.paperId,
     "Presenter Name": p.presenterName,
     "Institute": p.institute || "",
     "Track Name": p.trackName,
-    "Mode": p.mode || "",
     "Marks": p.assessment?.total ?? "",
   }));
 const trackName =  filteredParticipants[0]?.trackName || "Track";
@@ -189,8 +195,9 @@ const exportParticipantsCSV = () => {
 
   const headers = [
     "Track Rank",
-    "Paper ID",
-    "Paper Title",
+    "Team ID",
+    "Team Name",
+    "Problem Statement",
     "Track Name",
     "Presenter Name",
     "Email",
@@ -203,6 +210,7 @@ const exportParticipantsCSV = () => {
   const rows = participantsWithRank.map((p) => [
     p.trackRank,
     p.paperId,
+    p.teamName,
     p.paperTitle,
     p.trackName,
     p.presenterName,
@@ -257,15 +265,15 @@ const exportParticipantsXLSX = () => {
 
     return {
       "Track Rank": p.trackRank,
-      "Paper ID": p.paperId,
-      "Paper Title": p.paperTitle,
+      "Team ID": p.paperId,
+      "Team Name": p.teamName,
+      "Problem Statement": p.paperTitle,
       "Track Name": p.trackName,
       "Presenter Name": p.presenterName,
       "Email": p.email || "",
       "Phone": p.phone || "",
       "Institute": p.institute || "",
       "Branch": p.branch || "",
-      "Mode": p.mode || "",
       "Marks": marks,
       "Remarks": p.assessment?.remarks ?? "",
       "Submission Link": p.submissionLink ?? "",
@@ -365,6 +373,7 @@ const exportParticipantsPDF = () => {
     return [
       p.trackRank,
       p.paperId,
+      p.teamName,
       p.paperTitle,
       p.trackName,
       p.presenterName,
@@ -378,8 +387,9 @@ const exportParticipantsPDF = () => {
     startY: y,
     head: [[
       "Track Rank",
-      "Paper ID",
-      "Paper Title",
+      "Team ID",
+      "Team Name",
+      "Problem Statement",
       "Track",
       "Presenter",
       "Phone",
@@ -479,7 +489,7 @@ const exportParticipantsPDF = () => {
           className="border rounded-lg px-3 py-1.5 text-sm"
         >
           <option value="">Select field</option>
-          <option value="paperId">Paper ID</option>
+          <option value="paperId">Team ID</option>
           <option value="marks">Total Marks</option>
         </select>
 
@@ -542,16 +552,6 @@ const exportParticipantsPDF = () => {
           onChange={(e) => setFilterBranch(e.target.value)}
           className="border rounded-lg px-3 py-1.5 text-sm"
         />
-
-        <select
-          value={filterMode}
-          onChange={(e) => setFilterMode(e.target.value)}
-          className="border rounded-lg px-3 py-1.5 text-sm"
-        >
-          <option value="">All modes</option>
-          <option value="Online">Online</option>
-          <option value="Offline">Offline</option>
-        </select>
 
         <input
           type="number"
@@ -638,9 +638,10 @@ const exportParticipantsPDF = () => {
             {p.presenterName}
           </span>
         </div>
-        <div className="text-sm text-gray-700 mt-1 break-words line-clamp-2">
-  {p.paperTitle}
-</div>
+        {/* Problem Statement and Team Name */}
+        <div className="text-sm text-gray-700 mt-1 truncate">
+          <b>Team:</b> {p.teamName} &nbsp;|&nbsp; <b>Problem:</b> {p.paperTitle}
+        </div>
 
 
 {/* Institute + Branch */}
@@ -716,18 +717,17 @@ const exportParticipantsPDF = () => {
         <div><b>Presenter:</b> {selectedParticipant.presenterName}</div>
         <div><b>Email:</b> {selectedParticipant.email}</div>
         <div><b>Phone:</b> {selectedParticipant.phone}</div>
+        <div><b>Institute:</b> {selectedParticipant.institute}</div>
+        {selectedParticipant.branch && <div><b>Branch:</b> {selectedParticipant.branch}</div>}
 
         <div className="pt-2">
-          <b>Paper ID:</b> {selectedParticipant.paperId}
+          <b>Team ID:</b> {selectedParticipant.paperId}
         </div>
-        <div><b>Paper Title:</b> {selectedParticipant.paperTitle}</div>
+        <div><b>Team Name:</b> {selectedParticipant.teamName}</div>
+        <div><b>Problem Statement:</b> {selectedParticipant.paperTitle}</div>
 
         <div>
           <b>Track:</b> {selectedParticipant.trackName}
-        </div>
-
-        <div>
-          <b>Mode:</b> {selectedParticipant.mode}
         </div>
 
         <div>
