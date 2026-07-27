@@ -26,11 +26,11 @@ import ramsitaLogo from "./assets/ramsita-logo.png";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
 export const ASSESSMENT_CRITERIA = [
-  "Presentation Quality & Clarity",
-  "Significance & Relevance of Problem",
-  "Appropriateness of Methodology",
-  "Validity of Results & Conclusions",
-  "How effectively questions were addressed",
+  "Innovation & Creativity",
+  "Technical Complexity",
+  "UI/UX & Design",
+  "Feasibility & Impact",
+  "Presentation & Q&A",
 ];
 
 
@@ -3711,8 +3711,44 @@ const normalizedMeetingLink =
     </div>
   );
 }
-/* ------------------------ Assessment Modal ------------------------ */
+/* ------------------------ Member Assessment Card ------------------------ */
+const MemberAssessmentCard = ({ m }) => {
+  const [open, setOpen] = React.useState(false);
+  return (
+    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+      <button 
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between font-semibold text-gray-800 text-sm border-b border-gray-100 pb-2 focus:outline-none"
+      >
+         <span className="flex items-center gap-2">
+           {m.name} 
+           {m.isLeader && <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded uppercase tracking-wider">Leader</span>}
+         </span>
+         <span className="text-gray-400 text-[10px] font-bold uppercase tracking-wider">{open ? "▲ Hide" : "▼ Show"}</span>
+      </button>
+      {open && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-2 gap-x-2 text-xs text-gray-600 mt-3">
+           {(m.organisation || m.institute) && <div className="col-span-1 sm:col-span-2"><span className="font-semibold text-gray-500 block text-[10px] uppercase mb-0.5">Org/Institute</span> <span className="break-words font-medium">{m.organisation || m.institute}</span></div>}
+           {m.email && <div className="col-span-1 sm:col-span-2 truncate" title={m.email}><span className="font-semibold text-gray-500 mr-1">Email:</span> {m.email}</div>}
+           {(m.mobile || m.phone) && <div><span className="font-semibold text-gray-500 mr-1">Phone:</span> {m.mobile || m.phone}</div>}
+           {m.location && <div className="truncate" title={m.location}><span className="font-semibold text-gray-500 mr-1">Location:</span> {m.location}</div>}
+           {m.userType && <div className="truncate" title={m.userType}><span className="font-semibold text-gray-500 mr-1">Type:</span> {m.userType}</div>}
+           {(m.domain || m.category) && <div className="truncate" title={m.domain || m.category}><span className="font-semibold text-gray-500 mr-1">Domain:</span> {m.domain || m.category}</div>}
+           {(m.course || m.degree) && <div className="truncate" title={m.course || m.degree}><span className="font-semibold text-gray-500 mr-1">Course:</span> {m.course || m.degree}</div>}
+           {(m.specialization || m.branch) && <div className="truncate" title={m.specialization || m.branch}><span className="font-semibold text-gray-500 mr-1">Specialization:</span> {m.specialization || m.branch}</div>}
+           {m.courseType && <div className="truncate" title={m.courseType}><span className="font-semibold text-gray-500 mr-1">Course Type:</span> {m.courseType}</div>}
+           {m.courseDuration && <div className="truncate" title={m.courseDuration}><span className="font-semibold text-gray-500 mr-1">Duration:</span> {m.courseDuration} {m.courseDuration && !isNaN(m.courseDuration) ? 'yrs' : ''}</div>}
+           {m.gradYear && <div><span className="font-semibold text-gray-500 mr-1">Grad Year:</span> {m.gradYear}</div>}
+           {m.designation && <div className="truncate" title={m.designation}><span className="font-semibold text-gray-500 mr-1">Designation:</span> {m.designation}</div>}
+           {m.workExperience && <div className="truncate" title={m.workExperience}><span className="font-semibold text-gray-500 mr-1">Experience:</span> {m.workExperience}</div>}
+           {m.differentlyAbled !== undefined && m.differentlyAbled !== "" && <div><span className="font-semibold text-gray-500 mr-1">Diff. Abled:</span> {String(m.differentlyAbled) === "true" ? "Yes" : "No"}</div>}
+        </div>
+      )}
+    </div>
+  );
+};
 
+/* ------------------------ Assessment Modal ------------------------ */
 function AssessmentModal({
   open,
   onClose,
@@ -3720,7 +3756,7 @@ function AssessmentModal({
   currentIndex,
   onSaveAndNext,
   track,
-  isSaved, // ← comes from parent
+  isSaved,
   onNext,
   onPrev,
   onScheduleToLast,
@@ -3729,778 +3765,515 @@ function AssessmentModal({
   const [savedMsg, setSavedMsg] = React.useState(false);
   const [showMarks, setShowMarks] = React.useState(false);
 
-
   const [assessmentMode, setAssessmentMode] = React.useState("criteria");
   const [isDirty, setIsDirty] = React.useState(false);
-	/* ---------- TIMER (SESSION CHAIR ONLY) ---------- */
-const PRESENTATION_TIME = 5 * 60; // 5 minutes
-const TOTAL_TIME = 7 * 60;        // 7 minutes
 
-const [secondsLeft, setSecondsLeft] = React.useState(TOTAL_TIME);
-const [timerRunning, setTimerRunning] = React.useState(false);
-const timerRef = React.useRef(null);
-const [timersByIndex, setTimersByIndex] = React.useState({});
-const [activeTimerIndex, setActiveTimerIndex] = React.useState(null);
+  /* ---------- TIMER (SESSION CHAIR ONLY) ---------- */
+  const PRESENTATION_TIME = 5 * 60; // 5 minutes
+  const TOTAL_TIME = 7 * 60;        // 7 minutes
 
+  const [secondsLeft, setSecondsLeft] = React.useState(TOTAL_TIME);
+  const [timerRunning, setTimerRunning] = React.useState(false);
+  const timerRef = React.useRef(null);
+  const [timersByIndex, setTimersByIndex] = React.useState({});
+  const [activeTimerIndex, setActiveTimerIndex] = React.useState(null);
 
+  // Accordion state
+  const [openSection, setOpenSection] = React.useState(1);
+  const [showPptModal, setShowPptModal] = React.useState(false);
 
-
-
-  const [form, setForm] = React.useState({
+  const DEFAULT_FORM = {
     present: true,
-   criteria: Array(ASSESSMENT_CRITERIA.length).fill(0),
+    criteria: Array(ASSESSMENT_CRITERIA.length).fill(0),
+    justifications: Array(ASSESSMENT_CRITERIA.length).fill(""),
     total: 0,
     notes: "",
-  });
-  const DEFAULT_FORM = {
-  present: true,
- criteria: Array(ASSESSMENT_CRITERIA.length).fill(0),
+  };
+  const [form, setForm] = React.useState(DEFAULT_FORM);
 
-  total: 0,
-  notes: "",
-};
-
-  /* ---------- LOAD PARTICIPANT ---------- */
   React.useEffect(() => {
-  if (!showMarks) return;
+    if (!showMarks) return;
+    const timer = setTimeout(() => {
+      setShowMarks(false);
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [showMarks]);
 
-  const timer = setTimeout(() => {
-    setShowMarks(false);
-  }, 1000);
+  React.useEffect(() => {
+    if (!participants?.length) return;
 
-  return () => clearTimeout(timer);
-}, [showMarks]);
+    const p = participants[currentIndex];
+    if (!p) return;
 
+    let nextForm = { ...DEFAULT_FORM };
+    let mode = "criteria";
 
-React.useEffect(() => {
-  if (!participants?.length) return;
+    if (p.assessment) {
+      mode = p.assessment.mode === "direct" ? "direct" : "criteria";
 
-  const p = participants[currentIndex];
-  if (!p) return;
-  
+      const criteria = Array.isArray(p.assessment.criteria) && p.assessment.criteria.length === ASSESSMENT_CRITERIA.length
+        ? p.assessment.criteria
+        : Array(ASSESSMENT_CRITERIA.length).fill(0);
+      
+      let justifications = Array(ASSESSMENT_CRITERIA.length).fill("");
+      let notes = p.assessment.notes ?? "";
+      
+      if (notes.startsWith("JSON:")) {
+        try {
+          justifications = JSON.parse(notes.substring(5));
+          notes = "";
+        } catch (e) {
+          console.error("Failed to parse justifications", e);
+        }
+      }
 
-  // 🔒 HARD RESET FIRST (prevents bleed)
-  let nextForm = { ...DEFAULT_FORM };
-
-  let mode = "criteria";
-
-  if (p.assessment) {
-    mode = p.assessment.mode === "direct" ? "direct" : "criteria";
-
-    const criteria =
-  Array.isArray(p.assessment.criteria) &&
-  p.assessment.criteria.length === ASSESSMENT_CRITERIA.length
-    ? p.assessment.criteria
-    : Array(ASSESSMENT_CRITERIA.length).fill(0);
-
-
-    const total =
-      mode === "direct"
+      const total = mode === "direct"
         ? p.assessment.total ?? 0
         : criteria.reduce((a, b) => a + Number(b || 0), 0);
 
-    nextForm = {
-      present: p.present ?? true,
-      criteria,
-      total,
-      notes: p.assessment.notes ?? "",
-    };
-  }
+      nextForm = {
+        present: p.present ?? true,
+        criteria,
+        justifications,
+        total,
+        notes,
+      };
+    }
 
-  setAssessmentMode(mode);
-  setForm(nextForm);
-  setIsDirty(false);
-}, [participants, currentIndex]);
+    setAssessmentMode(mode);
+    setForm(nextForm);
+    setIsDirty(false);
+    setOpenSection(1);
+  }, [participants, currentIndex]);
 
-	React.useEffect(() => {
-  // If this participant owns the timer, show live timer
-  if (activeTimerIndex === currentIndex) return;
-
-  // Otherwise show their stored or fresh time
-  setSecondsLeft(TOTAL_TIME);
-}, [currentIndex]);
-
-
+  React.useEffect(() => {
+    if (activeTimerIndex === currentIndex) return;
+    setSecondsLeft(TOTAL_TIME);
+  }, [currentIndex]);
 
   if (!open || !participants?.length) return null;
 
   const p = participants[currentIndex];
   const isLast = currentIndex === participants.length - 1;
 
-  /* ---------- CRITERIA ---------- */
   const setCriteria = (i, value) => {
-  if (assessmentMode !== "criteria") return;
+    if (assessmentMode !== "criteria") return;
+    setIsDirty(true);
+    const arr = [...form.criteria];
+    arr[i] = value === "" ? "" : value;
+    setForm((f) => ({ ...f, criteria: arr }));
+  };
 
-  setIsDirty(true);
+  const setJustification = (i, value) => {
+    setIsDirty(true);
+    const arr = [...form.justifications];
+    arr[i] = value;
+    setForm((f) => ({ ...f, justifications: arr }));
+  };
 
-  const arr = [...form.criteria];
-
-  // allow empty while typing
-  arr[i] = value === "" ? "" : value;
-
-  setForm((f) => ({ ...f, criteria: arr }));
-};
-
-if (track?.assessmentLocked) {
-  return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black/40">
-      <div className="bg-white p-6 rounded-xl">
-        <h3 className="text-lg font-semibold text-red-600">
-          Assessment Locked
-        </h3>
-        <p className="text-sm text-gray-600 mt-2">
-          The admin has locked this assessment.
-        </p>
-        <button onClick={onClose} className="mt-4 px-4 py-2 border rounded">
-          Close
-        </button>
+  if (track?.assessmentLocked) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-black/40 z-[60]">
+        <div className="bg-white p-6 rounded-xl shadow-xl">
+          <h3 className="text-lg font-semibold text-red-600">Assessment Locked</h3>
+          <p className="text-sm text-gray-600 mt-2">The admin has locked this assessment.</p>
+          <button onClick={onClose} className="mt-4 px-4 py-2 border rounded">Close</button>
+        </div>
       </div>
-    </div>
-  );
-}
-
-	const handleSaveMarks = async () => {
-  if (track.assessmentLocked) {
-    alert("Assessment is locked by admin.");
-    return;
-  }
-
-  const assessmentPayload = {
-    criteria: assessmentMode === "criteria" ? form.criteria : [],
-    total: Number(form.total),
-    notes: form.notes || "",
-    mode: assessmentMode,
-  };
-
-  await onSaveAndNext(currentIndex, {
-    present: form.present,
-    assessment: assessmentPayload,
-  });
-
-  setSavedMsg(true);
-  setIsDirty(false); // ✅ marks are now safely saved
-  setTimeout(() => setSavedMsg(false), 2000);
-};
-
-
-  /* ---------- DIRECT TOTAL ---------- */
-  const setDirectTotal = (value) => {
-  if (assessmentMode !== "direct") return;
-
-  setIsDirty(true); // ✅ local only
-
-  setForm((f) => ({
-  ...f,
-  total: Math.max(0, Math.min(50, Number(value) || 0)),
-  // NOTE: criteria intentionally cleared in direct mode
-  criteria: Array(ASSESSMENT_CRITERIA.length).fill(0),
-}));
-  };
-
-
-const handleAdminSaveMarks = async () => {
-  const payload =
-    assessmentMode === "criteria"
-      ? {
-          assessment: {
-            criteria: adminAssessmentForm.criteria,
-            total: adminAssessmentForm.criteria.reduce(
-              (s, v) => s + Number(v || 0),
-              0
-            ),
-          },
-        }
-      : {
-          assessment: {
-            total: adminAssessmentForm.total,
-            criteria: [],
-          },
-        };
-
-  await fetch(
-    `${API_BASE}/api/admin/participants/${selectedParticipant._id}`,
-    {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    }
-  );
-
-  setEditingAssessment(false);
-};
-
-const startTimer = () => {
-  // ⛔ another participant already has the timer
-  if (timerRunning && activeTimerIndex !== currentIndex) {
-    alert(
-      "A timer is already running for another participant. Please stop it first."
     );
-    return;
   }
 
-  // ⛔ same participant, already running
-  if (timerRunning && activeTimerIndex === currentIndex) return;
-
-  setTimerRunning(true);
-  setActiveTimerIndex(currentIndex);
-
-  timerRef.current = setInterval(() => {
-    setSecondsLeft(prev => {
-      if (prev <= 1) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-        setTimerRunning(false);
-        setActiveTimerIndex(null);
-        return 0;
-      }
-      return prev - 1;
-    });
-  }, 1000);
-};
-
-
-const stopTimer = () => {
-  setTimerRunning(false);
-  setActiveTimerIndex(null);
-
-  if (timerRef.current) {
-    clearInterval(timerRef.current);
-    timerRef.current = null;
-  }
-};
-
-
-const formatTime = (secs) => {
-  const m = Math.floor(secs / 60);
-  const s = secs % 60;
-  return `${m}:${s.toString().padStart(2, "0")}`;
-};
-
-const getTimerColor = () => {
-  const progress = (TOTAL_TIME - secondsLeft) / TOTAL_TIME;
-
-  // clamp between 0–1
-  const p = Math.min(1, Math.max(0, progress));
-
-  /**
-   * Color path:
-   * 0%   → Green   (34, 197, 94)
-   * 50%  → Yellow  (234, 179, 8)
-   * 100% → Red     (239, 68, 68)
-   */
-
-  let r, g, b;
-
-  if (p < 0.5) {
-    // Green → Yellow
-    const t = p / 0.5;
-    r = Math.round(34 + (234 - 34) * t);
-    g = Math.round(197 + (179 - 197) * t);
-    b = Math.round(94 + (8 - 94) * t);
-  } else {
-    // Yellow → Red
-    const t = (p - 0.5) / 0.5;
-    r = Math.round(234 + (239 - 234) * t);
-    g = Math.round(179 + (68 - 179) * t);
-    b = Math.round(8 + (68 - 8) * t);
-  }
-
-  return `rgb(${r}, ${g}, ${b})`;
-};
-
-
-
-const elapsed = TOTAL_TIME - secondsLeft;
-
-const showPresentationOver =
-  elapsed >= PRESENTATION_TIME && elapsed < TOTAL_TIME;
-
-const showSessionOver = secondsLeft === 0;
-
-
-
-  const handleMarkAbsent = () => {
-    if (track.assessmentLocked) {
+  const handleSaveMarks = async () => {
+    if (track?.assessmentLocked) {
       alert("Assessment is locked by admin.");
       return;
     }
-
-  if (
-    !window.confirm(
-      "Are you sure you want to mark this participant as ABSENT? This action will clear all marks."
-    )
-  ) {
-    return;
-  }
-
-  onSaveAndNext(currentIndex, {
-    present: false,
-    assessment: {
-      criteria: [],
-      total: 0,
-      notes: "Marked absent",
-      mode: "direct",
-    },
-  });
-
-  setIsDirty(false);
-  setSavedMsg(true);
-  setTimeout(() => setSavedMsg(false), 3000);
-};
-
-
-
-const handleScheduleToLast = () => {
-  if (
-    !window.confirm(
-      "Schedule this participant to the end of the assessment list?"
-    )
-  ) {
-    return;
-  }
-
-  onScheduleToLast(currentIndex);
-};
-
-const guardedPrev = () => {
-  if (isDirty) {
-    alert("You have unsaved marks. Please click 'Save Marks' first.");
-    return;
-  }
-
-  setTimersByIndex(t => ({
-    ...t,
-    [currentIndex]: secondsLeft,
-  }));
-
-  onPrev();
-};
-
-
-const guardedNext = () => {
-  if (isDirty) {
-    alert("You have unsaved marks. Please click 'Save Marks' first.");
-    return;
-  }
-
-  setTimersByIndex(t => ({
-    ...t,
-    [currentIndex]: secondsLeft,
-  }));
-
-  onNext();
-};
-
-
-
-const normalizeCriteriaValue = (raw, max = 10) => {
-  if (raw === "" || raw === null || raw === undefined) return 0;
-
-  const str = String(raw);
-
-  // If value has no decimal, is > max, and was likely typed before 0
-  if (!str.includes(".") && Number(str) > max) {
-    const firstDigit = Number(str[0]);
-    if (!isNaN(firstDigit)) {
-      return Math.min(max, firstDigit);
+    
+    const missingMarks = form.criteria.some(c => c === "" || c === null || c === undefined);
+    const missingJustifs = form.justifications.some(j => !j || j.trim() === "");
+    
+    if (assessmentMode === "criteria" && (missingMarks || missingJustifs)) {
+      alert("Please fill all the marks and their justifications before saving.");
+      return;
     }
-  }
 
-  const num = Number(str);
-  if (isNaN(num)) return 0;
+    const assessmentPayload = {
+      criteria: assessmentMode === "criteria" ? form.criteria.map(Number) : [],
+      total: Number(form.total),
+      notes: form.justifications.some(j => j) ? "JSON:" + JSON.stringify(form.justifications) : form.notes,
+      mode: assessmentMode,
+    };
 
-  return Math.max(0, Math.min(max, num));
-};
+    await onSaveAndNext(currentIndex, {
+      present: form.present,
+      assessment: assessmentPayload,
+    });
 
+    setSavedMsg(true);
+    setIsDirty(false);
+    setTimeout(() => setSavedMsg(false), 2000);
+  };
 
-  const activeInput =
-  "border border-gray-300 rounded text-center py-2 bg-white focus:ring-2 focus:ring-green-300";
+  const setDirectTotal = (value) => {
+    if (assessmentMode !== "direct") return;
+    setIsDirty(true);
+    setForm((f) => ({
+      ...f,
+      total: Math.max(0, Math.min(50, Number(value) || 0)),
+      criteria: Array(ASSESSMENT_CRITERIA.length).fill(0),
+    }));
+  };
 
-  const disabledInput =
-    "border border-gray-200 rounded text-center py-2 bg-gray-100 text-gray-400 cursor-not-allowed";
+  const startTimer = () => {
+    if (timerRunning && activeTimerIndex !== currentIndex) {
+      alert("A timer is already running for another participant. Please stop it first.");
+      return;
+    }
+    if (timerRunning && activeTimerIndex === currentIndex) return;
+
+    setTimerRunning(true);
+    setActiveTimerIndex(currentIndex);
+
+    timerRef.current = setInterval(() => {
+      setSecondsLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(timerRef.current);
+          timerRef.current = null;
+          setTimerRunning(false);
+          setActiveTimerIndex(null);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  const stopTimer = () => {
+    setTimerRunning(false);
+    setActiveTimerIndex(null);
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  };
+
+  const formatTime = (secs) => {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${m}:${s.toString().padStart(2, "0")}`;
+  };
+
+  const getTimerColor = () => {
+    const progress = (TOTAL_TIME - secondsLeft) / TOTAL_TIME;
+    const p = Math.min(1, Math.max(0, progress));
+    let r, g, b;
+    if (p < 0.5) {
+      const t = p / 0.5;
+      r = Math.round(34 + (234 - 34) * t);
+      g = Math.round(197 + (179 - 197) * t);
+      b = Math.round(94 + (8 - 94) * t);
+    } else {
+      const t = (p - 0.5) / 0.5;
+      r = Math.round(234 + (239 - 234) * t);
+      g = Math.round(179 + (68 - 179) * t);
+      b = Math.round(8 + (68 - 8) * t);
+    }
+    return `rgb(${r}, ${g}, ${b})`;
+  };
+
+  const elapsed = TOTAL_TIME - secondsLeft;
+  const showPresentationOver = elapsed >= PRESENTATION_TIME && elapsed < TOTAL_TIME;
+  const showSessionOver = secondsLeft === 0;
+
+  const handleMarkAbsent = () => {
+    if (track?.assessmentLocked) {
+      alert("Assessment is locked by admin.");
+      return;
+    }
+    if (!window.confirm("Are you sure you want to mark this participant as ABSENT? This action will clear all marks.")) {
+      return;
+    }
+    onSaveAndNext(currentIndex, {
+      present: false,
+      assessment: {
+        criteria: [],
+        total: 0,
+        notes: "Marked absent",
+        mode: "direct",
+      },
+    });
+    setIsDirty(false);
+    setSavedMsg(true);
+    setTimeout(() => setSavedMsg(false), 3000);
+  };
+
+  const handleScheduleToLast = () => {
+    if (!window.confirm("Schedule this participant to the end of the assessment list?")) return;
+    onScheduleToLast(currentIndex);
+  };
+
+  const guardedPrev = () => {
+    if (isDirty) {
+      alert("You have unsaved marks. Please click 'Save Marks' first.");
+      return;
+    }
+    setTimersByIndex((t) => ({ ...t, [currentIndex]: secondsLeft }));
+    onPrev();
+  };
+
+  const guardedNext = () => {
+    if (isDirty) {
+      alert("You have unsaved marks. Please click 'Save Marks' first.");
+      return;
+    }
+    setTimersByIndex((t) => ({ ...t, [currentIndex]: secondsLeft }));
+    onNext();
+  };
+
+  const normalizeCriteriaValue = (raw, max = 10) => {
+    if (raw === "" || raw === null || raw === undefined) return 0;
+    const str = String(raw);
+    if (!str.includes(".") && Number(str) > max) {
+      const firstDigit = Number(str[0]);
+      if (!isNaN(firstDigit)) return Math.min(max, firstDigit);
+    }
+    const num = Number(str);
+    if (isNaN(num)) return 0;
+    return Math.max(0, Math.min(max, num));
+  };
+
+  const activeInput = "border border-gray-300 rounded text-center py-2 bg-white focus:ring-2 focus:ring-green-300";
 
   return (
-   <div className="fixed inset-0 z-50 flex items-center justify-center bg-green-100/60 backdrop-blur-sm px-4">
-    <div
-      className="
-        w-full max-w-3xl bg-white rounded-2xl shadow-xl
-        max-h-[85vh] overflow-y-auto p-6
-      "
-    >
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-green-100/60 backdrop-blur-sm px-4 py-8">
+      <div className="w-full max-w-4xl bg-white rounded-2xl shadow-xl flex flex-col h-full max-h-[90vh]">
+        {/* Header */}
+        <div className="flex justify-between items-center px-6 py-4 bg-green-600 text-white rounded-t-2xl shrink-0">
+          <div>
+            <h2 className="text-xl font-bold">{p.presenterName}</h2>
+            <div className="text-sm text-green-100">{p.institute} • {p.branch}</div>
+          </div>
+          <div className="flex items-center gap-4">
+             <span className="px-3 py-1 rounded-full bg-white text-green-700 text-sm font-semibold">
+               Team ID: {p.paperId}
+             </span>
+             <button onClick={onClose} className="text-white hover:bg-green-700 p-2 rounded-full font-bold transition-colors w-8 h-8 flex items-center justify-center">✕</button>
+          </div>
+        </div>
 
-        {/* PARTICIPANT DETAILS */}
+        {/* Global Timer Section */}
+        <div className="px-6 py-3 border-b bg-green-50 shrink-0 flex justify-between items-center">
+          <div>
+            <div className="text-sm font-semibold text-gray-600">Presentation Timer</div>
+            <div className="text-2xl font-bold transition-colors duration-500" style={{ color: getTimerColor() }}>
+              {formatTime(secondsLeft)}
+            </div>
+            <div className="text-xs text-gray-500">5 min presentation • 2 min Q&A</div>
+          </div>
+          <div className="flex flex-col gap-1 items-end">
+             <div className="flex gap-2">
+                <button onClick={startTimer} disabled={timerRunning && activeTimerIndex !== currentIndex} className="px-3 py-1.5 rounded bg-green-600 hover:bg-green-700 text-white font-semibold text-sm disabled:bg-green-300 transition-colors">▶ Start</button>
+                <button onClick={stopTimer} className="px-3 py-1.5 rounded border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 text-sm transition-colors">⏸ Stop</button>
+             </div>
+             {showPresentationOver && <div className="text-[10px] font-semibold text-yellow-700 bg-yellow-100 px-2 py-0.5 rounded">⚠️ Q&A started</div>}
+             {showSessionOver && <div className="text-[10px] font-semibold text-red-700 bg-red-100 px-2 py-0.5 rounded">⛔ Time up!</div>}
+          </div>
+        </div>
 
-        <div className="mb-6 bg-green-50 border border-green-200 rounded-xl p-4">
+        {/* Content Body */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50/50">
+          
+          {/* Section 1: About Team */}
+          <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm bg-white">
+            <button 
+               onClick={() => setOpenSection(openSection === 1 ? null : 1)}
+               className="w-full flex justify-between items-center p-4 bg-gray-50 hover:bg-gray-100 transition-colors text-left font-semibold text-gray-800"
+            >
+               <span className="flex items-center gap-2">
+                  1. About Team
+                  {openSection !== 1 && <span className="bg-purple-100 text-purple-700 text-xs px-2 py-0.5 rounded-full">{p.mode}</span>}
+               </span>
+               <span className="text-gray-400">{openSection === 1 ? "▲" : "▼"}</span>
+            </button>
+            {openSection === 1 && (
+               <div className="p-5 border-t border-gray-100">
+                  <div className="flex flex-wrap gap-x-6 gap-y-3 text-sm text-gray-700 mb-5 bg-gray-50 p-4 rounded-lg border border-gray-100 shadow-sm">
+                     <div className="flex flex-col"><span className="font-semibold text-gray-500 uppercase tracking-wide text-[10px]">Team Name</span> <span className="font-medium text-gray-900">{p.teamName || p.presenterName}</span></div>
+                     <div className="flex flex-col"><span className="font-semibold text-gray-500 uppercase tracking-wide text-[10px]">Track</span> <span className="font-medium text-gray-900">{p.track || p.trackId || "—"}</span></div>
+                     <div className="flex flex-col"><span className="font-semibold text-gray-500 uppercase tracking-wide text-[10px]">Contact Email</span> <span className="font-medium text-gray-900">{p.email || "—"}</span></div>
+                     <div className="flex flex-col"><span className="font-semibold text-gray-500 uppercase tracking-wide text-[10px]">Contact Phone</span> <span className="font-medium text-gray-900">{p.phone || "—"}</span></div>
+                  </div>
+                  
+                  <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Team Members ({p.members?.length || 0})</h4>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {(p.members || []).map((m, idx) => (
+                      <MemberAssessmentCard key={idx} m={m} />
+                    ))}
+                  </div>
+               </div>
+            )}
+          </div>
 
-  {/* HEADER */}
-  <div className="flex justify-between items-start mb-3">
-    <div>
-      <div className="text-xl font-bold text-green-700">
-        {p.presenterName}
+          {/* Section 2: Problem Statement */}
+          <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm bg-white">
+            <button 
+               onClick={() => setOpenSection(openSection === 2 ? null : 2)}
+               className="w-full flex justify-between items-center p-4 bg-gray-50 hover:bg-gray-100 transition-colors text-left font-semibold text-gray-800"
+            >
+               <span className="flex items-center gap-2">
+                  2. Problem Statement
+                  {openSection !== 2 && <span className="text-gray-500 font-normal text-sm ml-2 truncate max-w-xs">{p.paperTitle}</span>}
+               </span>
+               <span className="text-gray-400">{openSection === 2 ? "▲" : "▼"}</span>
+            </button>
+            {openSection === 2 && (
+               <div className="p-5 border-t border-gray-100">
+                  <div className="mb-5 bg-gray-50 p-4 rounded-xl border border-gray-100">
+                    <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Title</div>
+                    <div className="text-gray-800 font-medium text-sm md:text-base">{p.paperTitle}</div>
+                  </div>
+                  {p.description && (
+                    <div className="mb-5">
+                      <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Description</div>
+                      <div className="text-gray-700 text-sm whitespace-pre-wrap leading-relaxed bg-white border border-gray-100 p-4 rounded-xl shadow-sm">{p.description}</div>
+                    </div>
+                  )}
+                  
+                  <div className="mt-4 pt-5 border-t border-gray-100 flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                      <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Presentation (PPT/PDF)</div>
+                      <div className="text-sm font-medium text-gray-700">
+                         {p.pptLink ? <span className="text-green-600 flex items-center gap-1">✔ Available for review</span> : <span className="text-gray-400 italic">Not uploaded</span>}
+                      </div>
+                    </div>
+                    {p.pptLink && (
+                       <button onClick={() => setShowPptModal(true)} className="bg-purple-600 text-white px-5 py-2.5 rounded-xl font-medium hover:bg-purple-700 text-sm shadow-sm transition-all hover:shadow">
+                          Open Presentation Modal
+                       </button>
+                    )}
+                  </div>
+               </div>
+            )}
+          </div>
+
+          {/* Section 3: Assessment */}
+          <div className="border border-green-200 rounded-xl overflow-hidden shadow-sm bg-white ring-1 ring-green-50">
+            <button 
+               onClick={() => setOpenSection(openSection === 3 ? null : 3)}
+               className="w-full flex justify-between items-center p-4 bg-green-50 hover:bg-green-100 transition-colors text-left font-semibold text-green-900"
+            >
+               <span>3. Assessment</span>
+               <span className="text-green-600">{openSection === 3 ? "▲" : "▼"}</span>
+            </button>
+            {openSection === 3 && (
+               <div className="p-5 border-t border-green-100">
+                  <div className="flex gap-4 mb-6 bg-gray-50 p-2 rounded-lg border border-gray-100 inline-flex">
+                    <label className="text-sm font-medium text-gray-700 cursor-pointer flex items-center gap-2"><input type="radio" checked={assessmentMode === "criteria"} onChange={() => setAssessmentMode("criteria")} className="text-green-600 focus:ring-green-500" /> Criteria-wise</label>
+                    <label className="text-sm font-medium text-gray-700 cursor-pointer flex items-center gap-2"><input type="radio" checked={assessmentMode === "direct"} onChange={() => setAssessmentMode("direct")} className="text-green-600 focus:ring-green-500" /> Direct total</label>
+                  </div>
+
+                  {assessmentMode === "criteria" && (
+                    <div className="space-y-4 mb-6">
+                      {ASSESSMENT_CRITERIA.map((label, i) => (
+                        <div key={i} className="bg-white border border-gray-200 rounded-xl p-4 grid grid-cols-1 md:grid-cols-[1fr_90px_2fr] gap-4 items-start shadow-sm hover:border-green-300 transition-colors">
+                          <div className="text-sm font-semibold text-gray-800 mt-1 md:pr-4">{i + 1}. {label}</div>
+                          <div className="flex flex-col gap-1 relative">
+                             <input
+                                type={showMarks ? "number" : "password"}
+                                min={0} max={10}
+                                value={form.criteria[i]}
+                                onChange={(e) => setCriteria(i, e.target.value)}
+                                onBlur={() => {
+                                   const arr = [...form.criteria];
+                                   arr[i] = normalizeCriteriaValue(arr[i], 10);
+                                   const total = arr.reduce((a, b) => a + Number(b || 0), 0);
+                                   setForm((f) => ({ ...f, criteria: arr, total }));
+                                }}
+                                onFocus={(e) => e.target.select()}
+                                className={`${activeInput} w-full text-lg font-bold text-green-700`}
+                                placeholder="0"
+                             />
+                             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest text-center">Max 10</span>
+                          </div>
+                          <div>
+                             <textarea 
+                                rows="2" 
+                                placeholder="Justification / Reason for marks..." 
+                                value={form.justifications[i] || ""} 
+                                onChange={(e) => setJustification(i, e.target.value)} 
+                                className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-green-400 focus:border-transparent outline-none transition-shadow resize-none"
+                             ></textarea>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap items-center justify-between bg-green-50 p-5 rounded-xl border border-green-200 shadow-sm">
+                     <div className="flex items-center gap-4">
+                        <label className="text-sm font-bold text-green-900 uppercase tracking-wide">Total Score</label>
+                        <div className="flex items-baseline gap-2">
+                          <input
+                             type={showMarks ? "number" : "password"}
+                             min={0} max={50}
+                             value={form.total}
+                             disabled={assessmentMode === "criteria"}
+                             onChange={(e) => setDirectTotal(e.target.value)}
+                             className={`${assessmentMode === "direct" ? "border-green-400 bg-white shadow-inner focus:ring-2 focus:ring-green-400" : "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"} border-2 rounded-lg px-3 py-2 w-[100px] text-center font-bold text-2xl outline-none`}
+                          />
+                          <span className="text-green-700 font-bold text-lg">/ 50</span>
+                        </div>
+                     </div>
+                     <button type="button" onClick={() => setShowMarks((v) => !v)} className="px-4 py-2 mt-4 sm:mt-0 rounded-lg text-sm font-semibold border-2 bg-white text-green-700 border-green-200 hover:bg-green-100 hover:border-green-300 transition-colors">
+                        {showMarks ? "Hide Marks" : "Show Marks"}
+                     </button>
+                  </div>
+               </div>
+            )}
+          </div>
+        </div>
+
+        {/* Footer Navigation */}
+        <div className="p-4 md:px-6 bg-white border-t border-gray-200 shrink-0 flex flex-wrap justify-between items-center rounded-b-2xl shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+           <div className="flex gap-2 items-center order-2 md:order-1 mt-4 md:mt-0">
+             <button onClick={guardedPrev} disabled={currentIndex === 0} className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">◀ Prev</button>
+             <div className="text-xs font-bold text-gray-400 tracking-widest px-2">{currentIndex + 1} OF {participants.length}</div>
+             <button onClick={guardedNext} disabled={currentIndex === participants.length - 1} className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">Next ▶</button>
+           </div>
+
+           <div className="text-center w-full md:w-auto order-1 md:order-2 flex justify-center min-h-[30px]">
+              {savedMsg && <span className="text-green-700 font-bold text-sm bg-green-100 px-4 py-1.5 rounded-full shadow-sm animate-pulse border border-green-200">✔ Marks saved successfully</span>}
+           </div>
+
+           <div className="flex gap-3 justify-end order-3 w-full md:w-auto mt-4 md:mt-0">
+             <button onClick={handleMarkAbsent} className="text-sm font-bold text-red-600 border border-red-200 bg-white hover:bg-red-50 px-4 py-2 rounded-lg transition-colors">Mark Absent</button>
+             <button onClick={handleSaveMarks} className="bg-green-600 hover:bg-green-700 text-white text-sm font-bold px-6 py-2 rounded-lg shadow-sm hover:shadow transition-all">Save & Continue</button>
+           </div>
+        </div>
       </div>
-      <div className="text-sm text-gray-600">
-        {p.institute} • {p.branch}
-      </div>
-    </div>
 
-    <span className="px-3 py-1 rounded-full bg-green-600 text-white text-sm font-semibold">
-      Team ID: {p.paperId}
-    </span>
-  </div>
-
-  {/* PAPER DETAILS */}
-  <div className="mb-3">
-    <div className="text-sm font-semibold text-gray-700">
-      Problem Statement
-    </div>
-    <div className="text-sm text-gray-800">
-      {p.paperTitle}
-    </div>
-  </div>
-
-  {/* CONTACT + MODE */}
-  <div className="grid grid-cols-2 gap-4 text-sm">
-    <div>
-      <div className="font-semibold text-gray-600">Email</div>
-      <div>{p.email}</div>
-    </div>
-
-    <div>
-      <div className="font-semibold text-gray-600">Phone</div>
-      <div>{p.phone || "—"}</div>
-    </div>
-
-    <div>
-      <div className="font-semibold text-gray-600">Presentation Mode</div>
-      <div>{p.mode}</div>
-    </div>
-
-    <div>
-      <div className="font-semibold text-gray-600">Submission</div>
-      {p.submissionLink ? (
-        <a
-          href={p.submissionLink}
-          target="_blank"
-          rel="noreferrer"
-          className="text-green-700 underline"
-        >
-          Open Drive Folder
-        </a>
-      ) : (
-        <span>—</span>
+      {/* PPT Modal */}
+      {showPptModal && (
+         <div className="fixed inset-0 z-[70] bg-black/90 flex flex-col p-2 md:p-6 backdrop-blur-md">
+            <div className="flex justify-between items-center mb-4 text-white px-2">
+               <div className="font-bold text-lg truncate pr-4">{p.paperTitle} - Presentation</div>
+               <button onClick={() => setShowPptModal(false)} className="bg-white/20 hover:bg-white/40 p-2 rounded-lg font-bold px-4 transition-colors text-sm flex items-center gap-2">Close ✕</button>
+            </div>
+            <div className="flex-1 w-full bg-white rounded-xl overflow-hidden shadow-2xl relative border border-gray-800">
+               <iframe 
+                  src={`https://docs.google.com/viewer?url=${encodeURIComponent(p.pptLink)}&embedded=true`} 
+                  width="100%" 
+                  height="100%" 
+                  frameBorder="0" 
+                  title="PPT Viewer"
+                  className="bg-gray-100"
+               ></iframe>
+            </div>
+         </div>
       )}
-    </div>
-  </div>
-
-  {/* CO-AUTHORS */}
-  <div className="mt-4">
-    <div className="font-semibold text-gray-600 mb-1">
-      Co-Authors
-    </div>
-
-    {p.coAuthors && p.coAuthors.length > 0 ? (
-      <ul className="list-disc list-inside text-sm text-gray-700">
-        {p.coAuthors.map((c, i) => (
-          <li key={i}>
-            {c.name} ({c.email})
-          </li>
-        ))}
-      </ul>
-    ) : (
-      <div className="text-sm text-gray-500 italic">
-        No co-authors added
-      </div>
-    )}
-  </div>
-</div>
-
-{/* ================= TIMER ================= */}
-<div className="mb-6 border border-dashed border-green-300 rounded-xl p-4 bg-green-50">
-  <div className="flex justify-between items-center">
-    <div>
-      <div className="text-sm font-semibold text-gray-600">
-        Presentation Timer
-      </div>
-
-      <div
-  className="text-3xl font-bold mt-1 transition-colors duration-500"
-  style={{ color: getTimerColor() }}
->
-    {formatTime(secondsLeft)}
-
-</div>
-
-      <div className="text-xs text-gray-500">
-        5 min presentation • 2 min Q&amp;A
-      </div>
-    </div>
-
-    <div className="flex gap-2">
-      <button
-  onClick={startTimer}
-  disabled={timerRunning && activeTimerIndex !== currentIndex}
-  className="px-4 py-2 rounded bg-green-600 text-white font-semibold
-             disabled:bg-green-300"
->
-  ▶ Start
-</button>
-
-
-      <button
-        onClick={stopTimer}
-        className="px-4 py-2 rounded border border-gray-300 text-gray-700"
-      >
-        ⏸ Stop
-      </button>
-    </div>
-  </div>
-
-  {/* ALERTS */}
-  {showPresentationOver && (
-    <div className="mt-3 text-sm font-semibold text-yellow-700 bg-yellow-100 px-3 py-2 rounded">
-      ⚠️ Presentation time over. Q&amp;A started.
-    </div>
-  )}
-
-  {showSessionOver && (
-    <div className="mt-3 text-sm font-semibold text-red-700 bg-red-100 px-3 py-2 rounded">
-      ⛔ Time up! Please stop and move to next participant.
-    </div>
-  )}
-</div>
-
-
-
-
-        {/* MODE */}
-        <div className="flex gap-4 mb-4">
-          <label>
-            <input
-              type="radio"
-              checked={assessmentMode === "criteria"}
-              onChange={() => setAssessmentMode("criteria")}
-            />{" "}
-            Criteria-wise
-          </label>
-          <label>
-            <input
-              type="radio"
-              checked={assessmentMode === "direct"}
-              onChange={() => setAssessmentMode("direct")}
-            />{" "}
-            Direct total
-          </label>
-        </div>
-
-        {/* CRITERIA */}
-        <div className="text-xs text-gray-500 mb-1">
-          {assessmentMode === "criteria"
-            ? "Criteria-based marking enabled"
-            : "Criteria disabled in direct marking"}
-        </div>
-
-{assessmentMode === "criteria" && (
-  <div className="space-y-4 mb-4">
-    {ASSESSMENT_CRITERIA.map((label, i) => (
-      <div
-        key={i}
-        className="grid grid-cols-1 md:grid-cols-[1fr_100px] gap-3 items-center"
-      >
-        {/* Criteria name */}
-        <div className="text-sm font-medium text-gray-800">
-          {i + 1}. {label}
-        </div>
-
-        {/* Fixed-width masked input */}
-        <input
-          type={showMarks ? "number" : "password"}
-          min={0}
-          max={10}
-          value={form.criteria[i]}
-          disabled={assessmentMode !== "criteria"}
-          onChange={(e) => setCriteria(i, e.target.value)}
-          onBlur={() => {
-            const arr = [...form.criteria];
-            arr[i] = normalizeCriteriaValue(arr[i], 10);
-
-            const total = arr.reduce(
-              (a, b) => a + Number(b || 0),
-              0
-            );
-
-            setForm((f) => ({
-              ...f,
-              criteria: arr,
-              total,
-            }));
-          }}
-          onFocus={(e) => e.target.select()}
-          className={`
-            ${activeInput}
-            w-[100px]
-            text-center
-            tracking-widest
-          `}
-        />
-      </div>
-    ))}
-  </div>
-)}
-
-{/* TOTAL */}
-<div className="text-xs text-gray-500 mb-1">
-  {assessmentMode === "direct"
-    ? "Direct total marking enabled"
-    : "Total locked in criteria mode"}
-</div>
-
-<div className="mb-4 flex items-center gap-3">
-  <label className="text-sm font-medium">Total</label>
-
-  <input
-    type={showMarks ? "number" : "password"}
-    min={0}
-    max={50}
-    value={form.total}
-    disabled={assessmentMode === "criteria"}
-    onChange={(e) => setDirectTotal(e.target.value)}
-    className={`
-      ${assessmentMode === "direct"
-        ? "border border-gray-300 bg-white"
-        : "border border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"}
-      rounded px-2 py-1
-      w-[100px]
-      text-center
-      tracking-widest
-    `}
-  />
-
-  <span className="text-sm text-gray-600">/ 50</span>
-</div>
-<div className="flex justify-between items-center mb-3">
-  <div className="text-sm text-gray-600">
-    Marks Visibility
-  </div>
-
-  <button
-    type="button"
-    onClick={() => setShowMarks((v) => !v)}
-    className={`
-      px-4 py-1.5 rounded-md text-sm font-medium border
-      transition
-      ${showMarks
-        ? "bg-gray-100 text-gray-700 border-gray-300"
-        : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"}
-    `}
-  >
-    {showMarks ? "Hide Marks" : "Show Marks"}
-  </button>
-</div>
-<div className="text-sm text-gray-600">
-    Remarks
-  </div>
-
-        {/* NOTES */}
-        <textarea
-          rows={2}
-          value={form.notes}
-          onChange={(e) => setForm({ ...form, notes: e.target.value })}
-          className="w-full border rounded p-2 mb-4"
-        />
-
-        {/* NAVIGATION BAR */}
-<div className="flex justify-center items-center gap-6 mb-4">
-  <button
-    onClick={guardedPrev}
-    disabled={currentIndex === 0}
-    className="px-4 py-2 rounded border text-gray-700 
-               disabled:text-gray-300 disabled:border-gray-200"
-  >
-    ◀ Previous
-  </button>
-
-  <div className="text-sm text-gray-500 font-medium">
-    {currentIndex + 1} of {participants.length}
-  </div>
-
-  <button
-    onClick={guardedNext}
-    disabled={currentIndex === participants.length - 1}
-    className="px-4 py-2 rounded border text-gray-700 
-               disabled:text-gray-300 disabled:border-gray-200"
-  >
-    Next ▶
-  </button>
-</div>
-
-
-        {/* FOOTER */}
-        <div className="flex justify-between items-center">
-          <div className="min-h-[24px]">
-            {savedMsg && (
-              <span className="text-green-600 font-semibold">
-                ✔ Marks saved
-              </span>
-            )}
-          </div>
-
-          <div className="flex gap-3">
-            <button
-              onClick={handleMarkAbsent}
-              className="border border-red-600 text-red-600 px-4 py-2 rounded hover:bg-red-50 font-semibold"
-            >
-              Mark Absent
-            </button>
-
-            <button
-              onClick={handleScheduleToLast}
-              className="border border-orange-500 text-orange-600 px-4 py-2 rounded hover:bg-orange-50">
-              Schedule to Last
-            </button>
-
-
-            <button onClick={onClose} className="border px-4 py-2 rounded">
-              Exit
-            </button>
-
-            <button
-              onClick={handleSaveMarks}
-              className="bg-green-600 text-white px-4 py-2 rounded"
-            >
-              Save Marks
-            </button>
-
-            {isLast && (
-              <button
-    onClick={() => {
-      // 🔒 BLOCK IF UNSAVED
-      if (isDirty) {
-        alert("You have unsaved marks. Please save before ending assessment.");
-        return;
-      }
-
-      // ✅ Final confirmation
-      if (
-        window.confirm(
-          "Are you sure you want to end the assessment? This will close the assessment window."
-        )
-      ) {
-        onClose();
-      }
-    }}
-    className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
-  >
-    End Assessment
-  </button>
-            )}
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
-
-
 function AssessmentSummary({ participants, onClose }) {
   // sort by total marks (descending)
   const sorted = [...participants].sort((a, b) => {
