@@ -256,6 +256,17 @@ const ParticipantSchema = new mongoose.Schema(
       },
       evaluatedBy: String,
       evaluatedAt: Date,
+      slideTimings: {
+        type: [{
+          slide: Number,
+          duration: Number
+        }],
+        default: []
+      },
+      totalPptTime: {
+        type: Number,
+        default: 0
+      }
     },
 
   },
@@ -1859,7 +1870,7 @@ app.get("/api/admin/events/:eventId/participants", async (req, res) => {
 
     const participants = await Participant.find({
       eventId: new mongoose.Types.ObjectId(eventId),
-    });
+    }).populate("assignedEvaluatorId", "name email");
 
     const trackMap = {};
     event.tracks.forEach((t) => {

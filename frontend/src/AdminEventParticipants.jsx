@@ -62,7 +62,11 @@ export default function AdminEventParticipants() {
               email: leader.email || "",
               phone: leader.mobile || "",
               institute: leader.organisation || "",
-              branch: leader.domain || leader.specialization || ""
+              branch: leader.domain || leader.specialization || "",
+              trackId: p.trackId,
+              trackName: p.trackName,
+              assessment: p.assessment,
+              assignedEvaluator: p.assignedEvaluatorId,
             };
           });
           setParticipants(mapped);
@@ -744,6 +748,65 @@ export default function AdminEventParticipants() {
             </div>
           </div>
         </div>
+        
+        {/* Evaluation Report Section */}
+        {selectedParticipant.assessment && (
+          <div className="mt-6 pt-4 border-t border-gray-200">
+            <h4 className="text-lg font-bold text-gray-800 mb-2">Evaluation Report</h4>
+            <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+              <div className="mb-3">
+                <span className="font-semibold text-gray-600">Assigned Evaluator:</span>{" "}
+                <span className="font-medium text-gray-900">
+                  {selectedParticipant.assignedEvaluator?.name || "Unknown"}
+                  {selectedParticipant.assignedEvaluator?.email ? ` (${selectedParticipant.assignedEvaluator.email})` : ""}
+                </span>
+              </div>
+              
+              <div className="mb-3">
+                <span className="font-semibold text-gray-600">Total Presentation Time:</span>{" "}
+                <span className="font-medium text-purple-700 bg-purple-100 px-2 py-0.5 rounded">
+                  {selectedParticipant.assessment.totalPptTime || 0} seconds
+                </span>
+              </div>
+              
+              <div className="mb-3">
+                <span className="font-semibold text-gray-600">Average Time per Slide:</span>{" "}
+                <span className="font-medium text-blue-700 bg-blue-100 px-2 py-0.5 rounded">
+                  {selectedParticipant.assessment.slideTimings?.length > 0 
+                    ? Math.round((selectedParticipant.assessment.totalPptTime || 0) / selectedParticipant.assessment.slideTimings.length) 
+                    : 0} seconds
+                </span>
+              </div>
+              
+              {/* Slide-wise Time Table */}
+              {selectedParticipant.assessment.slideTimings && selectedParticipant.assessment.slideTimings.length > 0 ? (
+                <div className="mt-4">
+                  <h5 className="text-sm font-bold text-gray-700 mb-2">Slide-wise Time Breakdown</h5>
+                  <div className="max-h-40 overflow-y-auto border border-gray-200 rounded-lg bg-white">
+                    <table className="w-full text-sm text-left">
+                      <thead className="bg-gray-100 sticky top-0">
+                        <tr>
+                          <th className="px-4 py-2 font-semibold text-gray-700">Slide</th>
+                          <th className="px-4 py-2 font-semibold text-gray-700">Time Spent</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {selectedParticipant.assessment.slideTimings.map((timing, idx) => (
+                          <tr key={idx} className="hover:bg-gray-50">
+                            <td className="px-4 py-2">Slide {timing.slide}</td>
+                            <td className="px-4 py-2">{timing.duration} sec</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-3 text-sm text-gray-500 italic">No slide timing data available.</div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
         {/* Modal Body (Scrollable) */}

@@ -30,13 +30,14 @@ const upload = multer({
   fileFilter: (_req, file, cb) => {
     // Accept only presentation formats
     const allowed = [
+      "application/pdf",
       "application/vnd.ms-powerpoint",
       "application/vnd.openxmlformats-officedocument.presentationml.presentation",
     ];
     if (allowed.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error("Invalid file type. Only PPT and PPTX are allowed."));
+      cb(new Error("Invalid file type. Only PDF, PPT, and PPTX are allowed."));
     }
   },
 });

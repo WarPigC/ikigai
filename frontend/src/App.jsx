@@ -1,5 +1,6 @@
 // src/App.jsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
+import SlideViewer from "./components/evaluator/SlideViewer";
 import {
   BrowserRouter,
   Routes,
@@ -3879,6 +3880,8 @@ function AssessmentModal({
         justifications,
         total,
         notes,
+        slideTimings: p.assessment?.slideTimings || [],
+        totalPptTime: p.assessment?.totalPptTime || 0,
       };
     }
 
@@ -3897,6 +3900,11 @@ function AssessmentModal({
 
   const p = participants[currentIndex];
   const isLast = currentIndex === participants.length - 1;
+
+  const handleTimingUpdate = useCallback((timings, total) => {
+    setForm(f => ({ ...f, slideTimings: timings, totalPptTime: total }));
+    setIsDirty(true);
+  }, []);
 
   const setCriteria = (i, value) => {
     if (assessmentMode !== "criteria") return;
@@ -3944,6 +3952,8 @@ function AssessmentModal({
       total: Number(form.total),
       notes: form.justifications.some(j => j) ? "JSON:" + JSON.stringify(form.justifications) : form.notes,
       mode: assessmentMode,
+      slideTimings: form.slideTimings,
+      totalPptTime: form.totalPptTime,
     };
 
     await onSaveAndNext(currentIndex, {
@@ -4302,14 +4312,7 @@ function AssessmentModal({
                <button onClick={() => setShowPptModal(false)} className="bg-white/20 hover:bg-white/40 p-2 rounded-lg font-bold px-4 transition-colors text-sm flex items-center gap-2">Close ✕</button>
             </div>
             <div className="flex-1 w-full bg-white rounded-xl overflow-hidden shadow-2xl relative border border-gray-800">
-               <iframe 
-                  src={`https://docs.google.com/viewer?url=${encodeURIComponent(p.pptLink)}&embedded=true`} 
-                  width="100%" 
-                  height="100%" 
-                  frameBorder="0" 
-                  title="PPT Viewer"
-                  className="bg-gray-100"
-               ></iframe>
+               <SlideViewer fileUrl={p.pptLink} onTimingUpdate={handleTimingUpdate} />
             </div>
          </div>
       )}
