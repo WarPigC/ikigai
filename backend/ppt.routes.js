@@ -1,7 +1,10 @@
 import express from "express";
 import multer from "multer";
 import cloudinary from "cloudinary";
+import libre from "libreoffice-convert";
+import { promisify } from "util";
 
+const convertAsync = promisify(libre.convert);
 const router = express.Router();
 
 /* ================== CLOUDINARY ================== */
@@ -55,8 +58,6 @@ const upload = multer({
  *
  * Response:
  *   - { success: true, url: "https://..." }      — upload succeeded
- *   - { success: false, configured: false, ... } — Cloudinary not configured yet
- *   - { success: false, message: "..." }          — upload failed
  */
 router.post("/", upload.single("file"), async (req, res) => {
   try {
@@ -64,8 +65,7 @@ router.post("/", upload.single("file"), async (req, res) => {
       return res.status(200).json({
         success: false,
         configured: false,
-        message:
-          "Cloudinary is not configured yet. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET in your .env file.",
+        message: "Cloudinary is not configured yet. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET in your .env file.",
       });
     }
 
@@ -77,17 +77,34 @@ router.post("/", upload.single("file"), async (req, res) => {
     }
 
     const { teamId, eventId } = req.body;
-
+    let fileBuffer = req.file.buffer;
     let ext = "";
-    if (req.file.mimetype === "application/pdf") ext = ".pdf";
-    else if (req.file.mimetype.includes("powerpoint") || req.file.mimetype.includes("presentation")) ext = ".pptx";
+    let mimeType = req.file.mimetype;
+
+    // Determine extension
+    if (mimeType === "application/pdf") ext = ".pdf";
+    else if (mimeType.includes("powerpoint") || mimeType.includes("presentation")) ext = ".pptx";
+
+    // 🚀 NEW LOGIC: Attempt to convert PPTX to PDF using LibreOffice
+    if (ext === ".pptx") {
+      try {
+        console.log("🔄 Attempting to convert PPTX to PDF using LibreOffice...");
+        fileBuffer = await convertAsync(fileBuffer, ".pdf", undefined);
+        ext = ".pdf";
+        mimeType = "application/pdf";
+        console.log("✅ Successfully converted PPTX to PDF in memory!");
+      } catch (conversionErr) {
+        console.warn("⚠️ Failed to convert PPTX to PDF (LibreOffice might not be installed). Uploading original PPTX instead.", conversionErr.message);
+        // Fallback to original buffer and extension if conversion fails
+      }
+    }
 
     // Build a human-readable public_id from teamId if available
     const publicId = teamId
       ? `CARE/ppts/${eventId || "general"}/${teamId}${ext}`
       : `CARE/ppts/${eventId || "general"}/${Date.now()}${ext}`;
 
-    const base64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}`;
+    const base64 = `data:${mimeType};base64,${fileBuffer.toString("base64")}`;
 
     const result = await cloudinary.v2.uploader.upload(base64, {
       public_id: publicId,
@@ -96,11 +113,9 @@ router.post("/", upload.single("file"), async (req, res) => {
       unique_filename: !teamId,
     });
 
-    console.log("✅ PPT uploaded:", result.secure_url);
-
+    console.log("✅ Presentation uploaded:", result.secure_url);
     res.json({ success: true, url: result.secure_url });
   } catch (err) {
-    // Cloudinary can throw plain objects, Error instances, or even raw strings.
     const errString = typeof err === "string" ? err : String(err?.message || err);
     
     const isAuthError =
@@ -118,14 +133,12 @@ router.post("/", upload.single("file"), async (req, res) => {
       });
     }
 
-
     console.error("❌ PPT upload error:", err);
     res.status(500).json({
       success: false,
       message: err?.message || "Upload failed",
     });
   }
-
 });
 
 export default router;

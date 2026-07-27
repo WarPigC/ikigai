@@ -6,6 +6,7 @@ import cors from "cors";
 import crypto from "crypto";
 import proofRoutes from "./proof.routes.js";
 import pptRoutes from "./ppt.routes.js";
+import aiRoutes from "./ai.routes.js";
 import { sendMail } from "./mailer.js";
 
 
@@ -28,6 +29,7 @@ app.use(
 app.use(express.json({ limit: "25mb" }));
 app.use("/api/proof", proofRoutes);
 app.use("/api/upload-ppt", pptRoutes);
+app.use("/api/ai", aiRoutes);
 
 app.use(express.urlencoded({ extended: true }));
 
@@ -266,6 +268,13 @@ const ParticipantSchema = new mongoose.Schema(
       totalPptTime: {
         type: Number,
         default: 0
+      },
+      aiQueries: {
+        type: [{
+          query: String,
+          timestamp: Date
+        }],
+        default: []
       }
     },
 
@@ -1362,6 +1371,9 @@ app.patch("/api/session/participants/:id/assessment", async (req, res) => {
           "assessment.notes": assessment.notes || "",
           "assessment.mode": assessment.mode || "criteria",
           "assessment.evaluatedBy": req.body.evaluatedBy || "sessionChair",
+          "assessment.slideTimings": assessment.slideTimings || [],
+          "assessment.totalPptTime": assessment.totalPptTime || 0,
+          "assessment.aiQueries": assessment.aiQueries || [],
           status: "EVALUATED",
         },
       },

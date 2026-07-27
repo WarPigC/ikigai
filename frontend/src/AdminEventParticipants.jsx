@@ -838,10 +838,27 @@ export default function AdminEventParticipants() {
                 </table>
               </div>
             ) : (
-              <div className="p-6 text-center bg-gray-50 rounded-xl border border-gray-100">
-                <span className="text-gray-500 italic text-sm">No slide timing data was captured during this evaluation.</span>
-              </div>
+              <div className="text-sm text-gray-500 italic bg-gray-50 p-4 rounded-xl border border-dashed border-gray-200">No detailed slide timing recorded.</div>
             )}
+            
+            {/* AI Queries Section */}
+            <h5 className="text-sm font-bold text-gray-700 mt-6 mb-3">Evaluator "Ask AI" Queries</h5>
+            {selectedEvaluationReport.assessment.aiQueries && selectedEvaluationReport.assessment.aiQueries.length > 0 ? (
+              <div className="space-y-3">
+                {selectedEvaluationReport.assessment.aiQueries.map((q, idx) => (
+                  <div key={idx} className="bg-blue-50 border border-blue-100 p-3 rounded-lg flex flex-col gap-1">
+                    <span className="text-xs font-semibold text-blue-800 flex justify-between">
+                      Query {idx + 1}
+                      <span className="font-normal text-blue-600">{new Date(q.timestamp).toLocaleTimeString()}</span>
+                    </span>
+                    <p className="text-sm text-blue-900">{q.query}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-sm text-gray-500 italic bg-gray-50 p-4 rounded-xl border border-dashed border-gray-200">No AI queries were asked during this evaluation.</div>
+            )}
+
           </div>
         )}
       </div>

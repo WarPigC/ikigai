@@ -3901,6 +3901,14 @@ function AssessmentModal({
     setIsDirty(true);
   }, []);
 
+  const handleAiQuery = useCallback((query) => {
+    setForm(f => ({
+      ...f,
+      aiQueries: [...(f.aiQueries || []), { query, timestamp: new Date().toISOString() }]
+    }));
+    setIsDirty(true);
+  }, []);
+
   if (!open || !participants?.length) return null;
 
   const p = participants[currentIndex];
@@ -3954,6 +3962,7 @@ function AssessmentModal({
       mode: assessmentMode,
       slideTimings: form.slideTimings,
       totalPptTime: form.totalPptTime,
+      aiQueries: form.aiQueries || [],
     };
 
     await onSaveAndNext(currentIndex, {
@@ -4113,24 +4122,7 @@ function AssessmentModal({
           </div>
         </div>
 
-        {/* Global Timer Section */}
-        <div className="px-6 py-3 border-b bg-green-50 shrink-0 flex justify-between items-center">
-          <div>
-            <div className="text-sm font-semibold text-gray-600">Presentation Timer</div>
-            <div className="text-2xl font-bold transition-colors duration-500" style={{ color: getTimerColor() }}>
-              {formatTime(secondsLeft)}
-            </div>
-            <div className="text-xs text-gray-500">5 min presentation • 2 min Q&A</div>
-          </div>
-          <div className="flex flex-col gap-1 items-end">
-             <div className="flex gap-2">
-                <button onClick={startTimer} disabled={timerRunning && activeTimerIndex !== currentIndex} className="px-3 py-1.5 rounded bg-green-600 hover:bg-green-700 text-white font-semibold text-sm disabled:bg-green-300 transition-colors">▶ Start</button>
-                <button onClick={stopTimer} className="px-3 py-1.5 rounded border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 text-sm transition-colors">⏸ Stop</button>
-             </div>
-             {showPresentationOver && <div className="text-[10px] font-semibold text-yellow-700 bg-yellow-100 px-2 py-0.5 rounded">⚠️ Q&A started</div>}
-             {showSessionOver && <div className="text-[10px] font-semibold text-red-700 bg-red-100 px-2 py-0.5 rounded">⛔ Time up!</div>}
-          </div>
-        </div>
+
 
         {/* Content Body */}
         <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50/50">
@@ -4312,7 +4304,7 @@ function AssessmentModal({
                <button onClick={() => setShowPptModal(false)} className="bg-white/20 hover:bg-white/40 p-2 rounded-lg font-bold px-4 transition-colors text-sm flex items-center gap-2">Close ✕</button>
             </div>
             <div className="flex-1 w-full bg-white rounded-xl overflow-hidden shadow-2xl relative border border-gray-800">
-               <SlideViewer fileUrl={p.pptLink} onTimingUpdate={handleTimingUpdate} />
+               <SlideViewer fileUrl={p.pptLink} onTimingUpdate={handleTimingUpdate} onAiQuery={handleAiQuery} />
             </div>
          </div>
       )}
@@ -4436,20 +4428,26 @@ function SessionChairConsole() {
   const [assessmentIndex, setAssessmentIndex] = useState(0);
   const [error, setError] = useState(null);
   const [showSummary, setShowSummary] = useState(false);
- const normalizeParticipants = (list) =>
-  list.map((p) => ({
-    ...p,
-    _id: p._id,                 // Mongo ID (ONLY identity)
-    paperId: p.teamId || p.paperId,
-    presenterName: p.teamName || p.presenterName,
-    paperTitle: p.problemStatement || p.description || p.paperTitle,
-    institute: p.members?.[0]?.organisation || p.institute || "Unknown Institute",
-    branch: p.members?.[0]?.specialization || p.branch || "Unknown Branch",
-    mode: `${p.members?.length || 0} members` || p.mode,
-    email: p.members?.[0]?.email || p.email || "Unknown",
-    phone: p.members?.[0]?.mobile || p.phone || "Unknown",
-    assessment: p.assessment || null,
-  }));
+  const normalizeParticipants = (list) =>
+    list
+      .map((p) => {
+        const institute = p.members?.[0]?.organisation || p.institute;
+        const branch = p.members?.[0]?.specialization || p.branch;
+        return {
+          ...p,
+          _id: p._id,
+          paperId: p.teamId || p.paperId || "N/A",
+          presenterName: p.teamName || p.presenterName || "Unnamed Team",
+          paperTitle: p.problemStatement || p.description || p.paperTitle || "No problem statement provided",
+          institute: (institute && institute.trim()) ? institute : "Unknown Institute",
+          branch: (branch && branch.trim()) ? branch : "Unknown Branch",
+          mode: p.members?.length ? `${p.members.length} members` : p.mode || "Unknown",
+          email: p.members?.[0]?.email || p.email || "Unknown",
+          phone: p.members?.[0]?.mobile || p.phone || "Unknown",
+          assessment: p.assessment || null,
+        };
+      })
+      .filter((p) => p.paperId !== "N/A" || p.presenterName !== "Unnamed Team");
 
 
 
@@ -4579,7 +4577,9 @@ const refreshTrackLock = async () => {
 
     return false;
   } catch (err) {
-    console.error("Track lock fetch error:", err);
+    if (!err.message.includes("Failed to fetch")) {
+      console.error("Track lock fetch error:", err);
+    }
     return false;
   }
 };
@@ -4948,7 +4948,9 @@ export default function App() {
       setEvents([]);
     }
   } catch (err) {
-    console.error("Error fetching events:", err);
+    if (!err.message.includes("Failed to fetch")) {
+      console.error("Error fetching events:", err);
+    }
     setEvents([]);
   } finally {
     setLoadingEvents(false);
