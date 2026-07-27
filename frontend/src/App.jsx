@@ -3131,13 +3131,8 @@ const submissionUrl =
     <div className="font-semibold text-gray-800 mb-1">Team Details</div>
     <div className="text-sm text-gray-700 space-y-1">
       <div>Team ID: {selectedParticipant.paperId}</div>
-<<<<<<< HEAD
       <div>Team Name: {selectedParticipant.teamName}</div>
       <div>Problem Statement: {selectedParticipant.paperTitle}</div>
-=======
-      <div>{selectedParticipant.paperTitle}</div>
-      <div>Presentation Mode: {selectedParticipant.mode}</div>
->>>>>>> feature-admin-progress
     </div>
   </div>
       {/* Submission */}
