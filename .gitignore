@@ -37,4 +37,4 @@ temp/
 *.njsproj
 *.sln
 *.sw?
-participantData.csv
+participantData.csvbackend/mongo-data/
