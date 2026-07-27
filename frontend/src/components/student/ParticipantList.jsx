@@ -92,6 +92,8 @@ export default function ParticipantList({
         isOpen={!!editingParticipant} 
         onClose={() => setEditingParticipant(null)} 
         participant={editingParticipant}
+        eventId={eventId}
+        allEvents={allEvents}
         onSuccess={onSuccess}
       />
     </div>
