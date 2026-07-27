@@ -2312,10 +2312,7 @@ function TrackDetails({
 
   const [filterInstitute, setFilterInstitute] = useState("");
   const [filterBranch, setFilterBranch] = useState("");
-<<<<<<< HEAD
   const [marksRange, setMarksRange] = useState([0, 50]);
-=======
->>>>>>> feature-admin-progress
   const [topLimit, setTopLimit] = useState(0); // 0 = no limit
   const [editingAssessment, setEditingAssessment] = useState(false);
 const isAdmin = sessionStorage.getItem("care_role") === "admin";
@@ -2447,16 +2444,12 @@ const filteredParticipants = participants
       !filterBranch ||
       p.branch?.toLowerCase().includes(filterBranch.toLowerCase());
 
-<<<<<<< HEAD
     const marks = p.assessment?.total ?? -1;
     const marksMatch =
       marks === -1 ||
       (marks >= marksRange[0] && marks <= marksRange[1]);
 
     return instituteMatch && branchMatch && marksMatch;
-=======
-    return instituteMatch && branchMatch;
->>>>>>> feature-admin-progress
   })
   .sort((a, b) => {
     if (!sortBy) return 0;
@@ -2489,10 +2482,7 @@ const filteredParticipants = participants
   const headers = [
   "S.No",
   "Team ID",
-<<<<<<< HEAD
   "Team Name",
-=======
->>>>>>> feature-admin-progress
   "Presenter Name",
   "Problem Statement",
   "Track Name",
@@ -2557,12 +2547,8 @@ const exportParticipantsXLSX = () => {
   const rows = filteredParticipants.map((p, index) => ({
   "S.No": index + 1,
   "Team ID": p.paperId,
-<<<<<<< HEAD
   "Team Name": p.teamName,
   "Problem Statement": p.paperTitle,
-=======
-  "Paper Title": p.paperTitle,
->>>>>>> feature-admin-progress
   "Track Name": track.title,    // ✅ ADD
   "Presenter Name": p.presenterName,
   "Email": p.email,
@@ -2704,12 +2690,8 @@ const exportParticipantsPDF = () => {
     head: [[
       "S.No",
       "Team ID",
-<<<<<<< HEAD
       "Team Name",
       "Problem Statement",
-=======
-      "Paper Title",
->>>>>>> feature-admin-progress
       "Presenter",
       "Phone",
       "Email",
@@ -3026,7 +3008,6 @@ const submissionUrl =
       className="border rounded-lg px-3 py-1.5 text-sm"
     />
 
-<<<<<<< HEAD
     {/* Marks Range */}
     <input
       type="number"
@@ -3049,8 +3030,6 @@ const submissionUrl =
         setMarksRange([marksRange[0], Number(e.target.value)])
       }
     />
-=======
->>>>>>> feature-admin-progress
   </div>
 </div>
 
