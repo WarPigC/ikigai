@@ -5,6 +5,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { X, User, MapPin, Building2, BookOpen, GraduationCap, CheckCircle, Mail, Phone, ExternalLink, Link2, FileText, AlertCircle } from "lucide-react";
 import ikigaiLogo from "./assets/ikigai.png";
+import { ASSESSMENT_CRITERIA } from "./App";
 
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
@@ -743,114 +744,124 @@ export default function AdminEventParticipants() {
         </div>
       </div>
 
-      {/* Modal Body (Scrollable) */}
-      <div className="flex-1 overflow-y-auto p-6 bg-gray-50/30">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          
-          {/* Left Column (Project & Eval Info) */}
-          <div className="space-y-6 lg:col-span-1">
-            
-            {/* Project Details Card */}
-            <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-5">
-              <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wider mb-4 flex items-center gap-2">
-                <FileText size={16} className="text-violet-500" /> Project Details
-              </h3>
+        {/* Modal Body (Scrollable) */}
+        <div className="flex-1 overflow-y-auto p-6 bg-gray-50/30">
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               
-              <div className="space-y-4 text-sm text-gray-700">
-                <div>
-                  <span className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Problem Statement</span>
-                  <p className="font-medium text-gray-900 leading-relaxed">{selectedParticipant.paperTitle || selectedParticipant.problemStatement || "—"}</p>
-                </div>
-                
-                {selectedParticipant.description && (
-                  <div>
-                    <span className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Description</span>
-                    <p className="text-gray-600 leading-relaxed whitespace-pre-wrap">{selectedParticipant.description}</p>
-                  </div>
-                )}
-
-                {selectedParticipant.pptLink && (
-                  <div>
-                    <span className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1.5">Presentation</span>
-                  <a 
-                    href={
-                      (selectedParticipant.pptLink.includes('drive.google.com') || selectedParticipant.pptLink.includes('docs.google.com'))
-                        ? selectedParticipant.pptLink 
-                        : `https://docs.google.com/viewer?url=${encodeURIComponent(selectedParticipant.pptLink)}`
-                    } 
-                    target="_blank" 
-                    rel="noopener noreferrer" 
-                    className="inline-flex items-center gap-2 px-3 py-1.5 bg-violet-50 hover:bg-violet-100 text-violet-700 rounded-lg text-sm font-semibold transition-colors border border-violet-200"
-                  >
-                    <Link2 size={15} /> View PPT
-                  </a>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Evaluation Card */}
-            <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-5">
-              <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wider mb-4 flex items-center gap-2">
-                <CheckCircle size={16} className="text-emerald-500" /> Evaluation
-              </h3>
-              
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-100">
-                <div>
-                  <span className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-0.5">Total Marks</span>
-                  <div className="text-2xl font-extrabold text-gray-900">
-                    {typeof selectedParticipant.assessment?.total === "number" ? selectedParticipant.assessment.total : <span className="text-gray-400 text-lg">Pending</span>}
-                  </div>
-                </div>
-                {typeof selectedParticipant.assessment?.total === "number" && (
-                  <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-lg shadow-inner">
-                    {selectedParticipant.assessment.total}
-                  </div>
-                )}
-              </div>
-            </div>
-
-          </div>
-
-          {/* Right Column (Team Members) */}
-          <div className="lg:col-span-2 space-y-4">
-            {/* The heading was removed here as per user request */}
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Fallback to presenter if members array doesn't exist */}
-              {(!selectedParticipant.members || selectedParticipant.members.length === 0) ? (
-                <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm relative overflow-hidden">
-                  <div className="absolute top-0 left-0 w-1 h-full bg-fuchsia-400"></div>
-                  <h4 className="font-bold text-gray-900 text-base mb-1">{selectedParticipant.presenterName}</h4>
-                  <span className="text-xs font-semibold text-fuchsia-600 bg-fuchsia-50 px-2 py-0.5 rounded uppercase tracking-wider">Presenter</span>
+              {/* Left Column (Project Details) */}
+              <div className="lg:col-span-1">
+                <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-5 h-full">
+                  <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wider mb-4 flex items-center gap-2">
+                    <FileText size={16} className="text-violet-500" /> Project Details
+                  </h3>
                   
-                  <div className="mt-4 space-y-2 text-sm text-gray-600">
-                    {selectedParticipant.email && (
-                      <div className="flex items-center gap-2 truncate" title={selectedParticipant.email}>
-                        <Mail size={14} className="text-gray-400 flex-shrink-0" /> <span className="truncate">{selectedParticipant.email}</span>
+                  <div className="space-y-4 text-sm text-gray-700">
+                    <div>
+                      <span className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Problem Statement</span>
+                      <p className="font-medium text-gray-900 leading-relaxed">{selectedParticipant.paperTitle || selectedParticipant.problemStatement || "—"}</p>
+                    </div>
+                    
+                    {selectedParticipant.description && (
+                      <div>
+                        <span className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Description</span>
+                        <p className="text-gray-600 leading-relaxed whitespace-pre-wrap">{selectedParticipant.description}</p>
                       </div>
                     )}
-                    {selectedParticipant.phone && (
-                      <div className="flex items-center gap-2">
-                        <Phone size={14} className="text-gray-400 flex-shrink-0" /> <span>{selectedParticipant.phone}</span>
-                      </div>
-                    )}
-                    {selectedParticipant.institute && (
-                      <div className="flex items-center gap-2 truncate" title={selectedParticipant.institute}>
-                        <Building2 size={14} className="text-gray-400 flex-shrink-0" /> <span className="truncate">{selectedParticipant.institute}</span>
+
+                    {(selectedParticipant.pptLink || selectedParticipant.submissionLink) && (
+                      <div>
+                        <span className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1.5">Presentation</span>
+                        <a 
+                          href={
+                            (selectedParticipant.pptLink || selectedParticipant.submissionLink).includes('drive.google.com') || (selectedParticipant.pptLink || selectedParticipant.submissionLink).includes('docs.google.com')
+                              ? (selectedParticipant.pptLink || selectedParticipant.submissionLink)
+                              : `https://docs.google.com/viewer?url=${encodeURIComponent(selectedParticipant.pptLink || selectedParticipant.submissionLink)}`
+                          } 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          className="inline-flex items-center gap-2 px-3 py-1.5 bg-violet-50 hover:bg-violet-100 text-violet-700 rounded-lg text-sm font-semibold transition-colors border border-violet-200"
+                        >
+                          <Link2 size={15} /> View PPT
+                        </a>
                       </div>
                     )}
                   </div>
                 </div>
-              ) : (
-                selectedParticipant.members.map((m, idx) => (
-                  <div key={idx} className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm relative overflow-hidden group hover:border-fuchsia-200 hover:shadow-md transition-all">
-                    <div className={`absolute top-0 left-0 w-1 h-full ${m.isLeader ? 'bg-fuchsia-500' : 'bg-gray-300 group-hover:bg-fuchsia-300'}`}></div>
+              </div>
+
+              {/* Right Column (Evaluation Table) */}
+              <div className="lg:col-span-2">
+                <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-5 h-full flex flex-col">
+                  <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wider mb-4 flex items-center gap-2">
+                    <CheckCircle size={16} className="text-emerald-500" /> Evaluation
+                  </h3>
+                  
+                  <div className="mt-2 flex-1">
+                    <div className="overflow-x-auto rounded-lg border border-gray-200">
+                      <table className="w-full text-sm text-left">
+                        <thead className="bg-gray-50 border-b border-gray-200">
+                          <tr>
+                            <th className="px-4 py-2.5 font-bold text-gray-700 whitespace-nowrap">Criteria</th>
+                            <th className="px-4 py-2.5 font-bold text-gray-700 text-center w-24">Marks</th>
+                            <th className="px-4 py-2.5 font-bold text-gray-700">Comments</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {Array.isArray(selectedParticipant.assessment?.criteria) && selectedParticipant.assessment.criteria.length > 0 ? (
+                            <>
+                              {ASSESSMENT_CRITERIA.map((label, idx) => (
+                                <tr key={idx} className="hover:bg-gray-50/50">
+                                  <td className="px-4 py-2.5 text-gray-600 font-medium whitespace-nowrap">{label}</td>
+                                  <td className="px-4 py-2.5 text-center">
+                                      <span className="font-bold text-gray-900">
+                                        {selectedParticipant.assessment.criteria[idx] ?? 0}
+                                      </span>
+                                  </td>
+                                  <td className="px-4 py-2.5">
+                                      <span className="text-gray-600 text-xs italic">
+                                        {selectedParticipant.assessment.comments?.[idx] || "No comment"}
+                                      </span>
+                                  </td>
+                                </tr>
+                              ))}
+                              <tr className="bg-gray-50 font-bold border-t-2 border-gray-200">
+                                <td className="px-4 py-3 text-gray-900 uppercase tracking-wider text-xs">Total</td>
+                                <td className="px-4 py-3 text-center text-lg text-violet-700">
+                                  {selectedParticipant.assessment.criteria.reduce((s, v) => s + Number(v || 0), 0)}
+                                </td>
+                                <td className="px-4 py-3 text-gray-400 text-xs text-center">—</td>
+                              </tr>
+                            </>
+                          ) : (
+                            <tr className="bg-gray-50 font-bold">
+                              <td className="px-4 py-4 text-gray-900 uppercase tracking-wider text-xs">Total</td>
+                              <td className="px-4 py-4 text-center">
+                                  <span className="text-xl text-violet-700 font-extrabold">{typeof selectedParticipant.assessment?.total === "number" ? selectedParticipant.assessment.total : "Pending"}</span>
+                              </td>
+                              <td className="px-4 py-4 text-gray-400 text-xs text-center">N/A in Direct Total mode</td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom Row (Team Members) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {(selectedParticipant?.teamMembers?.length > 0 ? selectedParticipant.teamMembers : selectedParticipant?.members || []) && (selectedParticipant?.teamMembers?.length > 0 ? selectedParticipant.teamMembers : selectedParticipant?.members || []).length > 0 ? (
+                (selectedParticipant?.teamMembers?.length > 0 ? selectedParticipant.teamMembers : selectedParticipant?.members || []).map((m, idx) => (
+                  <div key={idx} className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm relative overflow-hidden group hover:border-violet-200 hover:shadow-md transition-all">
+                    <div className={`absolute top-0 left-0 w-1 h-full ${m.isLeader ? 'bg-violet-500' : 'bg-gray-300 group-hover:bg-violet-300'}`}></div>
                     
                     <div className="flex items-start justify-between mb-3">
                       <div className="min-w-0 pr-2">
                         <h4 className="font-bold text-gray-900 text-base truncate" title={m.name}>{m.name || "Unknown"}</h4>
-                        <span className={`inline-block mt-1 text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded ${m.isLeader ? 'text-fuchsia-700 bg-fuchsia-50 border border-fuchsia-100' : 'text-gray-500 bg-gray-100'}`}>
+                        <span className={`inline-block mt-1 text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded ${m.isLeader ? 'text-violet-700 bg-violet-50 border border-violet-100' : 'text-gray-500 bg-gray-100'}`}>
                           {m.candidateRole || (m.isLeader ? "Team Leader" : "Team Member")}
                         </span>
                       </div>
@@ -875,16 +886,16 @@ export default function AdminEventParticipants() {
                     </div>
 
                     <div className="mt-4 pt-3 border-t border-gray-100 space-y-2">
-                      {m.organisation && (
-                        <div className="flex items-center gap-2 text-xs text-gray-500 truncate" title={m.organisation}>
+                      {(m.institute || m.organisation) && (
+                        <div className="flex items-center gap-2 text-xs text-gray-500 truncate" title={m.institute || m.organisation}>
                           <Building2 size={13} className="text-gray-400 flex-shrink-0" />
-                          <span className="truncate font-medium">{m.organisation}</span>
+                          <span className="truncate font-medium">{m.institute || m.organisation}</span>
                         </div>
                       )}
-                      {(m.domain || m.specialization || m.course) && (
-                        <div className="flex items-center gap-2 text-xs text-gray-500 truncate" title={`${m.course ? m.course + ' - ' : ''}${m.specialization || m.domain}`}>
+                      {(m.course || m.branch || m.domain || m.specialization) && (
+                        <div className="flex items-center gap-2 text-xs text-gray-500 truncate" title={`${m.course || ''} ${m.branch || m.specialization || m.domain || ''}`}>
                           <BookOpen size={13} className="text-gray-400 flex-shrink-0" />
-                          <span className="truncate">{m.course ? m.course + ' - ' : ''}{m.specialization || m.domain}</span>
+                          <span className="truncate">{(m.course || '') + ((m.course && (m.branch || m.specialization || m.domain)) ? ' - ' : '') + (m.branch || m.specialization || m.domain || '')}</span>
                         </div>
                       )}
                       {m.userType && (
@@ -894,15 +905,13 @@ export default function AdminEventParticipants() {
                         </div>
                       )}
                     </div>
-
                   </div>
                 ))
-              )}
+              ) : null}
             </div>
             
           </div>
         </div>
-      </div>
     </div>
   </div>
 )}
