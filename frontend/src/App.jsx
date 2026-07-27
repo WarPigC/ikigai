@@ -2670,12 +2670,14 @@ const exportParticipantsPDF = () => {
       }
     }
 
+    const leaderName = p.members?.find(m => m.isLeader)?.name || p.members?.[0]?.name || p.presenterName || "";
+
     return [
       index + 1,
       p.paperId || "",
       p.teamName || "",
       p.paperTitle || "",
-      p.presenterName || "",
+      leaderName,
       p.phone || "",
       p.email || "",
       {
@@ -2694,7 +2696,7 @@ const exportParticipantsPDF = () => {
       "Team ID",
       "Team Name",
       "Problem Statement",
-      "Presenter",
+      "Team Leader",
       "Phone",
       "Email",
       "Marks",

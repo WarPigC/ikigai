@@ -364,13 +364,15 @@ export default function AdminEventParticipants() {
           ? p.assessment.total
           : "Absent";
 
+      const leaderName = p.members?.find(m => m.isLeader)?.name || p.members?.[0]?.name || p.presenterName || "";
+
       return [
         p.trackRank,
         p.paperId,
         p.teamName,
         p.paperTitle,
         p.trackName,
-        p.presenterName,
+        leaderName,
         p.phone || "",
         p.email || "",
         marks,
@@ -385,7 +387,7 @@ export default function AdminEventParticipants() {
         "Team Name",
         "Problem Statement",
         "Track",
-        "Presenter",
+        "Team Leader",
         "Phone",
         "Email",
         "Marks",
