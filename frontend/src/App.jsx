@@ -2089,16 +2089,6 @@ const getProgressColor = (assessed, total) => {
 
   
     <div className="flex items-center gap-3">
-    {sessionStorage.getItem("care_role") === "admin" && (
-      <button
-        onClick={() => navigate(`/edit/${id}`)}
-        className="px-3 py-1.5 text-sm font-semibold
-                   bg-green-600 text-white rounded-md
-                   hover:bg-green-700"
-      >
-        ✏️ Edit Event
-      </button>
-    )}
 
     <button
       onClick={() => navigate("/dashboard")}
@@ -2322,12 +2312,9 @@ function TrackDetails({
 
   const [filterInstitute, setFilterInstitute] = useState("");
   const [filterBranch, setFilterBranch] = useState("");
-  const [filterMode, setFilterMode] = useState("");
   const [marksRange, setMarksRange] = useState([0, 50]);
   const [topLimit, setTopLimit] = useState(0); // 0 = no limit
-  const [meetingLink, setMeetingLink] = useState(track.meetingLink || "");
-  const [isEditingMeetingLink, setIsEditingMeetingLink] = useState(false);
-const [editingAssessment, setEditingAssessment] = useState(false);
+  const [editingAssessment, setEditingAssessment] = useState(false);
 const isAdmin = sessionStorage.getItem("care_role") === "admin";
 const [assessmentMode, setAssessmentMode] = useState("criteria"); 
 // "criteria" | "total"
@@ -2416,7 +2403,20 @@ useEffect(() => {
       const data = await res.json();
 
       if (data.success) {
-        setParticipants(data.participants);
+        const mapped = data.participants.map(p => {
+          const leader = p.members?.find(m => m.isLeader) || p.members?.[0] || {};
+          return {
+            paperId: p.teamId || p._id,
+            teamName: p.teamName || "",
+            paperTitle: p.problemStatement || "",
+            presenterName: leader.name || "Unknown",
+            email: leader.email || "",
+            phone: leader.mobile || "",
+            institute: leader.organisation || "",
+            branch: leader.domain || leader.specialization || ""
+          };
+        });
+        setParticipants(mapped);
       } else {
         setParticipants([]);
       }
@@ -2430,23 +2430,7 @@ useEffect(() => {
 }, [eventId, trackId]);
 
 
-const saveMeetingLink = async () => {
-  const cleaned =
-    meetingLink.startsWith("http")
-      ? meetingLink
-      : `https://${meetingLink}`;
 
-  await fetch(
-    `${API_BASE}/api/event/${eventId}/track/${track.id}/meeting-link`,
-    {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ meetingLink: cleaned }),
-    }
-  );
-
-  setMeetingLink(cleaned); // ✅ ADD THIS
-};
 
 
 
@@ -2460,15 +2444,12 @@ const filteredParticipants = participants
       !filterBranch ||
       p.branch?.toLowerCase().includes(filterBranch.toLowerCase());
 
-    const modeMatch =
-      !filterMode || p.mode === filterMode;
-
     const marks = p.assessment?.total ?? -1;
     const marksMatch =
       marks === -1 ||
       (marks >= marksRange[0] && marks <= marksRange[1]);
 
-    return instituteMatch && branchMatch && modeMatch && marksMatch;
+    return instituteMatch && branchMatch && marksMatch;
   })
   .sort((a, b) => {
     if (!sortBy) return 0;
@@ -2500,13 +2481,13 @@ const filteredParticipants = participants
 
   const headers = [
   "S.No",
-  "Paper ID",
+  "Team ID",
+  "Team Name",
   "Presenter Name",
-  "Paper Title",
-  "Track Name",        // ✅ ADD
+  "Problem Statement",
+  "Track Name",
   "Institute",
   "Branch",
-  "Mode",
   "Email",
   "Phone",
   "Marks",
@@ -2516,12 +2497,12 @@ const filteredParticipants = participants
   const rows = filteredParticipants.map((p, index) => [
   index + 1,
   p.paperId,
+  p.teamName,
   p.presenterName,
   p.paperTitle,
-  track.title,                 // ✅ ADD
+  track.title,
   p.institute || "",
   p.branch || "",
-  p.mode || "",
   p.email || "",
   p.phone || "",
   typeof p.assessment?.total === "number"
@@ -2565,15 +2546,15 @@ const exportParticipantsXLSX = () => {
 
   const rows = filteredParticipants.map((p, index) => ({
   "S.No": index + 1,
-  "Paper ID": p.paperId,
-  "Paper Title": p.paperTitle,
+  "Team ID": p.paperId,
+  "Team Name": p.teamName,
+  "Problem Statement": p.paperTitle,
   "Track Name": track.title,    // ✅ ADD
   "Presenter Name": p.presenterName,
   "Email": p.email,
   "Phone": p.phone,
   "Institute": p.institute,
   "Branch": p.branch,
-  "Mode": p.mode,
   "Marks": p.assessment?.total ?? "Pending",
   "Remarks": p.assessment?.remarks ?? "",
   "Submission Link": p.submissionLink ?? "",
@@ -2690,6 +2671,7 @@ const exportParticipantsPDF = () => {
     return [
       index + 1,
       p.paperId || "",
+      p.teamName || "",
       p.paperTitle || "",
       p.presenterName || "",
       p.phone || "",
@@ -2707,8 +2689,9 @@ const exportParticipantsPDF = () => {
     startY: y,
     head: [[
       "S.No",
-      "Paper ID",
-      "Paper Title",
+      "Team ID",
+      "Team Name",
+      "Problem Statement",
       "Presenter",
       "Phone",
       "Email",
@@ -2835,81 +2818,31 @@ const submissionUrl =
 </div>
 
 
-{/* ===== TRACK CONTROLS: LOCK + MEETING LINK ===== */}
+{/* ===== TRACK CONTROLS: LOCK ===== */}
 <div
   className="
     mt-5
-    grid grid-cols-1 md:grid-cols-2 gap-4
+    flex items-center justify-center
     rounded-xl border border-green-100
     bg-white p-4
   "
 >
   {/* 🔒 Assessment Lock */}
-  <div className="flex items-center justify-center">
-    <button
-      onClick={() => onToggleAssessmentLock(trackId)}
-      className={`px-5 py-2 rounded-md font-semibold w-full max-w-xs ${
-        track.assessmentLocked
-          ? "bg-red-600 text-white"
-          : "bg-green-600 text-white"
-      }`}
-    >
-      {track.assessmentLocked
-        ? "Assessment Locked 🔒"
-        : "Assessment Unlocked 🔓"}
-    </button>
-  </div>
-
-  {/* 🔗 Meeting Link */}
-  <div>
-    <label className="block text-sm font-semibold text-gray-700 mb-1">
-      Online Presentation Meeting Link
-    </label>
-
-    <div className="flex gap-2">
-      <input
-        type="url"
-        value={meetingLink}
-        disabled={!isEditingMeetingLink}
-        onChange={(e) => setMeetingLink(e.target.value)}
-        className={`flex-1 border rounded-md px-3 py-2 text-sm ${
-          isEditingMeetingLink
-            ? "bg-white border-gray-300"
-            : "bg-gray-100 border-gray-200 text-gray-700 cursor-not-allowed"
-        }`}
-      />
-
-      {!isEditingMeetingLink ? (
-        <button
-          onClick={() => setIsEditingMeetingLink(true)}
-          className="px-4 py-2 rounded-md text-sm font-semibold
-                     border border-gray-300 bg-white
-                     hover:bg-gray-100 transition"
-        >
-          Edit
-        </button>
-      ) : (
-        <button
-  disabled={!meetingLink.trim()}
-  onClick={async () => {
-    await saveMeetingLink();
-    setIsEditingMeetingLink(false);
-  }}
-  className={`px-4 py-2 rounded-md text-sm font-semibold ${
-    !meetingLink.trim()
-      ? "bg-gray-300 cursor-not-allowed"
-      : "bg-blue-600 text-white hover:bg-blue-700"
-  }`}
->
-  Update
-</button>
-
-      )}
-    </div>
-  </div>
+  <button
+    onClick={() => onToggleAssessmentLock(trackId)}
+    className={`px-5 py-2 rounded-md font-semibold w-full max-w-xs ${
+      track.assessmentLocked
+        ? "bg-red-600 text-white"
+        : "bg-green-600 text-white"
+    }`}
+  >
+    {track.assessmentLocked
+      ? "Assessment Locked 🔒"
+      : "Assessment Unlocked 🔓"}
+  </button>
 </div>
-      {/* SESSION CHAIRS */}
-<div className="grid sm:grid-cols-2 gap-4 mb-6">
+      {/* EVALUATORS */}
+<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
   {chairs.map((c) => (
     <div
       key={c._id}
@@ -2921,7 +2854,7 @@ const submissionUrl =
             {c.name}
           </div>
           <div className="text-xs text-gray-500 mt-1">
-            {c.type} Chair
+            {c.type} Evaluator
           </div>
         </div>
 
@@ -3024,7 +2957,7 @@ const submissionUrl =
       className="border rounded-lg px-3 py-1.5 text-sm"
     >
       <option value="">Select field</option>
-      <option value="paperId">Paper ID</option>
+      <option value="paperId">Team ID</option>
       <option value="marks">Total Marks</option>
     </select>
 
@@ -3075,17 +3008,6 @@ const submissionUrl =
       className="border rounded-lg px-3 py-1.5 text-sm"
     />
 
-    {/* Mode */}
-    <select
-      value={filterMode}
-      onChange={(e) => setFilterMode(e.target.value)}
-      className="border rounded-lg px-3 py-1.5 text-sm"
-    >
-      <option value="">All modes</option>
-      <option value="Online">Online</option>
-      <option value="Offline">Offline</option>
-    </select>
-
     {/* Marks Range */}
     <input
       type="number"
@@ -3131,7 +3053,7 @@ const submissionUrl =
             #{index + 1}
           </span>
 
-          {/* Paper ID Tag */}
+          {/* Team ID Tag */}
           <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">
             {p.paperId}
           </span>
@@ -3142,9 +3064,9 @@ const submissionUrl =
           </span>
         </div>
 
-        {/* Paper title */}
+        {/* Problem Statement and Team Name */}
         <div className="mt-1 text-sm text-gray-700 truncate">
-          {p.paperTitle}
+          <b>Team:</b> {p.teamName} &nbsp;|&nbsp; <b>Problem:</b> {p.paperTitle}
         </div>
 
         {/* Institute + Branch */}
@@ -3206,11 +3128,11 @@ const submissionUrl =
   </div>
       {/* Paper */}
       <div>
-    <div className="font-semibold text-gray-800 mb-1">Paper</div>
+    <div className="font-semibold text-gray-800 mb-1">Team Details</div>
     <div className="text-sm text-gray-700 space-y-1">
-      <div>Paper ID: {selectedParticipant.paperId}</div>
-      <div>{selectedParticipant.paperTitle}</div>
-      <div>Presentation Mode: {selectedParticipant.mode}</div>
+      <div>Team ID: {selectedParticipant.paperId}</div>
+      <div>Team Name: {selectedParticipant.teamName}</div>
+      <div>Problem Statement: {selectedParticipant.paperTitle}</div>
     </div>
   </div>
       {/* Submission */}
@@ -4305,7 +4227,7 @@ function AssessmentSummary({ participants, onClose }) {
             <tr>
               <th className="border px-2 py-1">S.No.</th>
               <th className="border px-2 py-1">Presenter Name</th>
-              <th className="border px-2 py-1">Paper ID</th>
+              <th className="border px-2 py-1">Team ID</th>
               <th className="border px-2 py-1">Title</th>
               {ASSESSMENT_CRITERIA.map((c, i) => (
   <th key={i} className="border px-2 py-1 text-xs">
