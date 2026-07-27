@@ -28,17 +28,15 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 50 * 1024 * 1024 }, // 50MB max
   fileFilter: (_req, file, cb) => {
-    // Accept common presentation/document formats
+    // Accept only presentation formats
     const allowed = [
-      "application/pdf",
       "application/vnd.ms-powerpoint",
       "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-      "application/zip",
     ];
     if (allowed.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error(`Unsupported file type: ${file.mimetype}. Allowed: PDF, PPT, PPTX, ZIP`));
+      cb(new Error("Invalid file type. Only PPT and PPTX are allowed."));
     }
   },
 });

@@ -88,7 +88,7 @@ export default function EditParticipantModal({ isOpen, onClose, participant, eve
       return;
     }
     if (!teamDetails.pptLink) {
-      setError("Please upload a Presentation File (PPT/PDF/ZIP)");
+      setError("Please upload a Presentation File (PPT/PPTX)");
       return;
     }
     setError(null);
@@ -259,7 +259,7 @@ export default function EditParticipantModal({ isOpen, onClose, participant, eve
                   <textarea rows="3" value={teamDetails.description} onChange={e => setTeamDetails({...teamDetails, description: e.target.value})} className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:ring-gray-800/20 focus:border-gray-800" />
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Presentation File (PPT/PDF/ZIP)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Presentation File (PPT/PPTX)</label>
                   <div className="flex items-center gap-3">
                     <button
                       type="button"
