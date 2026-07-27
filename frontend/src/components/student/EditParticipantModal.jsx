@@ -26,7 +26,7 @@ const defaultMember = (isLeader = false) => ({
   isLeader
 });
 
-export default function EditParticipantModal({ isOpen, onClose, participant, onSuccess }) {
+export default function EditParticipantModal({ isOpen, onClose, participant, eventId, allEvents, onSuccess }) {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [uploadingPpt, setUploadingPpt] = useState(false);
@@ -44,10 +44,18 @@ export default function EditParticipantModal({ isOpen, onClose, participant, onS
 
   const [members, setMembers] = useState([]);
 
+  const isGlobal = eventId === "global";
+  const [selectedEventId, setSelectedEventId] = useState("");
+  const [selectedTrackId, setSelectedTrackId] = useState("");
+  const finalEventId = isGlobal ? selectedEventId : eventId;
+  const finalTrackId = isGlobal ? selectedTrackId : participant?.trackId;
+
   useEffect(() => {
     if (participant) {
       setStep(1); // Reset step on open
       setError(null);
+      setSelectedEventId(participant.eventId || "");
+      setSelectedTrackId(participant.trackId || "");
       setTeamDetails({
         teamId: participant.teamId || "",
         teamName: participant.teamName || "",
@@ -67,12 +75,20 @@ export default function EditParticipantModal({ isOpen, onClose, participant, onS
   if (!isOpen) return null;
 
   const handleNext = () => {
+    if (isGlobal && (!selectedEventId || !selectedTrackId)) {
+      setError("Please select Event and Track");
+      return;
+    }
     if (!teamDetails.teamId) {
       setError("Please provide a Team ID");
       return;
     }
     if (!teamDetails.teamName) {
       setError("Please provide a Team Name");
+      return;
+    }
+    if (!teamDetails.pptLink) {
+      setError("Please upload a Presentation File (PPT/PDF/ZIP)");
       return;
     }
     setError(null);
@@ -132,10 +148,22 @@ export default function EditParticipantModal({ isOpen, onClose, participant, onS
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isGlobal && (!finalEventId || !finalTrackId)) {
+      setError("Event or Track is missing");
+      return;
+    }
+
     const incomplete = members.some(m => !m.name || !m.email);
     if (incomplete) {
       setError("Please provide at least Name and Email for all members");
       return;
+    }
+
+    const trackChanged = String(participant.trackId) !== String(finalTrackId);
+    if (trackChanged) {
+      if (!window.confirm("Warning: Changing the track will reset this team's marks and evaluator assignments. Do you wish to proceed?")) {
+        return;
+      }
     }
 
     setLoading(true);
@@ -143,6 +171,9 @@ export default function EditParticipantModal({ isOpen, onClose, participant, onS
     try {
       await studentApi.updateParticipant(participant._id, {
         ...teamDetails,
+        eventId: finalEventId,
+        trackId: finalTrackId,
+        resetAssessment: trackChanged,
         members
       });
       onSuccess();
@@ -175,6 +206,41 @@ export default function EditParticipantModal({ isOpen, onClose, participant, onS
 
           {step === 1 && (
             <div className="space-y-6">
+              {isGlobal && (
+                <div className="border border-gray-200 rounded-lg p-4 bg-green-50 mb-6">
+                  <h3 className="text-sm font-bold text-green-700 uppercase tracking-wider mb-4 border-b border-gray-300 pb-2">
+                    Global Assignment
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Select Event *</label>
+                      <select 
+                        value={selectedEventId} 
+                        onChange={e => { setSelectedEventId(e.target.value); setSelectedTrackId(""); }} 
+                        className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:ring-gray-800/20 focus:border-gray-800"
+                      >
+                        <option value="">-- Select Event --</option>
+                        {(allEvents || []).map(ev => <option key={ev._id} value={ev._id}>{ev.title}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Select Track *</label>
+                      <select 
+                        value={selectedTrackId} 
+                        onChange={e => setSelectedTrackId(e.target.value)} 
+                        className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:ring-gray-800/20 focus:border-gray-800"
+                        disabled={!selectedEventId}
+                      >
+                        <option value="">-- Select Track --</option>
+                        {selectedEventId && (allEvents || []).find(ev => String(ev._id) === String(selectedEventId))?.tracks?.map(t => (
+                          <option key={t.id} value={t.id}>{t.title}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Team ID (Platform ID) *</label>

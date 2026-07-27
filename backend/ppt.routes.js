@@ -10,14 +10,17 @@ const isCloudinaryConfigured = () => {
   const name = process.env.CLOUDINARY_CLOUD_NAME?.trim();
   const key = process.env.CLOUDINARY_API_KEY?.trim();
   const secret = process.env.CLOUDINARY_API_SECRET?.trim();
-  return !!(name && key && secret);
+  
+  if (name && key && secret) {
+    cloudinary.v2.config({
+      cloud_name: name,
+      api_key: key,
+      api_secret: secret,
+    });
+    return true;
+  }
+  return false;
 };
-
-cloudinary.v2.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
 
 /* ================== MULTER ================== */
 // Memory storage — no files written to disk.
@@ -100,7 +103,6 @@ router.post("/", upload.single("file"), async (req, res) => {
     
     const isAuthError =
       err?.http_code === 401 ||
-      err?.http_code === 400 ||
       errString.toLowerCase().includes("api_key") ||
       errString.toLowerCase().includes("cloud_name") ||
       errString.toLowerCase().includes("disabled");

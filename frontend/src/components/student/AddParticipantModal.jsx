@@ -65,6 +65,10 @@ export default function AddParticipantModal({ isOpen, onClose, eventId, trackId,
       setError("Please provide a Team Name");
       return;
     }
+    if (!teamDetails.pptLink) {
+      setError("Please upload a Presentation File (PPT/PDF/ZIP)");
+      return;
+    }
     setError(null);
     setStep(2);
   };

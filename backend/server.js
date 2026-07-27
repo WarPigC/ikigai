@@ -1,15 +1,14 @@
 // server.js
+import "dotenv/config";
 import express from "express";
 import mongoose from "mongoose";
 import cors from "cors";
-import dotenv from "dotenv";
 import crypto from "crypto";
 import proofRoutes from "./proof.routes.js";
 import pptRoutes from "./ppt.routes.js";
 import { sendMail } from "./mailer.js";
 
 
-dotenv.config();
 
 const app = express();
 app.use(
@@ -1105,20 +1104,31 @@ app.put("/api/student/participants/:id", async (req, res) => {
       description,
       pptLink,
       members,
+      eventId,
+      trackId,
+      resetAssessment
     } = req.body;
+
+    const updates = {
+      ...(teamName !== undefined && { teamName }),
+      ...(track !== undefined && { track }),
+      ...(problemStatement !== undefined && { problemStatement }),
+      ...(description !== undefined && { description }),
+      ...(pptLink !== undefined && { pptLink }),
+      ...(members !== undefined && { members }),
+      ...(eventId !== undefined && { eventId }),
+      ...(trackId !== undefined && { trackId }),
+    };
+
+    let updateQuery = { $set: updates };
+    if (resetAssessment) {
+      updates.assessment = { criteria: [], total: 0, notes: "" };
+      updateQuery.$unset = { evaluator: 1 };
+    }
 
     const updated = await Participant.findByIdAndUpdate(
       req.params.id,
-      {
-        $set: {
-          ...(teamName !== undefined && { teamName }),
-          ...(track !== undefined && { track }),
-          ...(problemStatement !== undefined && { problemStatement }),
-          ...(description !== undefined && { description }),
-          ...(pptLink !== undefined && { pptLink }),
-          ...(members !== undefined && { members }),
-        },
-      },
+      updateQuery,
       { new: true, runValidators: false }
     );
 
