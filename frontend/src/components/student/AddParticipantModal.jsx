@@ -30,6 +30,7 @@ export default function AddParticipantModal({ isOpen, onClose, eventId, trackId,
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [uploadingPpt, setUploadingPpt] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState(null);
 
   const fileInputRef = useRef(null);
@@ -78,9 +79,12 @@ export default function AddParticipantModal({ isOpen, onClose, eventId, trackId,
     if (!file) return;
 
     setUploadingPpt(true);
+    setUploadProgress(0);
     setError(null);
     try {
-      const res = await studentApi.uploadPpt(file, teamDetails.teamId, finalEventId);
+      const res = await studentApi.uploadPpt(file, teamDetails.teamId, finalEventId, (progress) => {
+        setUploadProgress(progress);
+      });
       if (res.success) {
         setTeamDetails(prev => ({ ...prev, pptLink: res.url }));
       } else if (res.configured === false) {
@@ -92,6 +96,7 @@ export default function AddParticipantModal({ isOpen, onClose, eventId, trackId,
       setError("Network error during PPT upload");
     } finally {
       setUploadingPpt(false);
+      setUploadProgress(0);
       // Reset input so the same file can be selected again if needed
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
@@ -255,6 +260,14 @@ export default function AddParticipantModal({ isOpen, onClose, eventId, trackId,
                       className="flex-1 border border-gray-200 rounded-md px-3 py-2 text-sm focus:ring-gray-800/20 focus:border-gray-800" 
                     />
                   </div>
+                  {uploadingPpt && (
+                    <div className="mt-2 w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
+                      <div 
+                        className="bg-green-600 h-1.5 rounded-full transition-all duration-300" 
+                        style={{ width: `${uploadProgress}%` }}
+                      ></div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

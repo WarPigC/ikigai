@@ -62,20 +62,27 @@ export default function CsvUpload({ eventId, allEvents, onSuccess }) {
             const isLeader = row[2]?.trim().toLowerCase().includes('leader');
             
             teamsMap[teamId].members.push({
+              candidateRole: row[2]?.trim() || (isLeader ? "Team Leader" : "Team Member"),
               name: row[3]?.trim(),
               email: row[4]?.trim(),
-              phone: row[5]?.trim(),
+              mobile: row[5]?.trim(),
               location: row[6]?.trim(),
-              category: row[7]?.trim(),
-              stream: row[8]?.trim(),
-              degree: row[9]?.trim(),
-              branch: row[10]?.trim(),
-              mode: row[11]?.trim(),
-              year: row[12]?.trim(),
-              gradYear: row[14]?.trim() || row[13]?.trim(),
-              institute: row[15]?.trim() || row[14]?.trim(),
-              isLeader,
-              gender: "Not Specified"
+              userType: row[7]?.trim(),
+              domain: row[8]?.trim(),
+              course: row[9]?.trim(),
+              specialization: row[10]?.trim(),
+              courseType: row[11]?.trim(),
+              courseDuration: row[12]?.trim(),
+              classGrade: row[13]?.trim(),
+              gradYear: row[14]?.trim(),
+              organisation: row[15]?.trim(),
+              designation: row[16]?.trim(),
+              differentlyAbled: String(row[18]).toLowerCase().includes('yes'),
+              workExperience: row[19]?.trim(),
+              regStatus: row[20]?.trim() || 'Complete',
+              refCode: row[21]?.trim(),
+              paymentStatus: row[22]?.trim() || 'paid',
+              isLeader
             });
           });
 
