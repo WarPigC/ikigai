@@ -3896,15 +3896,15 @@ function AssessmentModal({
     setSecondsLeft(TOTAL_TIME);
   }, [currentIndex]);
 
-  if (!open || !participants?.length) return null;
-
-  const p = participants[currentIndex];
-  const isLast = currentIndex === participants.length - 1;
-
   const handleTimingUpdate = useCallback((timings, total) => {
     setForm(f => ({ ...f, slideTimings: timings, totalPptTime: total }));
     setIsDirty(true);
   }, []);
+
+  if (!open || !participants?.length) return null;
+
+  const p = participants[currentIndex];
+  const isLast = currentIndex === participants.length - 1;
 
   const setCriteria = (i, value) => {
     if (assessmentMode !== "criteria") return;

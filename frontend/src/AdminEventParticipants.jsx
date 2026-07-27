@@ -25,7 +25,7 @@ export default function AdminEventParticipants() {
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState("");
   const [selectedParticipant, setSelectedParticipant] = useState(null);
-  // sorting
+  const [selectedEvaluationReport, setSelectedEvaluationReport] = useState(null);
   const [sortBy, setSortBy] = useState("");
   const [sortOrder, setSortOrder] = useState("asc");
 
@@ -699,9 +699,17 @@ export default function AdminEventParticipants() {
                 </div>
               )}
 
-              {/* VIEW */}
-              <div className="text-sm text-green-700 font-medium">
-                View →
+              {/* VIEW & EVALUATION REPORT */}
+              <div className="flex flex-col sm:flex-row gap-2 items-center">
+                <button 
+                  onClick={(e) => { e.stopPropagation(); setSelectedEvaluationReport(p); }}
+                  className="text-xs sm:text-sm text-purple-700 bg-purple-50 hover:bg-purple-100 px-3 py-1.5 rounded font-medium border border-purple-200 transition-colors shadow-sm whitespace-nowrap"
+                >
+                  Evaluation Report
+                </button>
+                <div className="text-sm text-green-700 font-medium whitespace-nowrap">
+                  View →
+                </div>
               </div>
             </div>
 
@@ -748,63 +756,92 @@ export default function AdminEventParticipants() {
             </div>
           </div>
         </div>
-        
-        {/* Evaluation Report Section */}
-        {selectedParticipant.assessment && (
-          <div className="mt-6 pt-4 border-t border-gray-200">
-            <h4 className="text-lg font-bold text-gray-800 mb-2">Evaluation Report</h4>
-            <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
-              <div className="mb-3">
-                <span className="font-semibold text-gray-600">Assigned Evaluator:</span>{" "}
-                <span className="font-medium text-gray-900">
-                  {selectedParticipant.assignedEvaluator?.name || "Unknown"}
-                  {selectedParticipant.assignedEvaluator?.email ? ` (${selectedParticipant.assignedEvaluator.email})` : ""}
-                </span>
+      </div>
+    </div>
+  </div>
+)}
+
+{selectedEvaluationReport && (
+  <div className="fixed inset-0 z-[60] bg-black/40 flex items-center justify-center p-4">
+    <div className="bg-white rounded-2xl w-full max-w-2xl p-6 relative shadow-2xl max-h-[90vh] flex flex-col">
+      <button
+        onClick={() => setSelectedEvaluationReport(null)}
+        className="absolute top-3 right-4 text-gray-400 hover:text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-full w-8 h-8 flex items-center justify-center transition-colors"
+      >
+        ✕
+      </button>
+
+      <h3 className="text-xl font-bold text-gray-800 mb-1">
+        Evaluation Report
+      </h3>
+      <p className="text-sm text-gray-500 mb-6 border-b border-gray-100 pb-4">
+        {selectedEvaluationReport.teamName} • {selectedEvaluationReport.paperId}
+      </p>
+
+      <div className="flex-1 overflow-y-auto pr-2">
+        {!selectedEvaluationReport.assessment || typeof selectedEvaluationReport.assessment.total !== "number" ? (
+          <div className="p-8 text-center bg-gray-50 rounded-xl border border-dashed border-gray-300">
+            <span className="text-gray-500 font-medium text-lg">Participant not evaluated yet.</span>
+            <p className="text-sm text-gray-400 mt-2">No evaluation data is available for this team.</p>
+          </div>
+        ) : (
+          <div className="bg-white">
+            <div className="mb-4 bg-gray-50 p-4 rounded-xl border border-gray-100">
+              <span className="font-semibold text-gray-600 text-sm uppercase tracking-wide">Assigned Evaluator</span>
+              <div className="font-medium text-gray-900 mt-1 text-lg">
+                {selectedEvaluationReport.assignedEvaluator?.name || "Unknown"}
+                {selectedEvaluationReport.assignedEvaluator?.email ? <span className="text-gray-500 text-sm ml-2">({selectedEvaluationReport.assignedEvaluator.email})</span> : ""}
               </div>
-              
-              <div className="mb-3">
-                <span className="font-semibold text-gray-600">Total Presentation Time:</span>{" "}
-                <span className="font-medium text-purple-700 bg-purple-100 px-2 py-0.5 rounded">
-                  {selectedParticipant.assessment.totalPptTime || 0} seconds
-                </span>
-              </div>
-              
-              <div className="mb-3">
-                <span className="font-semibold text-gray-600">Average Time per Slide:</span>{" "}
-                <span className="font-medium text-blue-700 bg-blue-100 px-2 py-0.5 rounded">
-                  {selectedParticipant.assessment.slideTimings?.length > 0 
-                    ? Math.round((selectedParticipant.assessment.totalPptTime || 0) / selectedParticipant.assessment.slideTimings.length) 
-                    : 0} seconds
-                </span>
-              </div>
-              
-              {/* Slide-wise Time Table */}
-              {selectedParticipant.assessment.slideTimings && selectedParticipant.assessment.slideTimings.length > 0 ? (
-                <div className="mt-4">
-                  <h5 className="text-sm font-bold text-gray-700 mb-2">Slide-wise Time Breakdown</h5>
-                  <div className="max-h-40 overflow-y-auto border border-gray-200 rounded-lg bg-white">
-                    <table className="w-full text-sm text-left">
-                      <thead className="bg-gray-100 sticky top-0">
-                        <tr>
-                          <th className="px-4 py-2 font-semibold text-gray-700">Slide</th>
-                          <th className="px-4 py-2 font-semibold text-gray-700">Time Spent</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100">
-                        {selectedParticipant.assessment.slideTimings.map((timing, idx) => (
-                          <tr key={idx} className="hover:bg-gray-50">
-                            <td className="px-4 py-2">Slide {timing.slide}</td>
-                            <td className="px-4 py-2">{timing.duration} sec</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              ) : (
-                <div className="mt-3 text-sm text-gray-500 italic">No slide timing data available.</div>
-              )}
             </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+              <div className="bg-purple-50 p-4 rounded-xl border border-purple-100">
+                <span className="font-semibold text-purple-700 text-xs uppercase tracking-wide">Total Time</span>
+                <div className="font-bold text-purple-900 mt-1 text-2xl">
+                  {selectedEvaluationReport.assessment.totalPptTime || 0}s
+                </div>
+              </div>
+              
+              <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                <span className="font-semibold text-blue-700 text-xs uppercase tracking-wide">Avg Time / Slide</span>
+                <div className="font-bold text-blue-900 mt-1 text-2xl">
+                  {selectedEvaluationReport.assessment.slideTimings?.length > 0 
+                    ? Math.round((selectedEvaluationReport.assessment.totalPptTime || 0) / selectedEvaluationReport.assessment.slideTimings.length) 
+                    : 0}s
+                </div>
+              </div>
+            </div>
+            
+            {/* Slide-wise Time Table */}
+            <h5 className="text-sm font-bold text-gray-700 mb-3">Slide-wise Time Breakdown</h5>
+            {selectedEvaluationReport.assessment.slideTimings && selectedEvaluationReport.assessment.slideTimings.length > 0 ? (
+              <div className="border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm">
+                <table className="w-full text-sm text-left">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="px-6 py-3 font-semibold text-gray-700">Slide Number</th>
+                      <th className="px-6 py-3 font-semibold text-gray-700">Time Spent</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {selectedEvaluationReport.assessment.slideTimings.map((timing, idx) => (
+                      <tr key={idx} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-6 py-3 font-medium text-gray-800">Slide {timing.slide}</td>
+                        <td className="px-6 py-3 text-gray-600">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-gray-100 text-gray-800 font-medium text-xs">
+                            ⏱️ {timing.duration} sec
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="p-6 text-center bg-gray-50 rounded-xl border border-gray-100">
+                <span className="text-gray-500 italic text-sm">No slide timing data was captured during this evaluation.</span>
+              </div>
+            )}
           </div>
         )}
       </div>

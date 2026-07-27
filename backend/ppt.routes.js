@@ -78,16 +78,19 @@ router.post("/", upload.single("file"), async (req, res) => {
 
     const { teamId, eventId } = req.body;
 
+    let ext = "";
+    if (req.file.mimetype === "application/pdf") ext = ".pdf";
+    else if (req.file.mimetype.includes("powerpoint") || req.file.mimetype.includes("presentation")) ext = ".pptx";
+
     // Build a human-readable public_id from teamId if available
     const publicId = teamId
-      ? `CARE/ppts/${eventId || "general"}/${teamId}`
-      : `CARE/ppts/${eventId || "general"}/${Date.now()}`;
+      ? `CARE/ppts/${eventId || "general"}/${teamId}${ext}`
+      : `CARE/ppts/${eventId || "general"}/${Date.now()}${ext}`;
 
     const base64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}`;
 
     const result = await cloudinary.v2.uploader.upload(base64, {
-      folder: `CARE/ppts/${eventId || "general"}`,
-      public_id: teamId || undefined,
+      public_id: publicId,
       resource_type: "auto", // handles PDF, PPT, PPTX
       overwrite: true,
       unique_filename: !teamId,
