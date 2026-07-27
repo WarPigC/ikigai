@@ -62,18 +62,44 @@ export const studentApi = {
    * @param {string} [eventId] - Optional event ID used to organise the file in a folder
    * @returns {{ success: boolean, url?: string, configured?: boolean, message?: string }}
    */
-  async uploadPpt(file, teamId = null, eventId = null) {
-    const formData = new FormData();
-    formData.append("file", file);
-    if (teamId) formData.append("teamId", teamId);
-    if (eventId) formData.append("eventId", eventId);
+  async uploadPpt(file, teamId = null, eventId = null, onProgress = null) {
+    return new Promise((resolve, reject) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      if (teamId) formData.append("teamId", teamId);
+      if (eventId) formData.append("eventId", eventId);
 
-    // Do NOT set Content-Type — browser sets it automatically with the correct boundary
-    const res = await fetch(`${API_BASE}/api/upload-ppt`, {
-      method: "POST",
-      body: formData,
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", `${API_BASE}/api/upload-ppt`);
+
+      if (onProgress) {
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) {
+            const percentComplete = Math.round((event.loaded / event.total) * 100);
+            onProgress(percentComplete);
+          }
+        };
+      }
+
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            resolve(JSON.parse(xhr.responseText));
+          } catch (e) {
+            resolve({ success: true, url: xhr.responseText }); // fallback
+          }
+        } else {
+          try {
+            resolve(JSON.parse(xhr.responseText));
+          } catch(e) {
+            resolve({ success: false, message: `Upload failed with status ${xhr.status}` });
+          }
+        }
+      };
+
+      xhr.onerror = () => reject(new Error("Network Error"));
+      xhr.send(formData);
     });
-    return await res.json();
   },
 
 
