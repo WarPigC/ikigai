@@ -1105,7 +1105,7 @@ const step4Valid =
     }
     navigate("/dashboard");
   }}
-  className="text-sm text-gray-600 hover:text-green-700 hover:underline"
+  className="px-4 py-2 text-sm font-medium rounded-lg bg-green-600 text-white hover:bg-green-700 transition flex items-center justify-center w-full sm:w-auto gap-2"
 >
   ← Back to Dashboard
 </button>
@@ -1978,9 +1978,9 @@ const getProgressColor = (assessed, total) => {
             <div className="mt-3">
               <button
                 onClick={() => navigate("/")}
-                className="px-4 py-2 bg-green-600 text-white rounded-md"
+                className="px-4 py-2 text-sm font-medium rounded-lg bg-green-600 text-white hover:bg-green-700 transition flex items-center justify-center w-fit gap-2"
               >
-                Back to Dashboard
+                ← Back to Dashboard
               </button>
             </div>
           </div>
@@ -2092,7 +2092,7 @@ const getProgressColor = (assessed, total) => {
 
     <button
       onClick={() => navigate("/dashboard")}
-      className="text-sm font-medium text-green-700 hover:underline"
+      className="px-4 py-2 text-sm font-medium rounded-lg bg-green-600 text-white hover:bg-green-700 transition flex items-center justify-center gap-2"
     >
       ← Back to Dashboard
     </button>

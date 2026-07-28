@@ -458,7 +458,7 @@ export default function AdminEventParticipants() {
 
         <button
           onClick={() => navigate("/dashboard")}
-          className="text-sm text-green-700 hover:underline"
+          className="px-4 py-2 text-sm font-medium rounded-lg bg-green-600 text-white hover:bg-green-700 transition flex items-center justify-center gap-2"
         >
           ← Back to Dashboard
         </button>
