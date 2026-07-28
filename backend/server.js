@@ -2467,7 +2467,8 @@ const PORT = process.env.PORT || 5000;
       const evaluator = await SessionChair.findById(req.params.id);
       if (!evaluator) return res.status(404).json({ success: false, message: "Evaluator not found" });
 
-      const tempPassword = Math.random().toString(36).slice(-8);
+      const firstName = evaluator.name.split(" ")[0].toLowerCase().replace(/[^a-z0-9]/g, "") || "evaluator";
+      const tempPassword = `${firstName}123`;
       const updateToken = crypto.randomBytes(32).toString("hex");
       
       evaluator.passwordHash = hashPassword(tempPassword);
@@ -2496,7 +2497,8 @@ const PORT = process.env.PORT || 5000;
 
       for (let evaluator of evaluators) {
         try {
-          const tempPassword = Math.random().toString(36).slice(-8);
+          const firstName = evaluator.name.split(" ")[0].toLowerCase().replace(/[^a-z0-9]/g, "") || "evaluator";
+          const tempPassword = `${firstName}123`;
           const updateToken = crypto.randomBytes(32).toString("hex");
           
           evaluator.passwordHash = hashPassword(tempPassword);
