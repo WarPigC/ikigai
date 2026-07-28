@@ -2736,6 +2736,15 @@ app.get("/api/admin/student-coordinators/global", async (req, res) => {
   }
 });
 
+app.delete("/api/admin/student-coordinators/:id", async (req, res) => {
+  try {
+    await StudentCoordinator.findByIdAndDelete(req.params.id);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // Export app for integration testing (supertest imports this)
 export { app };
 

@@ -176,6 +176,8 @@ function EvaluatorList({ event, track, refreshEvents }) {
   const [form, setForm] = useState({ title: "Mr.", firstName: "", lastName: "", email: "", phone: "" });
   const [assignModal, setAssignModal] = useState(false);
   const [selectedEvaluator, setSelectedEvaluator] = useState(null);
+  const [editEvaluatorId, setEditEvaluatorId] = useState(null);
+  const [editForm, setEditForm] = useState({ name: "", email: "", phone: "" });
 
   useEffect(() => {
     fetch(`${API_BASE}/api/admin/session-chairs/${event._id}`)
@@ -222,6 +224,23 @@ function EvaluatorList({ event, track, refreshEvents }) {
     }
   };
 
+  const handleUpdate = async (e, evId) => {
+    e.preventDefault();
+    const res = await fetch(`${API_BASE}/api/admin/evaluators/${evId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(editForm)
+    });
+    if (res.ok) {
+      setEditEvaluatorId(null);
+      const data = await res.json();
+      setEvaluators(evaluators.map(ev => ev._id === evId ? data.evaluator : ev));
+      refreshEvents();
+    } else {
+      alert("Failed to update evaluator");
+    }
+  };
+
   return (
     <div className="ml-6 mt-4 pl-4 border-l-2 border-green-200">
       <div className="flex justify-between items-center mb-3">
@@ -257,20 +276,40 @@ function EvaluatorList({ event, track, refreshEvents }) {
       
       <div className="space-y-2">
         {evaluators.map(ev => (
-          <div key={ev._id} className="flex justify-between items-center bg-white border border-gray-200 p-2 rounded shadow-sm text-sm">
-            <div>
-              <p className="font-semibold">{ev.name}</p>
-              <p className="text-gray-500 text-xs">{ev.email} • {ev.phone}</p>
-            </div>
-            <div>
-              <button 
-                onClick={(e) => { e.stopPropagation(); setSelectedEvaluator(ev); setAssignModal(true); }}
-                className="text-sm px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 transition font-medium mr-2"
-              >
-                Assign Teams
-              </button>
-              <button onClick={() => handleDelete(ev._id)} className="text-red-500 hover:text-red-700 px-2 py-1">Delete</button>
-            </div>
+          <div key={ev._id} className="bg-white border border-gray-200 p-2 rounded shadow-sm text-sm">
+            {editEvaluatorId === ev._id ? (
+              <form onSubmit={(e) => handleUpdate(e, ev._id)} className="flex flex-col sm:flex-row gap-2 w-full">
+                <input required type="text" value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} className="flex-1 border px-2 py-1 rounded" placeholder="Full Name" />
+                <input required type="email" value={editForm.email} onChange={e => setEditForm({ ...editForm, email: e.target.value })} className="flex-1 border px-2 py-1 rounded" placeholder="Email" />
+                <input required type="text" value={editForm.phone} onChange={e => setEditForm({ ...editForm, phone: e.target.value })} className="flex-1 border px-2 py-1 rounded" placeholder="Phone" />
+                <div className="flex gap-2">
+                  <button type="submit" className="bg-blue-600 text-white px-3 py-1 rounded">Save</button>
+                  <button type="button" onClick={() => setEditEvaluatorId(null)} className="bg-gray-200 px-3 py-1 rounded">Cancel</button>
+                </div>
+              </form>
+            ) : (
+              <div className="flex justify-between items-center w-full">
+                <div>
+                  <p className="font-semibold">{ev.name}</p>
+                  <p className="text-gray-500 text-xs">{ev.email} • {ev.phone}</p>
+                </div>
+                <div>
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); setSelectedEvaluator(ev); setAssignModal(true); }}
+                    className="text-sm px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 transition font-medium mr-2"
+                  >
+                    Assign Teams
+                  </button>
+                  <button 
+                    onClick={() => { setEditEvaluatorId(ev._id); setEditForm({ name: ev.name, email: ev.email, phone: ev.phone }); }} 
+                    className="text-blue-600 hover:text-blue-800 px-2 py-1 mr-1"
+                  >
+                    Edit
+                  </button>
+                  <button onClick={() => handleDelete(ev._id)} className="text-red-500 hover:text-red-700 px-2 py-1">Delete</button>
+                </div>
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -290,6 +329,8 @@ function TrackItem({ event, track, refreshEvents }) {
   const [expanded, setExpanded] = useState(false);
   const [deleteModal, setDeleteModal] = useState(false);
   const [assignStats, setAssignStats] = useState(null); // { total, assigned }
+  const [isEditingTrack, setIsEditingTrack] = useState(false);
+  const [trackForm, setTrackForm] = useState({ title: track.title, description: track.description });
 
   // Fetch assignment stats and evaluators for the badge whenever expanded
   useEffect(() => {
@@ -312,34 +353,72 @@ function TrackItem({ event, track, refreshEvents }) {
     if (res.ok) refreshEvents();
   };
 
+  const handleEditTrack = async (e) => {
+    e.preventDefault();
+    const res = await fetch(`${API_BASE}/api/admin/events/${event._id}/tracks/${track.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(trackForm)
+    });
+    if (res.ok) {
+      setIsEditingTrack(false);
+      refreshEvents();
+    } else {
+      alert("Failed to update track");
+    }
+  };
+
   return (
     <div className="mb-3 bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
-      <div className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition" onClick={() => setExpanded(!expanded)}>
-        <div className="flex-1 min-w-0">
-          <h4 className="font-bold text-gray-800 text-lg flex items-center gap-2">
-            <span className={`text-green-600 transition-transform ${expanded ? 'rotate-90' : ''}`}>▶</span> {track.title}
-          </h4>
-          <p className="text-sm text-gray-600 mt-1">{track.description}</p>
+      {isEditingTrack ? (
+        <form onSubmit={handleEditTrack} className="p-4 bg-gray-50 border-b border-gray-200">
+          <div className="mb-3">
+            <label className="block text-sm font-semibold text-gray-700 mb-1">Track Name</label>
+            <input required type="text" value={trackForm.title} onChange={e => setTrackForm({ ...trackForm, title: e.target.value })} className="w-full border border-gray-300 rounded px-3 py-2" />
+          </div>
+          <div className="mb-3">
+            <label className="block text-sm font-semibold text-gray-700 mb-1">Track Description</label>
+            <textarea required value={trackForm.description} onChange={e => setTrackForm({ ...trackForm, description: e.target.value })} className="w-full border border-gray-300 rounded px-3 py-2 h-16" />
+          </div>
+          <div className="flex justify-end gap-2">
+            <button type="button" onClick={() => setIsEditingTrack(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded font-semibold">Cancel</button>
+            <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded font-semibold hover:bg-blue-700">Save Changes</button>
+          </div>
+        </form>
+      ) : (
+        <div className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition" onClick={() => setExpanded(!expanded)}>
+          <div className="flex-1 min-w-0">
+            <h4 className="font-bold text-gray-800 text-lg flex items-center gap-2">
+              <span className={`text-green-600 transition-transform ${expanded ? 'rotate-90' : ''}`}>▶</span> {track.title}
+            </h4>
+            <p className="text-sm text-gray-600 mt-1">{track.description}</p>
+          </div>
+          <div className="flex items-center gap-2 ml-4 flex-shrink-0">
+            {/* Assignment badge */}
+            {assignStats !== null && (
+              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${
+                assignStats.assigned === assignStats.total && assignStats.total > 0
+                  ? "bg-green-50 text-green-700 border-green-200"
+                  : "bg-amber-50 text-amber-700 border-amber-200"
+              }`}>
+                {assignStats.assigned}/{assignStats.total} assigned
+              </span>
+            )}
+            <button 
+              onClick={(e) => { e.stopPropagation(); setIsEditingTrack(true); }}
+              className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 px-3 py-1 rounded transition"
+            >
+              Edit
+            </button>
+            <button 
+              onClick={(e) => { e.stopPropagation(); setDeleteModal(true); }}
+              className="text-red-500 hover:text-red-700 hover:bg-red-50 px-3 py-1 rounded transition"
+            >
+              Delete Track
+            </button>
+          </div>
         </div>
-        <div className="flex items-center gap-2 ml-4 flex-shrink-0">
-          {/* Assignment badge */}
-          {assignStats !== null && (
-            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${
-              assignStats.assigned === assignStats.total && assignStats.total > 0
-                ? "bg-green-50 text-green-700 border-green-200"
-                : "bg-amber-50 text-amber-700 border-amber-200"
-            }`}>
-              {assignStats.assigned}/{assignStats.total} assigned
-            </span>
-          )}
-          <button 
-            onClick={(e) => { e.stopPropagation(); setDeleteModal(true); }}
-            className="text-red-500 hover:text-red-700 hover:bg-red-50 px-3 py-1 rounded transition"
-          >
-            Delete Track
-          </button>
-        </div>
-      </div>
+      )}
       
       {expanded && (
         <div className="p-4 pt-0 border-t border-gray-100 bg-gray-50">
@@ -442,6 +521,9 @@ function EventCard({ event, refreshEvents }) {
         <div className="flex items-center gap-3 shrink-0">
           <Link to={`/admin/events/${event._id}/participants`} onClick={(e) => e.stopPropagation()} className="px-4 py-2 bg-green-700 hover:bg-green-800 text-white rounded-md text-sm font-semibold transition">
             View Participants
+          </Link>
+          <Link to={`/edit/${event._id}`} onClick={(e) => e.stopPropagation()} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-semibold transition">
+            Edit Event
           </Link>
           <button onClick={(e) => { e.stopPropagation(); setDeleteModal(true); }} className="px-4 py-2 border-2 border-red-500 text-red-500 hover:bg-red-500 hover:text-white rounded-md text-sm font-semibold transition">
             Delete Event
@@ -720,6 +802,59 @@ export function UsersView() {
     }
   };
 
+  const [editStudentId, setEditStudentId] = useState(null);
+  const [editStudentForm, setEditStudentForm] = useState({ name: "", email: "", phone: "" });
+
+  const handleUpdateStudent = async (e, id) => {
+    e.preventDefault();
+    const res = await fetch(`${API_BASE}/api/admin/student-coordinator`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, ...editStudentForm })
+    });
+    const data = await res.json();
+    if (data.success) {
+      setEditStudentId(null);
+      fetchData();
+    } else {
+      alert("Failed to update student coordinator");
+    }
+  };
+
+  const handleDeleteStudent = async (id) => {
+    if (!confirm("Are you sure you want to delete this student coordinator?")) return;
+    const res = await fetch(`${API_BASE}/api/admin/student-coordinators/${id}`, { method: "DELETE" });
+    if (res.ok) {
+      fetchData();
+    }
+  };
+
+  const [editEvaluatorId, setEditEvaluatorId] = useState(null);
+  const [editEvaluatorForm, setEditEvaluatorForm] = useState({ name: "", email: "", phone: "" });
+
+  const handleUpdateGlobalEvaluator = async (e, id) => {
+    e.preventDefault();
+    const res = await fetch(`${API_BASE}/api/admin/evaluators/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(editEvaluatorForm)
+    });
+    if (res.ok) {
+      setEditEvaluatorId(null);
+      fetchData();
+    } else {
+      alert("Failed to update evaluator");
+    }
+  };
+
+  const handleDeleteGlobalEvaluator = async (id) => {
+    if (!confirm("Are you sure you want to delete this evaluator?")) return;
+    const res = await fetch(`${API_BASE}/api/admin/evaluators/${id}`, { method: "DELETE" });
+    if (res.ok) {
+      fetchData();
+    }
+  };
+
   return (
     <div className="animate-fade-in w-full max-w-7xl mx-auto px-6 py-8 md:px-10">
       <div className="flex items-center justify-between mb-8">
@@ -781,17 +916,43 @@ export function UsersView() {
         ) : (
           <div className="divide-y divide-gray-100">
             {students.map(sc => (
-              <div key={sc._id} className="p-4 hover:bg-gray-50 transition cursor-pointer" onClick={() => setExpandedId(expandedId === sc._id ? null : sc._id)}>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-semibold text-gray-800 flex items-center gap-2">
-                      <span className={`text-green-600 transition-transform ${expandedId === sc._id ? 'rotate-90' : ''}`}>▶</span>
-                      {sc.name}
-                    </h4>
-                    <p className="text-sm text-gray-500 ml-5">{sc.email}</p>
+              <div key={sc._id} className="p-4 hover:bg-gray-50 transition cursor-pointer" onClick={(e) => { if (editStudentId !== sc._id) setExpandedId(expandedId === sc._id ? null : sc._id); }}>
+                {editStudentId === sc._id ? (
+                  <form onSubmit={(e) => handleUpdateStudent(e, sc._id)} className="flex flex-col sm:flex-row gap-2 w-full p-2" onClick={e => e.stopPropagation()}>
+                    <input required type="text" value={editStudentForm.name} onChange={e => setEditStudentForm({ ...editStudentForm, name: e.target.value })} className="flex-1 border px-2 py-1 rounded" placeholder="Full Name" />
+                    <input required type="email" value={editStudentForm.email} onChange={e => setEditStudentForm({ ...editStudentForm, email: e.target.value })} className="flex-1 border px-2 py-1 rounded" placeholder="Email" />
+                    <input required type="text" value={editStudentForm.phone} onChange={e => setEditStudentForm({ ...editStudentForm, phone: e.target.value })} className="flex-1 border px-2 py-1 rounded" placeholder="Phone" />
+                    <div className="flex gap-2">
+                      <button type="submit" className="bg-blue-600 text-white px-3 py-1 rounded">Save</button>
+                      <button type="button" onClick={() => setEditStudentId(null)} className="bg-gray-200 px-3 py-1 rounded">Cancel</button>
+                    </div>
+                  </form>
+                ) : (
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-semibold text-gray-800 flex items-center gap-2">
+                        <span className={`text-green-600 transition-transform ${expandedId === sc._id ? 'rotate-90' : ''}`}>▶</span>
+                        {sc.name}
+                      </h4>
+                      <p className="text-sm text-gray-500 ml-5">{sc.email}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); setEditStudentId(sc._id); setEditStudentForm({ name: sc.name, email: sc.email, phone: sc.phone || "" }); }}
+                        className="text-blue-600 hover:text-blue-800 px-2 py-1 text-sm font-medium"
+                      >
+                        Edit
+                      </button>
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); handleDeleteStudent(sc._id); }}
+                        className="text-red-500 hover:text-red-700 px-2 py-1 text-sm font-medium"
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </div>
-                </div>
-                {expandedId === sc._id && (
+                )}
+                {expandedId === sc._id && editStudentId !== sc._id && (
                   <div className="ml-5 mt-4 p-4 bg-gray-100 rounded-lg text-sm grid grid-cols-2 gap-2">
                     <div><span className="font-semibold text-gray-700">Phone:</span> {sc.phone || 'N/A'}</div>
                     <div><span className="font-semibold text-gray-700">Type:</span> Student Coordinator (Global)</div>
@@ -884,38 +1045,64 @@ export function UsersView() {
         ) : (
           <div className="divide-y divide-gray-100">
             {evaluators.map(ev => (
-              <div key={ev._id} className="p-4 hover:bg-gray-50 transition cursor-pointer" onClick={() => setExpandedId(expandedId === ev._id ? null : ev._id)}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    {isSelectionMode && (
-                      <input 
-                        type="checkbox"
-                        checked={selectedEvaluators.includes(ev._id)}
-                        onClick={(e) => e.stopPropagation()}
-                        onChange={(e) => {
-                          if (e.target.checked) setSelectedEvaluators([...selectedEvaluators, ev._id]);
-                          else setSelectedEvaluators(selectedEvaluators.filter(id => id !== ev._id));
-                        }}
-                        className="w-4 h-4 cursor-pointer"
-                      />
-                    )}
-                    <div>
-                      <h4 className="font-semibold text-gray-800 flex items-center gap-2">
-                        <span className={`text-green-600 transition-transform ${expandedId === ev._id ? 'rotate-90' : ''}`}>▶</span>
-                        {ev.name}
-                      </h4>
+              <div key={ev._id} className="p-4 hover:bg-gray-50 transition cursor-pointer" onClick={(e) => { if (editEvaluatorId !== ev._id) setExpandedId(expandedId === ev._id ? null : ev._id); }}>
+                {editEvaluatorId === ev._id ? (
+                  <form onSubmit={(e) => handleUpdateGlobalEvaluator(e, ev._id)} className="flex flex-col sm:flex-row gap-2 w-full p-2" onClick={e => e.stopPropagation()}>
+                    <input required type="text" value={editEvaluatorForm.name} onChange={e => setEditEvaluatorForm({ ...editEvaluatorForm, name: e.target.value })} className="flex-1 border px-2 py-1 rounded" placeholder="Full Name" />
+                    <input required type="email" value={editEvaluatorForm.email} onChange={e => setEditEvaluatorForm({ ...editEvaluatorForm, email: e.target.value })} className="flex-1 border px-2 py-1 rounded" placeholder="Email" />
+                    <input required type="text" value={editEvaluatorForm.phone} onChange={e => setEditEvaluatorForm({ ...editEvaluatorForm, phone: e.target.value })} className="flex-1 border px-2 py-1 rounded" placeholder="Phone" />
+                    <div className="flex gap-2">
+                      <button type="submit" className="bg-blue-600 text-white px-3 py-1 rounded">Save</button>
+                      <button type="button" onClick={() => setEditEvaluatorId(null)} className="bg-gray-200 px-3 py-1 rounded">Cancel</button>
+                    </div>
+                  </form>
+                ) : (
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      {isSelectionMode && (
+                        <input 
+                          type="checkbox"
+                          checked={selectedEvaluators.includes(ev._id)}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => {
+                            if (e.target.checked) setSelectedEvaluators([...selectedEvaluators, ev._id]);
+                            else setSelectedEvaluators(selectedEvaluators.filter(id => id !== ev._id));
+                          }}
+                          className="w-4 h-4 cursor-pointer"
+                        />
+                      )}
+                      <div>
+                        <h4 className="font-semibold text-gray-800 flex items-center gap-2">
+                          <span className={`text-green-600 transition-transform ${expandedId === ev._id ? 'rotate-90' : ''}`}>▶</span>
+                          {ev.name}
+                        </h4>
                     <p className="text-sm text-gray-500 ml-5">{ev.email}</p>
                   </div>
                   </div>
-                  <button 
-                    onClick={(e) => handleSendInvite(e, ev._id, ev.inviteSent)} 
-                    disabled={invitingId === ev._id}
-                    className={`mr-4 text-xs font-semibold px-3 py-1 border rounded transition disabled:opacity-50 ${ev.inviteSent ? 'bg-orange-50 text-orange-600 border-orange-200 hover:bg-orange-100' : 'bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100'}`}
-                  >
-                    {invitingId === ev._id ? "Sending..." : ev.inviteSent ? "Resend Invitation" : "Send Invite"}
-                  </button>
+                  <div className="flex items-center gap-2 mr-4">
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); setEditEvaluatorId(ev._id); setEditEvaluatorForm({ name: ev.name, email: ev.email, phone: ev.phone || "" }); }}
+                      className="text-blue-600 hover:text-blue-800 px-2 py-1 text-sm font-medium"
+                    >
+                      Edit
+                    </button>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); handleDeleteGlobalEvaluator(ev._id); }}
+                      className="text-red-500 hover:text-red-700 px-2 py-1 text-sm font-medium"
+                    >
+                      Delete
+                    </button>
+                    <button 
+                      onClick={(e) => handleSendInvite(e, ev._id, ev.inviteSent)} 
+                      disabled={invitingId === ev._id}
+                      className={`text-xs font-semibold px-3 py-1 border rounded transition disabled:opacity-50 ${ev.inviteSent ? 'bg-orange-50 text-orange-600 border-orange-200 hover:bg-orange-100' : 'bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100'}`}
+                    >
+                      {invitingId === ev._id ? "Sending..." : ev.inviteSent ? "Resend Invite" : "Send Invite"}
+                    </button>
+                  </div>
                 </div>
-                {expandedId === ev._id && (
+                )}
+                {expandedId === ev._id && editEvaluatorId !== ev._id && (
                   <div className="ml-5 mt-4 p-4 bg-gray-100 rounded-lg text-sm grid grid-cols-2 gap-2">
                     <div><span className="font-semibold text-gray-700">Phone:</span> {ev.phone || 'N/A'}</div>
                     <div><span className="font-semibold text-gray-700">Type:</span> Evaluator</div>
