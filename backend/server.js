@@ -1857,7 +1857,7 @@ app.get("/api/admin/participants/stats", async (req, res) => {
       stats[trackId].total += 1;
 
       // ✅ correct assessed condition
-      if (typeof p.assessment?.total === "number") {
+      if (p.status === "EVALUATED") {
         stats[trackId].assessed += 1;
       }
     }

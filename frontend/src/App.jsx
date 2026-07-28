@@ -3513,7 +3513,7 @@ function TrackCard({
 
 
   const totalAssessed = participants.filter(
-  (p) => typeof p.assessment?.total === "number"
+  (p) => p.status === "EVALUATED"
 ).length;
 
 
