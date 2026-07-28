@@ -2072,8 +2072,8 @@ const getProgressColor = (assessed, total) => {
 
 
   return (
-    <div className="flex-1 p-6 w-full">
-      <div className="flex items-start justify-between mb-6">
+    <div className="flex-1 p-6 w-full flex flex-col h-full">
+      <div className="flex items-start justify-between mb-6 shrink-0">
         <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm w-full">
   <h2 className="text-2xl font-semibold text-gray-800">
     {local.title}
@@ -2106,7 +2106,7 @@ const getProgressColor = (assessed, total) => {
       </div>
 
 
-<div className="flex h-[calc(100vh-180px)] border rounded-xl overflow-hidden relative">
+<div className="flex flex-1 border rounded-xl overflow-hidden relative min-h-0">
 
   {/* 🟢 LEFT SIDEBAR */}
   {/* 🟢 LEFT SIDEBAR */}
@@ -4933,7 +4933,7 @@ function ProtectedRoutes({ allowedRoles }) {
 
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-green-50 via-green-100 to-green-200 text-gray-800 flex flex-col">
+    <div className="h-screen overflow-hidden bg-linear-to-br from-green-50 via-green-100 to-green-200 text-gray-800 flex flex-col">
       {!hideHeader && <Header user={user} onLogout={handleLogout} />}
 
       <Routes>
