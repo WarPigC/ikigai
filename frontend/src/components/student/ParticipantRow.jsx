@@ -52,7 +52,14 @@ export default function ParticipantRow({ participant, index, onEdit, onDelete })
   const members = participant.members || [];
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow duration-300 flex flex-col h-full">
+    <div className="relative w-full h-full min-h-[260px]">
+      <div 
+        className={`bg-white rounded-2xl shadow-sm border overflow-hidden transition-all duration-300 flex flex-col ${
+          expanded 
+            ? 'absolute top-0 left-[-2%] sm:left-[-5%] w-[104%] sm:w-[110%] shadow-2xl shadow-purple-500/20 border-purple-300 z-50' 
+            : 'relative w-full h-full border-gray-200 hover:shadow-md z-10'
+        }`}
+      >
       {/* Card Header - Team Name & Basic Info */}
       <div className="p-5 border-b border-gray-100 bg-gradient-to-r from-purple-50/50 to-pink-50/50 relative">
         <div className="absolute top-4 right-4 flex gap-2">
@@ -185,6 +192,7 @@ export default function ParticipantRow({ participant, index, onEdit, onDelete })
           </div>
         </div>
       )}
+    </div>
     </div>
   );
 }
