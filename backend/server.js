@@ -2642,6 +2642,40 @@ const PORT = process.env.PORT || 5000;
       res.status(500).json({ success: false, message: error.message });
     }
   });
+  // Direct change password (for logged in users)
+  app.post("/api/auth/change-password-direct", async (req, res) => {
+    try {
+      const { email, role, newPassword } = req.body;
+      if (!email || !role || !newPassword) {
+        return res.status(400).json({ success: false, message: "Missing required fields" });
+      }
+
+      const normalizedEmail = email.trim().toLowerCase();
+      const hashed = hashPassword(newPassword);
+
+      if (role === "studentCoordinator") {
+        const student = await StudentCoordinator.findOne({ email: normalizedEmail });
+        if (!student) return res.status(404).json({ success: false, message: "User not found" });
+        student.passwordHash = hashed;
+        await student.save();
+        return res.json({ success: true, message: "Password updated successfully" });
+      } 
+      else if (role === "sessionChair") {
+        const chair = await SessionChair.findOne({ email: normalizedEmail });
+        if (!chair) return res.status(404).json({ success: false, message: "User not found" });
+        chair.passwordHash = hashed;
+        await chair.save();
+        return res.json({ success: true, message: "Password updated successfully" });
+      } 
+      else {
+        return res.status(400).json({ success: false, message: "Invalid role or operation not supported for this role" });
+      }
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  });
+
   // --- End New Routes ---
 
   // Evaluator PUT
