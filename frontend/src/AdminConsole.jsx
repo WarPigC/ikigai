@@ -624,6 +624,44 @@ export function UsersView() {
     fetchData();
   }, []);
 
+  const [invitingId, setInvitingId] = useState(null);
+  const [isBulkInviting, setIsBulkInviting] = useState(false);
+
+  const handleSendInvite = async (e, evId) => {
+    e.stopPropagation();
+    if (!confirm("Send invitation email and generate new password for this evaluator?")) return;
+    setInvitingId(evId);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/evaluators/${evId}/send-invite`, { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        alert("Invitation sent successfully!");
+      } else {
+        alert(data.message || "Failed to send invitation.");
+      }
+    } catch (err) {
+      alert("Error sending invitation.");
+    }
+    setInvitingId(null);
+  };
+
+  const handleBulkInvite = async () => {
+    if (!confirm("Send invitation emails to ALL evaluators? This will reset all their passwords.")) return;
+    setIsBulkInviting(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/evaluators/send-invites-bulk`, { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        alert(data.message || "Invitations sent successfully!");
+      } else {
+        alert(data.message || "Failed to send invitations.");
+      }
+    } catch (err) {
+      alert("Error sending invitations.");
+    }
+    setIsBulkInviting(false);
+  };
+
   const handleCreate = async (e) => {
     e.preventDefault();
     if (form.role === "Student Coordinator") {
@@ -735,8 +773,17 @@ export function UsersView() {
 
       {/* Evaluators */}
       <div className="bg-white border border-green-200 rounded-2xl shadow-sm overflow-hidden mb-6">
-        <div className="bg-green-50 px-6 py-4 border-b border-green-100 font-bold text-green-800 text-lg">
-          Evaluators ({evaluators.length})
+        <div className="bg-green-50 px-6 py-4 border-b border-green-100 font-bold text-green-800 text-lg flex justify-between items-center">
+          <span>Evaluators ({evaluators.length})</span>
+          {evaluators.length > 0 && (
+            <button
+              onClick={handleBulkInvite}
+              disabled={isBulkInviting}
+              className="text-sm px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded shadow transition disabled:opacity-50"
+            >
+              {isBulkInviting ? "Sending..." : "Send Invitations to All"}
+            </button>
+          )}
         </div>
         {loading ? (
           <div className="p-6 text-gray-500">Loading users...</div>
@@ -754,6 +801,13 @@ export function UsersView() {
                     </h4>
                     <p className="text-sm text-gray-500 ml-5">{ev.email}</p>
                   </div>
+                  <button 
+                    onClick={(e) => handleSendInvite(e, ev._id)} 
+                    disabled={invitingId === ev._id}
+                    className="mr-4 text-xs font-semibold px-3 py-1 bg-blue-50 text-blue-600 border border-blue-200 rounded hover:bg-blue-100 transition disabled:opacity-50"
+                  >
+                    {invitingId === ev._id ? "Sending..." : "Send Invite"}
+                  </button>
                 </div>
                 {expandedId === ev._id && (
                   <div className="ml-5 mt-4 p-4 bg-gray-100 rounded-lg text-sm grid grid-cols-2 gap-2">

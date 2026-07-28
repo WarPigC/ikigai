@@ -84,17 +84,19 @@ process.on("uncaughtException", (err) => {
 const SessionChairSchema = new mongoose.Schema(
   {
     name: String,
-   email: {
-  type: String,
-  lowercase: true,
-  trim: true,
-},
- // ❗ remove global unique
+    email: {
+      type: String,
+      lowercase: true,
+      trim: true,
+    },
+    // ❗ remove global unique
     phone: String,
     type: String,
     passwordHash: String,
     trackId: String,
     eventId: String,
+    updateToken: String,
+    updateTokenExpiry: Date,
   },
   { timestamps: true }
 );
@@ -2428,6 +2430,124 @@ const PORT = process.env.PORT || 5000;
       res.status(500).json({ success: false, message: error.message });
     }
   });
+
+  // --- New Routes for Evaluator Email Invitations & Password Update ---
+
+  const generateInviteEmailHtml = (name, email, tempPassword, updateToken) => {
+    const frontendUrl = process.env.FRONTEND_URL || "https://ikigai-csit.up.railway.app";
+    return `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
+        <div style="text-align: center; padding: 20px;">
+          <img src="https://res.cloudinary.com/dixdw1mus/image/upload/v1785233443/ikigai_fjnl8b.png" width="200" alt="IKIGAI 2026 Logo" />
+        </div>
+        <h2 style="color: #2c3e50;">Dear Evaluator ${name},</h2>
+        <p>Welcome to IKIGAI 2026! We are honored to have you on board as a distinguished evaluator. Your expertise and insights are invaluable in helping us recognize and celebrate the innovative projects presented by our talented participants.</p>
+        <p>Below, you will find your secure credentials to access the evaluation portal</p>
+        <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+          <p style="margin: 0 0 10px 0;"><strong>Login Email:</strong> ${email}</p>
+          <p style="margin: 0;"><strong>Temporary Password:</strong> ${tempPassword}</p>
+        </div>
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${frontendUrl}" style="background-color: #16a34a; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Access the Project Portal</a>
+        </div>
+        <div style="margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;">
+          <p style="font-size: 14px; color: #666;">Want to change your password? Click here to securely update it. (This link expires in 15 minutes)</p>
+          <a href="${frontendUrl}/update-password?token=${updateToken}" style="color: #2563eb; text-decoration: underline; font-size: 14px;">Update Password securely</a>
+        </div>
+        <div style="margin-top: 40px; font-size: 14px; color: #666;">
+          <p>Thank you for contributing to the success of IKIGAI 2026.</p>
+          <p>Warm regards,<br>The IKIGAI Organizing Team</p>
+        </div>
+      </div>
+    `;
+  };
+
+  app.post("/api/admin/evaluators/:id/send-invite", async (req, res) => {
+    try {
+      const evaluator = await SessionChair.findById(req.params.id);
+      if (!evaluator) return res.status(404).json({ success: false, message: "Evaluator not found" });
+
+      const tempPassword = Math.random().toString(36).slice(-8);
+      const updateToken = crypto.randomBytes(32).toString("hex");
+      
+      evaluator.passwordHash = hashPassword(tempPassword);
+      evaluator.updateToken = updateToken;
+      evaluator.updateTokenExpiry = Date.now() + 15 * 60 * 1000; // 15 mins
+      await evaluator.save();
+
+      await sendMail({
+        to: evaluator.email,
+        subject: "IKIGAI 2026 - Evaluator Invitation",
+        html: generateInviteEmailHtml(evaluator.name, evaluator.email, tempPassword, updateToken)
+      });
+
+      res.json({ success: true, message: "Invitation sent" });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  });
+
+  app.post("/api/admin/evaluators/send-invites-bulk", async (req, res) => {
+    try {
+      const evaluators = await SessionChair.find({ type: "Evaluator" });
+      let sent = 0;
+      let failed = 0;
+
+      for (let evaluator of evaluators) {
+        try {
+          const tempPassword = Math.random().toString(36).slice(-8);
+          const updateToken = crypto.randomBytes(32).toString("hex");
+          
+          evaluator.passwordHash = hashPassword(tempPassword);
+          evaluator.updateToken = updateToken;
+          evaluator.updateTokenExpiry = Date.now() + 15 * 60 * 1000;
+          await evaluator.save();
+
+          await sendMail({
+            to: evaluator.email,
+            subject: "IKIGAI 2026 - Evaluator Invitation",
+            html: generateInviteEmailHtml(evaluator.name, evaluator.email, tempPassword, updateToken)
+          });
+          sent++;
+        } catch (e) {
+          console.error("Failed to send to", evaluator.email, e);
+          failed++;
+        }
+      }
+
+      res.json({ success: true, message: `Sent ${sent} invitations, ${failed} failed.` });
+    } catch (error) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  });
+
+  app.post("/api/auth/update-password", async (req, res) => {
+    try {
+      const { token, newPassword } = req.body;
+      if (!token || !newPassword) return res.status(400).json({ success: false, message: "Token and new password required" });
+
+      const evaluator = await SessionChair.findOne({
+        updateToken: token,
+        updateTokenExpiry: { $gt: Date.now() }
+      });
+
+      if (!evaluator) {
+        return res.status(400).json({ success: false, message: "This password reset link has expired or is invalid." });
+      }
+
+      evaluator.passwordHash = hashPassword(newPassword);
+      evaluator.updateToken = undefined;
+      evaluator.updateTokenExpiry = undefined;
+      await evaluator.save();
+
+      res.json({ success: true, message: "Password updated successfully" });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  });
+  // --- End New Routes ---
 
   // Evaluator PUT
   app.put("/api/admin/evaluators/:id", async (req, res) => {

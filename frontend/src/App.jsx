@@ -1,5 +1,7 @@
 // src/App.jsx
 import React, { useEffect, useState, useCallback, useRef } from "react";
+import ErrorBoundary from "./ErrorBoundary";
+import UpdatePassword from "./UpdatePassword";
 import SlideViewer from "./components/evaluator/SlideViewer";
 import {
   BrowserRouter,
@@ -4973,6 +4975,7 @@ function ProtectedRoutes({ allowedRoles }) {
   {/* ENTRY */}
   <Route path="/" element={<Navigate to="/login" replace />} />
   <Route path="/login" element={<Login />} />
+  <Route path="/update-password" element={<UpdatePassword />} />
 
   
   {/* ADMIN */}
