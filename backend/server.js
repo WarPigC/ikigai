@@ -17,6 +17,7 @@ app.use(
     origin: [
       "http://localhost:5173",
       "https://care-zeta.vercel.app",
+      "https://ikigai-csit.up.railway.app",
     ],
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
