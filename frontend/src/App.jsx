@@ -2383,11 +2383,20 @@ useEffect(() => {
 
   setAssessmentMode(isCriteriaMode ? "criteria" : "total");
 
+  let parsedComments = isCriteriaMode ? [...(a.comments || [])] : [];
+  let parsedNotes = a.notes || "";
+  if (parsedNotes.startsWith("JSON:")) {
+    try {
+      parsedComments = JSON.parse(parsedNotes.substring(5));
+      parsedNotes = "";
+    } catch (e) {}
+  }
+
   setAdminAssessmentForm({
     criteria: isCriteriaMode ? [...a.criteria] : [],
-    comments: isCriteriaMode ? [...(a.comments || [])] : [],
+    comments: parsedComments,
     total: a.total ?? 0,
-    notes: a.notes || "",
+    notes: parsedNotes,
   });
 
   setEditingAssessment(false);
@@ -3823,7 +3832,7 @@ function AssessmentModal({
   persistParticipants,
 }) {
   const [savedMsg, setSavedMsg] = React.useState(false);
-  const [showMarks, setShowMarks] = React.useState(false);
+
 
   const [assessmentMode, setAssessmentMode] = React.useState("criteria");
   const [isDirty, setIsDirty] = React.useState(false);
@@ -3851,13 +3860,6 @@ function AssessmentModal({
   };
   const [form, setForm] = React.useState(DEFAULT_FORM);
 
-  React.useEffect(() => {
-    if (!showMarks) return;
-    const timer = setTimeout(() => {
-      setShowMarks(false);
-    }, 1000);
-    return () => clearTimeout(timer);
-  }, [showMarks]);
 
   React.useEffect(() => {
     if (!participants?.length) return;
@@ -3969,6 +3971,11 @@ function AssessmentModal({
     
     if (assessmentMode === "criteria" && (missingMarks || missingJustifs)) {
       alert("Please fill all the marks and their justifications before saving.");
+      return;
+    }
+
+    if (assessmentMode === "direct" && (!form.notes || form.notes.trim() === "")) {
+      alert("Please provide an overall justification for the direct marks.");
       return;
     }
 
@@ -4240,7 +4247,7 @@ function AssessmentModal({
                           <div className="text-sm font-semibold text-gray-800 mt-1 md:pr-4">{i + 1}. {label}</div>
                           <div className="flex flex-col gap-1 relative">
                              <input
-                                type={showMarks ? "number" : "password"}
+                                type="number"
                                 min={0} max={10}
                                 value={form.criteria[i]}
                                 onChange={(e) => setCriteria(i, e.target.value)}
@@ -4275,7 +4282,7 @@ function AssessmentModal({
                         <label className="text-sm font-bold text-green-900 uppercase tracking-wide">Total Score</label>
                         <div className="flex items-baseline gap-2">
                           <input
-                             type={showMarks ? "number" : "password"}
+                             type="number"
                              min={0} max={50}
                              value={form.total}
                              disabled={assessmentMode === "criteria"}
@@ -4285,10 +4292,21 @@ function AssessmentModal({
                           <span className="text-green-700 font-bold text-lg">/ 50</span>
                         </div>
                      </div>
-                     <button type="button" onClick={() => setShowMarks((v) => !v)} className="px-4 py-2 mt-4 sm:mt-0 rounded-lg text-sm font-semibold border-2 bg-white text-green-700 border-green-200 hover:bg-green-100 hover:border-green-300 transition-colors">
-                        {showMarks ? "Hide Marks" : "Show Marks"}
-                     </button>
+
                   </div>
+
+                  {assessmentMode === "direct" && (
+                     <div className="mt-4 bg-green-50 p-5 rounded-xl border border-green-200 shadow-sm">
+                        <label className="text-sm font-bold text-green-900 uppercase tracking-wide block mb-2">Overall Justification</label>
+                        <textarea 
+                           rows="3" 
+                           placeholder="Please provide a justification for the overall direct score..." 
+                           value={form.notes || ""} 
+                           onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} 
+                           className="w-full border border-green-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-green-400 focus:border-transparent outline-none transition-shadow resize-none bg-white"
+                        ></textarea>
+                     </div>
+                  )}
                </div>
             )}
           </div>
@@ -4648,13 +4666,13 @@ const saveAssessmentAndProceed = async (idx, assessmentObj) => {
   }
 
   if (result?.success && result.participant) {
-  setParticipants((prev) =>
-    prev.map((p) =>
-      p._id === result.participant._id
-        ? result.participant   // ✅ backend is truth
-        : p
-    )
-  );
+    setParticipants((prev) =>
+      prev.map((p) =>
+        p._id === result.participant._id
+          ? normalizeParticipants([result.participant])[0]   // ✅ backend is truth, but must be normalized!
+          : p
+      )
+    );
 }
 
 };

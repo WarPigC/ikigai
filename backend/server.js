@@ -436,16 +436,22 @@ app.put("/api/admin/participants/:id", async (req, res) => {
     const { id } = req.params;
     const { assessment } = req.body;
 
+    let notesStr = undefined;
+    if (assessment.comments && Array.isArray(assessment.comments)) {
+      notesStr = "JSON:" + JSON.stringify(assessment.comments);
+    }
+
+    const setFields = {
+      "assessment.criteria": assessment.criteria || [],
+      "assessment.total": assessment.total ?? 0,
+    };
+    if (notesStr !== undefined) {
+      setFields["assessment.notes"] = notesStr;
+    }
+
     const updated = await Participant.findByIdAndUpdate(
       id,
-      {
-        $set: {
-          assessment: {
-            criteria: assessment.criteria || [],
-            total: assessment.total ?? 0,
-          },
-        },
-      },
+      { $set: setFields },
       { new: true }
     );
 
@@ -691,14 +697,16 @@ app.put("/api/admin/participants/:id/assessment", async (req, res) => {
         ? assessment.total
         : criteria.reduce((a, b) => a + b, 0);
 
-    participant.assessment = {
-      criteria,
-      total,
-      notes: assessment.notes || "",
-      mode: criteria.length ? "criteria" : "direct",
-      evaluatedBy: "admin",
-      evaluatedAt: new Date(),
-    };
+    participant.assessment.criteria = criteria;
+    participant.assessment.total = total;
+    if (assessment.notes !== undefined) {
+      participant.assessment.notes = assessment.notes;
+    } else if (assessment.comments && Array.isArray(assessment.comments)) {
+      participant.assessment.notes = "JSON:" + JSON.stringify(assessment.comments);
+    }
+    participant.assessment.mode = criteria.length ? "criteria" : "direct";
+    participant.assessment.evaluatedBy = "admin";
+    participant.assessment.evaluatedAt = new Date();
 
     participant.status = "EVALUATED";
 
