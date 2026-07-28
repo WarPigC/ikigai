@@ -34,7 +34,7 @@ function DroppableZone({ id, children, className = "" }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Draggable Team Card
 // ─────────────────────────────────────────────────────────────────────────────
-function DraggableTeamCard({ participant, evaluators, onAssign, assigning, saved, isDragging, isSelected, onToggleSelect }) {
+function DraggableTeamCard({ participant, evaluator, onAssign, assigning, saved, isDragging, isSelected, onToggleSelect }) {
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: participant._id,
   });
@@ -148,18 +148,17 @@ function DraggableTeamCard({ participant, evaluators, onAssign, assigning, saved
                       className="w-full text-left px-3 py-2.5 text-sm text-gray-600 hover:bg-gray-50 flex items-center gap-2"
                     >
                       <span className="w-2 h-2 rounded-full bg-gray-300 flex-shrink-0" />
-                      Unassigned
+                      Unassign
                     </button>
-                    {evaluators.map((ev) => (
+                    {evaluator && (
                       <button
-                        key={ev._id}
-                        onClick={() => { onAssign([participant._id], ev._id); setMenuOpen(false); }}
+                        onClick={() => { onAssign([participant._id], evaluator._id); setMenuOpen(false); }}
                         className="w-full text-left px-3 py-2.5 text-sm text-gray-700 hover:bg-green-50 hover:text-green-800 flex items-center gap-2"
                       >
                         <span className="w-2 h-2 rounded-full bg-green-400 flex-shrink-0" />
-                        {ev.name}
+                        {evaluator.name}
                       </button>
-                    ))}
+                    )}
                   </div>
                 </>
               )}
@@ -206,7 +205,7 @@ function GhostCard({ participant, selectedCount }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Evaluator Section (droppable, stacked vertically)
 // ─────────────────────────────────────────────────────────────────────────────
-function EvaluatorSection({ evaluator, teams, evaluators, onAssign, assigningId, savedId, colorClass, activeId, isExpanded, onToggleExpand }) {
+function EvaluatorSection({ evaluator, teams, onAssign, assigningId, savedId, colorClass, activeId, isExpanded, onToggleExpand }) {
   const showExpanded = isExpanded;
 
   return (
@@ -241,7 +240,7 @@ function EvaluatorSection({ evaluator, teams, evaluators, onAssign, assigningId,
                 <DraggableTeamCard
                   key={p._id}
                   participant={p}
-                  evaluators={evaluators}
+                  evaluator={evaluator}
                   onAssign={onAssign}
                   assigning={assigningId === p._id}
                   saved={savedId === p._id}
@@ -284,7 +283,7 @@ const EVALUATOR_COLORS = [
   "bg-violet-100 text-violet-900",
 ];
 
-export default function AssignTeamsModal({ isOpen, onClose, event, track, evaluators }) {
+export default function AssignTeamsModal({ isOpen, onClose, event, track, evaluator }) {
   const [participants, setParticipants] = useState([]);
   const [loading, setLoading] = useState(false);
   const [assigningId, setAssigningId] = useState(null);
@@ -292,7 +291,7 @@ export default function AssignTeamsModal({ isOpen, onClose, event, track, evalua
   const [savedMessage, setSavedMessage] = useState(null);
   const [activeId, setActiveId] = useState(null);
   const [selectedTeamIds, setSelectedTeamIds] = useState(new Set());
-  const [expandedEvaluatorId, setExpandedEvaluatorId] = useState(null);
+  const [expandedEvaluatorId, setExpandedEvaluatorId] = useState(evaluator?._id);
 
   // Filters State
   const [searchQuery, setSearchQuery] = useState("");
@@ -342,7 +341,18 @@ export default function AssignTeamsModal({ isOpen, onClose, event, track, evalua
     
     // Optimistic update
     setParticipants((ps) =>
-      ps.map((p) => idsToAssign.includes(p._id) ? { ...p, assignedEvaluatorId: evaluatorId ?? null } : p)
+      ps.map((p) => {
+        if (!idsToAssign.includes(p._id)) return p;
+        const newArr = [...(p.assignedEvaluators || [])];
+        if (evaluatorId) {
+          if (!newArr.includes(evaluatorId)) newArr.push(evaluatorId);
+        } else {
+          // If unassigning, remove this specific evaluator from the array
+          const idx = newArr.indexOf(evaluator._id);
+          if (idx !== -1) newArr.splice(idx, 1);
+        }
+        return { ...p, assignedEvaluators: newArr };
+      })
     );
 
     try {
@@ -351,7 +361,7 @@ export default function AssignTeamsModal({ isOpen, onClose, event, track, evalua
         const res = await fetch(`${API_BASE}/api/admin/participants/${idsToAssign[0]}/assign`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ evaluatorId: evaluatorId ?? null }),
+          body: JSON.stringify({ evaluatorId: evaluatorId ?? null, fromEvaluatorId: evaluator?._id }),
         });
         const data = await res.json();
         if (!data.success) throw new Error(data.message);
@@ -360,7 +370,7 @@ export default function AssignTeamsModal({ isOpen, onClose, event, track, evalua
         const res = await fetch(`${API_BASE}/api/admin/participants/bulk-assign`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ participantIds: idsToAssign, evaluatorId: evaluatorId ?? null }),
+          body: JSON.stringify({ participantIds: idsToAssign, evaluatorId: evaluatorId ?? null, fromEvaluatorId: evaluator?._id }),
         });
         const data = await res.json();
         if (!data.success) throw new Error(data.message);
@@ -368,15 +378,11 @@ export default function AssignTeamsModal({ isOpen, onClose, event, track, evalua
       
       setSavedId(idsToAssign[0]); 
       
-      let evaluatorName = "";
-      if (evaluatorId) {
-        const ev = evaluators.find(e => e._id === evaluatorId);
-        if (ev) evaluatorName = ev.name;
-      }
+      let evaluatorName = evaluator ? evaluator.name : "";
       const teamText = idsToAssign.length !== 1 ? 'teams' : 'team';
       const msg = evaluatorId 
         ? `${idsToAssign.length} ${teamText} assigned to ${evaluatorName}!`
-        : `${idsToAssign.length} ${teamText} unassigned!`;
+        : `${idsToAssign.length} ${teamText} unassigned from ${evaluatorName}!`;
         
       setSavedMessage(msg);
       setTimeout(() => {
@@ -411,7 +417,7 @@ export default function AssignTeamsModal({ isOpen, onClose, event, track, evalua
     }
   };
 
-  const unassigned = participants.filter((p) => !p.assignedEvaluatorId);
+  const unassigned = participants.filter((p) => !p.assignedEvaluators?.includes(evaluator?._id));
 
   // Parse locations for unassigned teams
   const parsedUnassignedLocations = unassigned.map(p => {
@@ -456,7 +462,7 @@ export default function AssignTeamsModal({ isOpen, onClose, event, track, evalua
   };
 
   const byEvaluator = (evalId) =>
-    participants.filter((p) => String(p.assignedEvaluatorId) === String(evalId));
+    participants.filter((p) => p.assignedEvaluators?.includes(evalId));
   const assigned = participants.length - unassigned.length;
   const activeDragParticipant = activeId ? participants.find((p) => p._id === activeId) : null;
 
@@ -551,11 +557,11 @@ export default function AssignTeamsModal({ isOpen, onClose, event, track, evalua
                         }}
                       >
                         <option value="" disabled>Assign to...</option>
-                        {evaluators.map(ev => (
-                          <option key={ev._id} value={ev._id}>
-                            {ev.name}
+                        {evaluator && (
+                          <option value={evaluator._id}>
+                            {evaluator.name}
                           </option>
-                        ))}
+                        )}
                       </select>
                       <button 
                         onClick={clearSelection}
@@ -658,7 +664,7 @@ export default function AssignTeamsModal({ isOpen, onClose, event, track, evalua
                         <DraggableTeamCard
                           key={p._id}
                           participant={p}
-                          evaluators={evaluators}
+                          evaluator={evaluator}
                           onAssign={(ids, evId) => handleAssign(ids, evId)}
                           assigning={assigningId === p._id}
                           saved={savedId === p._id}
@@ -674,26 +680,23 @@ export default function AssignTeamsModal({ isOpen, onClose, event, track, evalua
 
               {/* Right pane — Evaluators stacked vertically */}
               <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-white">
-                {evaluators.length === 0 ? (
+                {!evaluator ? (
                   <div className="flex items-center justify-center h-full text-gray-400 text-sm italic text-center px-8">
-                    No evaluators in this track yet.<br />Add evaluators first, then assign teams.
+                    No evaluator selected.
                   </div>
                 ) : (
-                  evaluators.map((ev, i) => (
-                    <EvaluatorSection
-                      key={ev._id}
-                      evaluator={ev}
-                      teams={byEvaluator(ev._id)}
-                      evaluators={evaluators}
-                      onAssign={handleAssign}
-                      assigningId={assigningId}
-                      savedId={savedId}
-                      colorClass={EVALUATOR_COLORS[i % EVALUATOR_COLORS.length]}
-                      activeId={activeId}
-                      isExpanded={expandedEvaluatorId === ev._id}
-                      onToggleExpand={() => setExpandedEvaluatorId(expandedEvaluatorId === ev._id ? null : ev._id)}
-                    />
-                  ))
+                  <EvaluatorSection
+                    key={evaluator._id}
+                    evaluator={evaluator}
+                    teams={byEvaluator(evaluator._id)}
+                    onAssign={handleAssign}
+                    assigningId={assigningId}
+                    savedId={savedId}
+                    colorClass={EVALUATOR_COLORS[0]}
+                    activeId={activeId}
+                    isExpanded={true}
+                    onToggleExpand={() => {}}
+                  />
                 )}
               </div>
             </div>

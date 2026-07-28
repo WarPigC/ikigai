@@ -215,13 +215,12 @@ const ParticipantSchema = new mongoose.Schema(
     description: { type: String, required: false },
     pptLink: { type: String, required: false },        // Cloudinary secure URL once uploaded
 
-    // Evaluator assignment — set by admin via the assignment modal
-    assignedEvaluatorId: {
+    // Evaluator assignment — set by admin via the assignment modal (many-to-many)
+    assignedEvaluators: [{
       type: mongoose.Schema.Types.ObjectId,
       ref: "SessionChair",
-      default: null,
       index: true,
-    },
+    }],
 
     // Member-level details — CSV-aligned fields
     members: [
@@ -268,7 +267,12 @@ const ParticipantSchema = new mongoose.Schema(
       default: "DRAFT",
       index: true,
     },
-    assessment: {
+    assessments: [{
+      evaluatorId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "SessionChair",
+        index: true
+      },
       criteria: {
         type: [Number],
         default: [],
@@ -302,7 +306,7 @@ const ParticipantSchema = new mongoose.Schema(
         }],
         default: []
       }
-    },
+    }],
 
   },
   { timestamps: true }
@@ -1251,7 +1255,7 @@ app.get("/api/participants/by-track", async (req, res) => {
 
     // If evaluatorId is provided, scope to only assigned teams
     if (evaluatorId) {
-      filter.assignedEvaluatorId = new mongoose.Types.ObjectId(evaluatorId);
+      filter.assignedEvaluators = new mongoose.Types.ObjectId(evaluatorId);
     }
 
     const participants = await Participant.find(filter).sort({ createdAt: 1 });
@@ -1282,11 +1286,25 @@ app.patch("/api/admin/participants/bulk-assign", async (req, res) => {
       }
     }
 
-    // Update all participants in one go
-    await Participant.updateMany(
-      { _id: { $in: participantIds } },
-      { $set: { assignedEvaluatorId: evaluatorId || null } }
-    );
+    if (evaluatorId) {
+      await Participant.updateMany(
+        { _id: { $in: participantIds } },
+        { $addToSet: { assignedEvaluators: evaluatorId } }
+      );
+    } else {
+      if (req.body.fromEvaluatorId) {
+        await Participant.updateMany(
+          { _id: { $in: participantIds } },
+          { $pull: { assignedEvaluators: req.body.fromEvaluatorId } }
+        );
+      } else {
+        // Clear all assignments if fromEvaluatorId is not provided
+        await Participant.updateMany(
+          { _id: { $in: participantIds } },
+          { $set: { assignedEvaluators: [] } }
+        );
+      }
+    }
 
     res.json({ success: true, message: `Successfully assigned ${participantIds.length} teams.` });
   } catch (err) {
@@ -1313,7 +1331,11 @@ app.patch("/api/admin/participants/:id/assign", async (req, res) => {
 
     // Unassign case
     if (evaluatorId === null || evaluatorId === undefined) {
-      participant.assignedEvaluatorId = null;
+      if (req.body.fromEvaluatorId) {
+        participant.assignedEvaluators.pull(req.body.fromEvaluatorId);
+      } else {
+        participant.assignedEvaluators = [];
+      }
       await participant.save();
       return res.json({ success: true, participant });
     }
@@ -1333,7 +1355,15 @@ app.patch("/api/admin/participants/:id/assign", async (req, res) => {
       });
     }
 
-    participant.assignedEvaluatorId = new mongoose.Types.ObjectId(evaluatorId);
+    const isUnassigning = req.body.action === 'unassign';
+    if (isUnassigning) {
+      participant.assignedEvaluators.pull(evaluatorId);
+    } else {
+      if (!participant.assignedEvaluators.includes(evaluatorId)) {
+        participant.assignedEvaluators.push(evaluatorId);
+      }
+    }
+    
     await participant.save();
 
     res.json({ success: true, participant });
@@ -1363,7 +1393,7 @@ app.get("/api/session/participants", async (req, res) => {
 
     // If evaluatorId provided, scope to only their assigned teams
     if (evaluatorId) {
-      filter.assignedEvaluatorId = new mongoose.Types.ObjectId(evaluatorId);
+      filter.assignedEvaluators = new mongoose.Types.ObjectId(evaluatorId);
     }
 
     const participants = await Participant.find(filter).sort({ createdAt: 1 });
@@ -1415,21 +1445,36 @@ app.patch("/api/session/participants/:id/assessment", async (req, res) => {
       });
     }
 
-    // ✅ SAVE ALLOWED
+    const evaluatorId = req.body.evaluatorId;
+    if (!evaluatorId) {
+      return res.status(400).json({ success: false, message: "Missing evaluatorId" });
+    }
+
+    const newAssessment = {
+      evaluatorId: new mongoose.Types.ObjectId(evaluatorId),
+      criteria: assessment.criteria || [],
+      total: assessment.total,
+      notes: assessment.notes || "",
+      mode: assessment.mode || "criteria",
+      evaluatedBy: req.body.evaluatedBy || "sessionChair",
+      evaluatedAt: new Date(),
+      slideTimings: assessment.slideTimings || [],
+      totalPptTime: assessment.totalPptTime || 0,
+      aiQueries: assessment.aiQueries || []
+    };
+
+    // Pull any existing assessment by this evaluator
+    await Participant.updateOne(
+      { _id: req.params.id },
+      { $pull: { assessments: { evaluatorId: new mongoose.Types.ObjectId(evaluatorId) } } }
+    );
+
+    // Push new assessment
     const updated = await Participant.findByIdAndUpdate(
       req.params.id,
       {
-        $set: {
-          "assessment.criteria": assessment.criteria || [],
-          "assessment.total": assessment.total,
-          "assessment.notes": assessment.notes || "",
-          "assessment.mode": assessment.mode || "criteria",
-          "assessment.evaluatedBy": req.body.evaluatedBy || "sessionChair",
-          "assessment.slideTimings": assessment.slideTimings || [],
-          "assessment.totalPptTime": assessment.totalPptTime || 0,
-          "assessment.aiQueries": assessment.aiQueries || [],
-          status: "EVALUATED",
-        },
+        $push: { assessments: newAssessment },
+        $set: { status: "EVALUATED" },
       },
       { new: true }
     );
@@ -1937,7 +1982,7 @@ app.get("/api/admin/events/:eventId/participants", async (req, res) => {
 
     const participants = await Participant.find({
       eventId: new mongoose.Types.ObjectId(eventId),
-    }).populate("assignedEvaluatorId", "name email");
+    }).populate("assignedEvaluators", "name email");
 
     const trackMap = {};
     event.tracks.forEach((t) => {
@@ -1957,7 +2002,7 @@ app.get("/api/admin/events/:eventId/participants", async (req, res) => {
     });
   } catch (err) {
     console.error("ADMIN PARTICIPANTS ERROR:", err);
-    res.status(500).json({ success: false });
+    res.status(500).json({ success: false, message: err.message, stack: err.stack });
   }
 });
 

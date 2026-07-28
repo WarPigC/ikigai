@@ -68,8 +68,8 @@ export default function AdminEventParticipants() {
               branch: leader.domain || leader.specialization || "",
               trackId: p.trackId,
               trackName: p.trackName,
-              assessment: p.assessment,
-              assignedEvaluator: p.assignedEvaluatorId,
+              assessments: p.assessments || [],
+              assignedEvaluators: p.assignedEvaluators || [],
             };
           });
           setParticipants(mapped);
@@ -88,8 +88,10 @@ export default function AdminEventParticipants() {
     const trackMap = {};
 
     list.forEach((p) => {
-      const marks = p.assessment?.total;
-      if (typeof marks !== "number") return;
+      const avgMarks = p.assessments?.length 
+        ? p.assessments.reduce((sum, a) => sum + (a.total || 0), 0) / p.assessments.length 
+        : undefined;
+      if (typeof avgMarks !== "number") return;
 
       const key = p.trackId || p.trackName || "UNKNOWN";
 
@@ -101,7 +103,11 @@ export default function AdminEventParticipants() {
 
     Object.values(trackMap).forEach((trackParticipants) => {
       trackParticipants.sort(
-        (a, b) => b.assessment.total - a.assessment.total
+        (a, b) => {
+          const avgB = b.assessments?.length ? b.assessments.reduce((sum, a) => sum + (a.total || 0), 0) / b.assessments.length : 0;
+          const avgA = a.assessments?.length ? a.assessments.reduce((sum, a) => sum + (a.total || 0), 0) / a.assessments.length : 0;
+          return avgB - avgA;
+        }
       );
 
       result.push(...trackParticipants.slice(0, n));
@@ -130,7 +136,7 @@ export default function AdminEventParticipants() {
         p.branch?.toLowerCase().includes(filterBranch.toLowerCase());
 
       // 🟢 Marks filter
-      const marks = p.assessment?.total ?? -1;
+      const marks = p.assessments?.length ? p.assessments.reduce((sum, a) => sum + (a.total || 0), 0) / p.assessments.length : -1;
       const marksMatch =
         marks === -1 ||
         (marks >= marksRange[0] && marks <= marksRange[1]);
@@ -152,8 +158,8 @@ export default function AdminEventParticipants() {
       }
 
       if (sortBy === "marks") {
-        valA = a.assessment?.total ?? -1;
-        valB = b.assessment?.total ?? -1;
+        valA = a.assessments?.length ? a.assessments.reduce((sum, a) => sum + (a.total || 0), 0) / a.assessments.length : -1;
+        valB = b.assessments?.length ? b.assessments.reduce((sum, a) => sum + (a.total || 0), 0) / b.assessments.length : -1;
       }
 
       return sortOrder === "asc"
@@ -197,7 +203,7 @@ export default function AdminEventParticipants() {
       "Presenter Name": p.presenterName,
       "Institute": p.institute || "",
       "Track Name": p.trackName,
-      "Marks": p.assessment?.total ?? "",
+      "Marks": p.assessments?.length ? (p.assessments.reduce((sum, a) => sum + (a.total || 0), 0) / p.assessments.length).toFixed(1) : "",
     }));
   const trackName = filteredParticipants[0]?.trackName || "Track";
 
@@ -232,8 +238,8 @@ export default function AdminEventParticipants() {
       p.phone ?? "",
       p.institute ?? "",
       p.branch ?? "",
-      typeof p.assessment?.total === "number"
-        ? p.assessment.total
+      p.assessments?.length > 0
+        ? (p.assessments.reduce((sum, a) => sum + (a.total || 0), 0) / p.assessments.length).toFixed(1)
         : "Pending",
     ]);
 
@@ -272,10 +278,9 @@ export default function AdminEventParticipants() {
     const trackName = finalParticipants[0]?.trackName || "All Tracks";
 
     const rows = participantsWithRank.map((p) => {
-      const marks =
-        typeof p.assessment?.total === "number"
-          ? p.assessment.total
-          : "Pending";
+      const avgMarks = p.assessments?.length > 0
+        ? (p.assessments.reduce((sum, a) => sum + (a.total || 0), 0) / p.assessments.length).toFixed(1)
+        : "Pending";
 
       return {
         "Track Rank": p.trackRank,
@@ -288,8 +293,8 @@ export default function AdminEventParticipants() {
         "Phone": p.phone || "",
         "Institute": p.institute || "",
         "Branch": p.branch || "",
-        "Marks": marks,
-        "Remarks": p.assessment?.remarks ?? "",
+        "Marks": avgMarks,
+        "Remarks": p.assessments?.[0]?.remarks ?? "",
         "Submission Link": p.submissionLink ?? "",
         "Co-Authors": p.coAuthors?.length
           ? p.coAuthors
@@ -369,10 +374,9 @@ export default function AdminEventParticipants() {
 
     /* ================= TABLE ================= */
     const tableRows = participantsWithRank.map((p) => {
-      const marks =
-        typeof p.assessment?.total === "number"
-          ? p.assessment.total
-          : "Absent";
+      const avgMarks = p.assessments?.length > 0
+        ? (p.assessments.reduce((sum, a) => sum + (a.total || 0), 0) / p.assessments.length).toFixed(1)
+        : "Absent";
 
       const leaderName = p.members?.find(m => m.isLeader)?.name || p.members?.[0]?.name || p.presenterName || "";
 
@@ -385,7 +389,7 @@ export default function AdminEventParticipants() {
         leaderName,
         p.phone || "",
         p.email || "",
-        marks,
+        avgMarks,
       ];
     });
 
@@ -685,14 +689,14 @@ export default function AdminEventParticipants() {
                 w-full sm:w-auto">
 
               {/* MARKS */}
-              {typeof p.assessment?.total === "number" ? (
+              {p?.assessments?.length > 0 ? (
                 <div
                   className="w-10 h-10 flex items-center justify-center
                  rounded-full bg-green-600 text-white
                  text-sm font-bold"
-                  title="Marks submitted"
+                  title="Average marks"
                 >
-                  {p.assessment.total}
+                  {(p.assessments.reduce((sum, a) => sum + (a.total || 0), 0) / p.assessments.length).toFixed(1)}
                 </div>
               ) : (
                 <div
@@ -805,74 +809,73 @@ export default function AdminEventParticipants() {
                 </div>
               </div>
 
-              {/* Right Column (Evaluation Table) */}
+              {/* Right Column (Evaluation Tables) */}
               <div className="lg:col-span-2">
-                <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-5 h-full flex flex-col">
+                <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-5 h-full flex flex-col overflow-y-auto max-h-[600px] custom-scrollbar">
                   <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wider mb-4 flex items-center gap-2">
-                    <CheckCircle size={16} className="text-emerald-500" /> Evaluation
+                    <CheckCircle size={16} className="text-emerald-500" /> Evaluation Records
                   </h3>
                   
-                  <div className="mt-2 flex-1">
-                    <div className="overflow-x-auto rounded-lg border border-gray-200">
-                      <table className="w-full text-sm text-left">
-                        <thead className="bg-gray-50 border-b border-gray-200">
-                          <tr>
-                            <th className="px-4 py-2.5 font-bold text-gray-700 whitespace-nowrap">Criteria</th>
-                            <th className="px-4 py-2.5 font-bold text-gray-700 text-center w-24">Marks</th>
-                            <th className="px-4 py-2.5 font-bold text-gray-700">Comments</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                          {Array.isArray(selectedParticipant.assessment?.criteria) && selectedParticipant.assessment.criteria.length > 0 ? (
-                            (() => {
-                              let parsedComments = [];
-                              if (selectedParticipant.assessment.comments) {
-                                parsedComments = selectedParticipant.assessment.comments;
-                              } else if (selectedParticipant.assessment.notes?.startsWith("JSON:")) {
-                                try {
-                                  parsedComments = JSON.parse(selectedParticipant.assessment.notes.substring(5));
-                                } catch (e) {}
-                              }
-                              return (
-                                <>
-                                  {criteriaList.map((c, idx) => (
-                                <tr key={idx} className="hover:bg-gray-50/50">
-                                  <td className="px-4 py-2.5 text-gray-600 font-medium whitespace-nowrap">{c.name}</td>
-                                  <td className="px-4 py-2.5 text-center">
-                                      <span className="font-bold text-gray-900">
-                                        {selectedParticipant.assessment.criteria[idx] ?? 0}
-                                      </span>
-                                  </td>
-                                  <td className="px-4 py-2.5">
-                                      <span className="text-gray-600 text-xs italic">
-                                        {parsedComments[idx] || "No comment"}
-                                      </span>
-                                  </td>
-                                </tr>
-                              ))}
-                              <tr className="bg-gray-50 font-bold border-t-2 border-gray-200">
-                                <td className="px-4 py-3 text-gray-900 uppercase tracking-wider text-xs">Total</td>
-                                <td className="px-4 py-3 text-center text-lg text-violet-700">
-                                  {selectedParticipant.assessment.criteria.reduce((s, v) => s + Number(v || 0), 0)}
-                                </td>
-                                <td className="px-4 py-3 text-gray-400 text-xs text-center">—</td>
-                              </tr>
-                            </>
-                          );
-                          })()
-                          ) : (
-                            <tr className="bg-gray-50 font-bold">
-                              <td className="px-4 py-4 text-gray-900 uppercase tracking-wider text-xs">Total</td>
-                              <td className="px-4 py-4 text-center">
-                                  <span className="text-xl text-violet-700 font-extrabold">{typeof selectedParticipant.assessment?.total === "number" ? selectedParticipant.assessment.total : "Pending"}</span>
-                              </td>
-                              <td className="px-4 py-4 text-gray-400 text-xs text-center">N/A in Direct Total mode</td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
+                  <div className="flex-1 space-y-6">
+                    {selectedParticipant.assessments?.length > 0 ? (
+                      selectedParticipant.assessments.map((assessment, aIdx) => {
+                        // Find evaluator name
+                        const evaluator = selectedParticipant.assignedEvaluators?.find(e => String(e._id) === String(assessment.evaluatorId));
+                        const evaluatorName = evaluator ? evaluator.name : `Evaluator ${aIdx + 1}`;
+                        
+                        let parsedComments = [];
+                        if (assessment.comments) {
+                          parsedComments = assessment.comments;
+                        } else if (assessment.notes?.startsWith("JSON:")) {
+                          try {
+                            parsedComments = JSON.parse(assessment.notes.substring(5));
+                          } catch (e) {}
+                        }
 
+                        return (
+                          <div key={aIdx} className="border border-violet-100 rounded-lg overflow-hidden shadow-sm">
+                            <div className="bg-violet-50 border-b border-violet-200 px-4 py-2.5 flex justify-between items-center">
+                              <div className="font-semibold text-violet-900 text-sm flex items-center gap-2">
+                                <span className="bg-violet-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">{aIdx + 1}</span>
+                                {evaluatorName}
+                              </div>
+                              <div className="text-xs font-bold bg-white text-violet-700 px-2 py-1 rounded shadow-sm border border-violet-200">
+                                Total: {assessment.criteria?.reduce((s, v) => s + Number(v || 0), 0) || assessment.total || 0}
+                              </div>
+                            </div>
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-sm text-left">
+                                <thead className="bg-gray-50 border-b border-gray-200">
+                                  <tr>
+                                    <th className="px-4 py-2 font-bold text-gray-700 whitespace-nowrap">Criteria</th>
+                                    <th className="px-4 py-2 font-bold text-gray-700 text-center w-20">Marks</th>
+                                    <th className="px-4 py-2 font-bold text-gray-700">Comments</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100 bg-white">
+                                  {criteriaList.map((c, idx) => (
+                                    <tr key={idx} className="hover:bg-gray-50/50">
+                                      <td className="px-4 py-2.5 text-gray-600 font-medium whitespace-nowrap">{c.name}</td>
+                                      <td className="px-4 py-2.5 text-center font-bold text-gray-900">
+                                        {assessment.criteria?.[idx] ?? 0}
+                                      </td>
+                                      <td className="px-4 py-2.5 text-gray-600 text-xs italic">
+                                        {parsedComments[idx] || "No comment"}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <div className="flex flex-col items-center justify-center p-8 bg-gray-50 rounded-lg border border-dashed border-gray-300 h-full min-h-[200px]">
+                        <span className="text-gray-400 mb-2">No assessments completed yet</span>
+                        <span className="text-xl text-violet-700 font-extrabold">Pending</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

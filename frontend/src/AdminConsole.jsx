@@ -159,6 +159,8 @@ function EvaluatorList({ event, track, refreshEvents }) {
   const [evaluators, setEvaluators] = useState([]);
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({ title: "Mr.", firstName: "", lastName: "", email: "", phone: "" });
+  const [assignModal, setAssignModal] = useState(false);
+  const [selectedEvaluator, setSelectedEvaluator] = useState(null);
 
   useEffect(() => {
     fetch(`${API_BASE}/api/admin/session-chairs/${event._id}`)
@@ -245,10 +247,26 @@ function EvaluatorList({ event, track, refreshEvents }) {
               <p className="font-semibold">{ev.name}</p>
               <p className="text-gray-500 text-xs">{ev.email} • {ev.phone}</p>
             </div>
-            <button onClick={() => handleDelete(ev._id)} className="text-red-500 hover:text-red-700 px-2 py-1">Delete</button>
+            <div>
+              <button 
+                onClick={(e) => { e.stopPropagation(); setSelectedEvaluator(ev); setAssignModal(true); }}
+                className="text-sm px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 transition font-medium mr-2"
+              >
+                Assign Teams
+              </button>
+              <button onClick={() => handleDelete(ev._id)} className="text-red-500 hover:text-red-700 px-2 py-1">Delete</button>
+            </div>
           </div>
         ))}
       </div>
+      
+      <AssignTeamsModal
+        isOpen={assignModal}
+        onClose={() => { setAssignModal(false); setSelectedEvaluator(null); }}
+        event={event}
+        track={track}
+        evaluator={selectedEvaluator}
+      />
     </div>
   );
 }
@@ -256,35 +274,23 @@ function EvaluatorList({ event, track, refreshEvents }) {
 function TrackItem({ event, track, refreshEvents }) {
   const [expanded, setExpanded] = useState(false);
   const [deleteModal, setDeleteModal] = useState(false);
-  const [assignModal, setAssignModal] = useState(false);
   const [assignStats, setAssignStats] = useState(null); // { total, assigned }
-  const [trackEvaluators, setTrackEvaluators] = useState([]);
 
-  // Fetch assignment stats and evaluators for the badge whenever expanded or modal is open
+  // Fetch assignment stats and evaluators for the badge whenever expanded
   useEffect(() => {
-    if (!expanded && !assignModal) return;
+    if (!expanded) return;
     // Fetch all participants in this track to compute the badge
     fetch(`${API_BASE}/api/participants/by-track?eventId=${event._id}&trackId=${track.id}`)
       .then((r) => r.json())
       .then((data) => {
         if (data.success) {
           const total = data.participants.length;
-          const assigned = data.participants.filter((p) => p.assignedEvaluatorId).length;
+          const assigned = data.participants.filter((p) => p.assignedEvaluators && p.assignedEvaluators.length > 0).length;
           setAssignStats({ total, assigned });
         }
       })
       .catch(console.error);
-
-    // Fetch evaluators for this track (reuse existing session-chairs endpoint)
-    fetch(`${API_BASE}/api/admin/session-chairs/${event._id}`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.success && data.chairs) {
-          setTrackEvaluators(data.chairs.filter((c) => c.trackId === track.id));
-        }
-      })
-      .catch(console.error);
-  }, [expanded, assignModal, event._id, track.id]);
+  }, [expanded, event._id, track.id]);
 
   const handleDelete = async () => {
     const res = await fetch(`${API_BASE}/api/admin/events/${event._id}/tracks/${track.id}`, { method: "DELETE" });
@@ -311,13 +317,6 @@ function TrackItem({ event, track, refreshEvents }) {
               {assignStats.assigned}/{assignStats.total} assigned
             </span>
           )}
-          {/* Assign Teams button */}
-          <button
-            onClick={(e) => { e.stopPropagation(); setAssignModal(true); }}
-            className="text-sm px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 transition font-medium"
-          >
-            Assign Teams
-          </button>
           <button 
             onClick={(e) => { e.stopPropagation(); setDeleteModal(true); }}
             className="text-red-500 hover:text-red-700 hover:bg-red-50 px-3 py-1 rounded transition"
@@ -341,13 +340,6 @@ function TrackItem({ event, track, refreshEvents }) {
         itemType="Track" 
       />
 
-      <AssignTeamsModal
-        isOpen={assignModal}
-        onClose={() => { setAssignModal(false); setAssignStats(null); }}
-        event={event}
-        track={track}
-        evaluators={trackEvaluators}
-      />
     </div>
   );
 }

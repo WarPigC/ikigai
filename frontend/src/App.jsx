@@ -3233,190 +3233,73 @@ const submissionUrl =
                 </div>
               </div>
 
-              {/* Right Column (Evaluation Table) */}
+              {/* Right Column (Evaluation Tables) */}
               <div className="lg:col-span-2">
-                <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-5 h-full flex flex-col">
+                <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-5 h-full flex flex-col overflow-y-auto max-h-[600px] custom-scrollbar">
                   <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wider mb-4 flex items-center gap-2">
-                    <CheckCircle size={16} className="text-emerald-500" /> Evaluation
+                    <CheckCircle size={16} className="text-emerald-500" /> Evaluation Records
                   </h3>
                   
-                  <div className="mt-2 flex-1">
-                    {/* ===== MODE TABS ===== */}
-                    {isAdmin && (
-                      <div className="flex gap-2 mb-4">
-                        <button
-                          disabled={editingAssessment}
-                          onClick={() => setAssessmentMode("criteria")}
-                          className={`px-3 py-1.5 rounded-md text-sm font-semibold transition-colors ${
-                            assessmentMode === "criteria"
-                              ? "bg-violet-600 text-white shadow-sm"
-                              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                          } ${editingAssessment ? "opacity-50 cursor-not-allowed" : ""}`}
-                        >
-                          Criteria-wise
-                        </button>
+                  <div className="flex-1 space-y-6">
+                    {selectedParticipant.assessments?.length > 0 ? (
+                      selectedParticipant.assessments.map((assessment, aIdx) => {
+                        // Find evaluator name
+                        const evaluator = selectedParticipant.assignedEvaluators?.find(e => String(e._id) === String(assessment.evaluatorId));
+                        const evaluatorName = evaluator ? evaluator.name : `Evaluator ${aIdx + 1}`;
+                        
+                        let parsedComments = [];
+                        if (assessment.comments) {
+                          parsedComments = assessment.comments;
+                        } else if (assessment.notes?.startsWith("JSON:")) {
+                          try {
+                            parsedComments = JSON.parse(assessment.notes.substring(5));
+                          } catch (e) {}
+                        }
 
-                        {local?.allowDirectTotal !== false && (
-                          <button
-                            disabled={editingAssessment}
-                            onClick={() => setAssessmentMode("total")}
-                            className={`px-3 py-1.5 rounded-md text-sm font-semibold transition-colors ${
-                              assessmentMode === "total"
-                                ? "bg-violet-600 text-white shadow-sm"
-                                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                            } ${editingAssessment ? "opacity-50 cursor-not-allowed" : ""}`}
-                          >
-                            Direct Total
-                          </button>
-                        )}
+                        return (
+                          <div key={aIdx} className="border border-violet-100 rounded-lg overflow-hidden shadow-sm">
+                            <div className="bg-violet-50 border-b border-violet-200 px-4 py-2.5 flex justify-between items-center">
+                              <div className="font-semibold text-violet-900 text-sm flex items-center gap-2">
+                                <span className="bg-violet-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">{aIdx + 1}</span>
+                                {evaluatorName}
+                              </div>
+                              <div className="text-xs font-bold bg-white text-violet-700 px-2 py-1 rounded shadow-sm border border-violet-200">
+                                Total: {assessment.criteria?.reduce((s, v) => s + Number(v || 0), 0) || assessment.total || 0}
+                              </div>
+                            </div>
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-sm text-left">
+                                <thead className="bg-gray-50 border-b border-gray-200">
+                                  <tr>
+                                    <th className="px-4 py-2 font-bold text-gray-700 whitespace-nowrap">Criteria</th>
+                                    <th className="px-4 py-2 font-bold text-gray-700 text-center w-20">Marks</th>
+                                    <th className="px-4 py-2 font-bold text-gray-700">Comments</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100 bg-white">
+                                  {criteriaList.map((c, idx) => (
+                                    <tr key={idx} className="hover:bg-gray-50/50">
+                                      <td className="px-4 py-2.5 text-gray-600 font-medium whitespace-nowrap">{c.name}</td>
+                                      <td className="px-4 py-2.5 text-center font-bold text-gray-900">
+                                        {assessment.criteria?.[idx] ?? 0}
+                                      </td>
+                                      <td className="px-4 py-2.5 text-gray-600 text-xs italic">
+                                        {parsedComments[idx] || "No comment"}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <div className="flex flex-col items-center justify-center p-8 bg-gray-50 rounded-lg border border-dashed border-gray-300 h-full min-h-[200px]">
+                        <span className="text-gray-400 mb-2">No assessments completed yet</span>
+                        <span className="text-xl text-violet-700 font-extrabold">Pending</span>
                       </div>
                     )}
-
-                    {/* ===== EDIT BUTTONS ===== */}
-                    {isAdmin && (
-                      <div className="flex justify-end mb-3 gap-2">
-                        {!editingAssessment ? (
-                          <button
-                            onClick={() => setEditingAssessment(true)}
-                            className="px-3 py-1.5 bg-violet-600 text-white rounded-lg text-sm font-semibold hover:bg-violet-700 transition shadow-sm"
-                          >
-                            Edit Marks
-                          </button>
-                        ) : (
-                          <>
-                            <button
-                              onClick={() => setEditingAssessment(false)}
-                              className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm font-semibold text-gray-700 hover:bg-gray-50 transition"
-                            >
-                              Cancel
-                            </button>
-                            <button
-                              onClick={handleAdminSaveMarks}
-                              className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-sm font-semibold hover:bg-emerald-700 transition shadow-sm"
-                            >
-                              Save Changes
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    )}
-
-                    <div className="overflow-x-auto rounded-lg border border-gray-200">
-                      <table className="w-full text-sm text-left">
-                        <thead className="bg-gray-50 border-b border-gray-200">
-                          <tr>
-                            <th className="px-4 py-2.5 font-bold text-gray-700 whitespace-nowrap">Criteria</th>
-                            <th className="px-4 py-2.5 font-bold text-gray-700 text-center w-24">Marks</th>
-                            <th className="px-4 py-2.5 font-bold text-gray-700">Comments</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                          {/* ================= CRITERIA MODE ================= */}
-                          {assessmentMode === "criteria" ? (
-                            <>
-                              {criteriaList.map((c, idx) => (
-                                <tr key={idx} className="hover:bg-gray-50/50">
-                                  <td className="px-4 py-2.5 text-gray-600 font-medium whitespace-nowrap">{c.name}</td>
-                                  <td className="px-4 py-2.5 text-center">
-                                    {editingAssessment ? (
-                                      <input
-                                        type="number"
-                                        min={0}
-                                        max={c.maxMarks}
-                                        value={adminAssessmentForm.criteria[idx] ?? 0}
-                                        onChange={(e) => {
-                                          let value = Number(e.target.value) || 0;
-                                          value = Math.max(0, Math.min(c.maxMarks, value)); // 🔒 max marks
-                                          setAdminAssessmentForm((f) => {
-                                            const updated = [...f.criteria];
-                                            updated[idx] = value;
-                                            return { ...f, criteria: updated };
-                                          });
-                                        }}
-                                        className="w-16 border border-gray-300 rounded px-2 py-1 text-center focus:ring-2 focus:ring-violet-500 focus:border-violet-500 outline-none"
-                                      />
-                                    ) : (
-                                      <span className="font-bold text-gray-900">
-                                        {adminAssessmentForm.criteria[idx] ?? 0}
-                                      </span>
-                                    )}
-                                  </td>
-                                  <td className="px-4 py-2.5">
-                                    {editingAssessment ? (
-                                      <input
-                                        type="text"
-                                        placeholder="Add comment..."
-                                        value={adminAssessmentForm.comments?.[idx] || ""}
-                                        onChange={(e) => {
-                                          let value = e.target.value;
-                                          setAdminAssessmentForm((f) => {
-                                            const updated = [...(f.comments || [])];
-                                            updated[idx] = value;
-                                            return { ...f, comments: updated };
-                                          });
-                                        }}
-                                        className="w-full min-w-[200px] border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-violet-500 focus:border-violet-500 outline-none"
-                                      />
-                                    ) : (
-                                      <span className="text-gray-600 text-xs italic">
-                                        {adminAssessmentForm.comments?.[idx] || "No comment"}
-                                      </span>
-                                    )}
-                                  </td>
-                                </tr>
-                              ))}
-                              <tr className="bg-gray-50 font-bold border-t-2 border-gray-200">
-                                <td className="px-4 py-3 text-gray-900 uppercase tracking-wider text-xs">Total</td>
-                                <td className="px-4 py-3 text-center text-lg text-violet-700">
-                                  {adminAssessmentForm.criteria.reduce((s, v) => s + Number(v || 0), 0)}
-                                </td>
-                                <td className="px-4 py-3 text-gray-400 text-xs text-center">—</td>
-                              </tr>
-                            </>
-                          ) : (
-                            /* ================= TOTAL MODE ================= */
-                            <tr className="bg-gray-50 font-bold">
-                              <td className="px-4 py-4 text-gray-900 uppercase tracking-wider text-xs">Total</td>
-                              <td className="px-4 py-4 text-center">
-                                {editingAssessment ? (
-                                  <input
-                                    type="number"
-                                    min={0}
-                                    max={maxTotalMarks}
-                                    value={adminAssessmentForm.total}
-                                    onChange={(e) => {
-                                      let value = Number(e.target.value) || 0;
-                                      value = Math.max(0, Math.min(maxTotalMarks, value)); // 🔒 max dynamic
-                                      setAdminAssessmentForm((f) => ({
-                                        ...f,
-                                        total: value,
-                                      }));
-                                    }}
-                                    className="w-16 border border-gray-300 rounded px-2 py-1 text-center focus:ring-2 focus:ring-violet-500 focus:border-violet-500 outline-none"
-                                  />
-                                ) : (
-                                  <span className="text-xl text-violet-700 font-extrabold">{adminAssessmentForm.total}</span>
-                                )}
-                              </td>
-                              <td className="px-4 py-4 text-gray-600 text-xs text-center">
-                                {editingAssessment ? (
-                                  <textarea
-                                    rows="2"
-                                    value={adminAssessmentForm.notes || ""}
-                                    onChange={(e) => setAdminAssessmentForm(f => ({ ...f, notes: e.target.value }))}
-                                    className="w-full border border-gray-300 rounded p-2 focus:ring-2 focus:ring-violet-500 focus:border-violet-500 outline-none resize-none"
-                                    placeholder="Overall justification..."
-                                  />
-                                ) : (
-                                  <span className="italic">{adminAssessmentForm.notes || "No justification provided"}</span>
-                                )}
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-
                   </div>
                 </div>
               </div>
@@ -3545,7 +3428,7 @@ function TrackCard({
 
 
   const totalAssessed = participants.filter(
-  (p) => p.status === "EVALUATED"
+  (p) => p.assessment && typeof p.assessment.total === "number"
 ).length;
 
 
@@ -3713,7 +3596,7 @@ const normalizedMeetingLink =
               </div>
             ) : (
               participants.map((p, idx) => {
-                const isAssessed = p.status === "EVALUATED";
+                const isAssessed = p.assessment && typeof p.assessment.total === "number";
 
                 return (
                   <div
@@ -4500,11 +4383,18 @@ function SessionChairConsole() {
   const [assessmentIndex, setAssessmentIndex] = useState(0);
   const [error, setError] = useState(null);
   const [showSummary, setShowSummary] = useState(false);
-  const normalizeParticipants = (list) =>
+  const normalizeParticipants = (list, evaluatorId) =>
     list
       .map((p) => {
         const institute = p.members?.[0]?.organisation || p.institute;
         const branch = p.members?.[0]?.specialization || p.branch;
+        
+        let currentAssessment = null;
+        if (evaluatorId && p.assessments) {
+          currentAssessment = p.assessments.find(a => String(a.evaluatorId) === String(evaluatorId));
+        }
+        if (!currentAssessment) currentAssessment = p.assessment;
+
         return {
           ...p,
           _id: p._id,
@@ -4516,7 +4406,8 @@ function SessionChairConsole() {
           mode: p.members?.length ? `${p.members.length} members` : p.mode || "Unknown",
           email: p.members?.[0]?.email || p.email || "Unknown",
           phone: p.members?.[0]?.mobile || p.phone || "Unknown",
-          assessment: p.assessment || null,
+          assessment: currentAssessment || null,
+          assessments: p.assessments || [],
         };
       })
       .filter((p) => p.paperId !== "N/A" || p.presenterName !== "Unnamed Team");
@@ -4557,7 +4448,7 @@ function SessionChairConsole() {
         );
 
         const pData = await pRes.json();
-        setParticipants(normalizeParticipants(pData.participants || []));
+        setParticipants(normalizeParticipants(pData.participants || [], data.chair._id));
         setError(null);
       } catch (err) {
         console.error("Failed loading session data:", err);
@@ -4665,7 +4556,7 @@ const persistParticipants = async ({ participantId, present, assessment }) => {
     {
       method: "PATCH", // ✅ MUST MATCH BACKEND
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ present, assessment }),
+      body: JSON.stringify({ present, assessment, evaluatorId: chair?._id }),
     }
   );
 
@@ -4707,7 +4598,7 @@ const saveAssessmentAndProceed = async (idx, assessmentObj) => {
     setParticipants((prev) =>
       prev.map((p) =>
         p._id === result.participant._id
-          ? normalizeParticipants([result.participant])[0]   // ✅ backend is truth, but must be normalized!
+          ? normalizeParticipants([result.participant], chair._id)[0]   // ✅ backend is truth, but must be normalized!
           : p
       )
     );
