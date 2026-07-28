@@ -29,7 +29,7 @@ export async function sendMail({ to, subject, html }) {
   return emailApi.sendTransacEmail({
     sender: {
       name: "IKIGAI 2026",
-      email: process.env.BREVO_USER || "s.aniruddha3993@gmail.com",
+      email: process.env.BREVO_USER || "support.urbancloud@gmail.com",
     },
     to: [{ email: to }],
     subject,
