@@ -287,14 +287,14 @@ export default function SlideViewer({ fileUrl, onTimingUpdate, onAiQuery }) {
                 className="w-12 text-center bg-slate-100 border border-slate-300 rounded px-1 py-0.5 text-sm outline-none focus:ring-2 focus:ring-blue-500"
                 min="1"
               />
-              <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-semibold tabular-nums">
+              <span className="hidden text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-semibold tabular-nums">
                 {currentSlideTime}s
               </span>
             </div>
             <div className="text-[10px] text-slate-500 mt-0.5 tracking-wide font-medium">USE TOP BUTTONS OR ARROW KEYS TO NAVIGATE SLIDES</div>
           </div>
           <div className="flex gap-3 items-center">
-            <span className="text-xs text-blue-600 font-semibold mr-1 hidden md:inline uppercase tracking-wider bg-blue-50 px-2 py-1 rounded">
+            <span className="hidden text-xs text-blue-600 font-semibold mr-1 uppercase tracking-wider bg-blue-50 px-2 py-1 rounded">
               Total: {totalPresentationTime}s
             </span>
             <button
@@ -335,13 +335,13 @@ export default function SlideViewer({ fileUrl, onTimingUpdate, onAiQuery }) {
         <div className="flex flex-col">
           <div className="text-sm font-bold text-slate-800 flex items-center gap-2">
             Slide {pageNumber} of {numPages || '-'}
-            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-semibold tabular-nums">
+            <span className="hidden text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-semibold tabular-nums">
               {currentSlideTime}s
             </span>
           </div>
-          <div className="text-[10px] text-slate-500 mt-0.5 tracking-wide font-medium flex items-center gap-2">
+          <div className="hidden text-[10px] text-slate-500 mt-0.5 tracking-wide font-medium flex items-center gap-2">
             CLICK NEXT TO LOG TIME
-            <span className="font-semibold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded tabular-nums">Total: {totalPresentationTime}s</span>
+            <span className="hidden font-semibold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded tabular-nums">Total: {totalPresentationTime}s</span>
           </div>
         </div>
         <div className="flex gap-6 items-center">

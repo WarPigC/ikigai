@@ -34,8 +34,8 @@ export default function ParticipantList({
       {/* CSV Upload Section */}
       <CsvUpload eventId={eventId} allEvents={allEvents} onSuccess={onSuccess} />
 
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="p-4 md:p-6 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-gray-50/30">
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
+        <div className="p-4 md:p-6 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-gray-50/30 rounded-t-2xl">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center text-purple-600">
               <Users size={20} />
@@ -70,6 +70,7 @@ export default function ParticipantList({
                   key={participant._id} 
                   participant={participant} 
                   index={index}
+                  total={participants.length}
                   onEdit={setEditingParticipant}
                   onDelete={handleDelete}
                 />

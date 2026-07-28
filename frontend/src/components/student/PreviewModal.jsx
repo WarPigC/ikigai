@@ -42,7 +42,7 @@ export default function PreviewModal({ participant, onClose }) {
 
           <PreviewSection title="Paper Details">
             <div className="md:col-span-2">
-              <PreviewField label="Paper Title" value={participant.paperTitle} />
+              <PreviewField label="Problem Statement" value={participant.problemStatement} />
             </div>
             <SubmissionLink link={participant.submissionLink} />
           </PreviewSection>

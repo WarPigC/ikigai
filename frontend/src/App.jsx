@@ -816,7 +816,7 @@ const deleteStudent = (id) => {
   const [pForm, setPForm] = useState({
     id: "",
     presenterName: "",
-    paperTitle: "",
+    problemStatement: "",
     file: null, // file object
     fileName: "",
     mode: "",
@@ -829,7 +829,7 @@ const deleteStudent = (id) => {
     setPForm({
       id: "",
       presenterName: "",
-      paperTitle: "",
+      problemStatement: "",
       file: null,
       fileName: "",
       mode: "",
@@ -855,9 +855,9 @@ const deleteStudent = (id) => {
   };
 
   const addParticipant = () => {
-    const { presenterName, paperTitle, file, mode, email, phone } = pForm;
+    const { presenterName, problemStatement, file, mode, email, phone } = pForm;
     if (!presenterName.trim()) return alert("Presenter name required");
-    if (!paperTitle.trim()) return alert("Paper title required");
+    if (!problemStatement.trim()) return alert("Paper title required");
     if (!file) return alert("Please upload the research paper (.pdf or .docx)");
     if (!fileIsValid(file)) return alert("Invalid file type. Use PDF or DOCX.");
     if (!mode) return alert("Select presentation mode");
@@ -868,7 +868,7 @@ const deleteStudent = (id) => {
     const saved = {
       paperId: pid,              // ✅ FIX
       presenterName: presenterName.trim(),
-      paperTitle: paperTitle.trim(),
+      problemStatement: problemStatement.trim(),
       fileName: pForm.fileName || file.name,
       file, // keep file object in state (local)
       mode,
@@ -891,7 +891,7 @@ const deleteStudent = (id) => {
     setPForm({
       id: "",
       presenterName: "",
-      paperTitle: "",
+      problemStatement: "",
       file: null,
       fileName: "",
       mode: "",
@@ -1105,7 +1105,7 @@ const step4Valid =
     }
     navigate("/dashboard");
   }}
-  className="text-sm text-gray-600 hover:text-green-700 hover:underline"
+  className="px-4 py-2 text-sm font-medium rounded-lg bg-green-600 text-white hover:bg-green-700 transition flex items-center justify-center w-full sm:w-auto gap-2"
 >
   ← Back to Dashboard
 </button>
@@ -1705,12 +1705,12 @@ const step4Valid =
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
-                    Paper Title *
+                    Problem Statement *
                   </label>
                   <input
-                    value={pForm.paperTitle}
+                    value={pForm.problemStatement}
                     onChange={(e) =>
-                      setPForm({ ...pForm, paperTitle: e.target.value })
+                      setPForm({ ...pForm, problemStatement: e.target.value })
                     }
                     className="w-full border border-green-200 rounded-md px-3 py-2"
                   />
@@ -1978,9 +1978,9 @@ const getProgressColor = (assessed, total) => {
             <div className="mt-3">
               <button
                 onClick={() => navigate("/")}
-                className="px-4 py-2 bg-green-600 text-white rounded-md"
+                className="px-4 py-2 text-sm font-medium rounded-lg bg-green-600 text-white hover:bg-green-700 transition flex items-center justify-center w-fit gap-2"
               >
-                Back to Dashboard
+                ← Back to Dashboard
               </button>
             </div>
           </div>
@@ -2072,8 +2072,8 @@ const getProgressColor = (assessed, total) => {
 
 
   return (
-    <div className="flex-1 p-6 overflow-auto width-full">
-      <div className="flex items-start justify-between mb-6">
+    <div className="absolute inset-0 p-6 flex flex-col overflow-hidden">
+      <div className="flex items-start justify-between mb-6 shrink-0">
         <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm w-full">
   <h2 className="text-2xl font-semibold text-gray-800">
     {local.title}
@@ -2092,7 +2092,7 @@ const getProgressColor = (assessed, total) => {
 
     <button
       onClick={() => navigate("/dashboard")}
-      className="text-sm font-medium text-green-700 hover:underline"
+      className="px-4 py-2 text-sm font-medium rounded-lg bg-green-600 text-white hover:bg-green-700 transition flex items-center justify-center gap-2"
     >
       ← Back to Dashboard
     </button>
@@ -2106,7 +2106,7 @@ const getProgressColor = (assessed, total) => {
       </div>
 
 
-<div className="flex h-[calc(100vh-180px)] border rounded-xl overflow-hidden relative">
+<div className="flex flex-1 border rounded-xl overflow-hidden relative min-h-0">
 
   {/* 🟢 LEFT SIDEBAR */}
   {/* 🟢 LEFT SIDEBAR */}
@@ -2346,6 +2346,7 @@ const handleAdminSaveMarks = async () => {
     : {
         assessment: {
           total: adminAssessmentForm.total,
+          notes: adminAssessmentForm.notes,
         },
       };
 
@@ -2383,11 +2384,20 @@ useEffect(() => {
 
   setAssessmentMode(isCriteriaMode ? "criteria" : "total");
 
+  let parsedComments = isCriteriaMode ? [...(a.comments || [])] : [];
+  let parsedNotes = a.notes || "";
+  if (parsedNotes.startsWith("JSON:")) {
+    try {
+      parsedComments = JSON.parse(parsedNotes.substring(5));
+      parsedNotes = "";
+    } catch (e) {}
+  }
+
   setAdminAssessmentForm({
     criteria: isCriteriaMode ? [...a.criteria] : [],
-    comments: isCriteriaMode ? [...(a.comments || [])] : [],
+    comments: parsedComments,
     total: a.total ?? 0,
-    notes: a.notes || "",
+    notes: parsedNotes,
   });
 
   setEditingAssessment(false);
@@ -2412,7 +2422,7 @@ useEffect(() => {
             ...p,
             paperId: p.teamId || p._id,
             teamName: p.teamName || "",
-            paperTitle: p.problemStatement || "",
+            problemStatement: p.problemStatement || "",
             presenterName: leader.name || "Unknown",
             email: leader.email || "",
             phone: leader.mobile || "",
@@ -2503,13 +2513,13 @@ const filteredParticipants = participants
   p.paperId,
   p.teamName,
   p.presenterName,
-  p.paperTitle,
+  p.problemStatement,
   track.title,
   p.institute || "",
   p.branch || "",
   p.email || "",
   p.phone || "",
-  typeof p.assessment?.total === "number"
+  p.status === "EVALUATED"
     ? p.assessment.total
     : "Pending",
 ]);
@@ -2552,7 +2562,7 @@ const exportParticipantsXLSX = () => {
   "S.No": index + 1,
   "Team ID": p.paperId,
   "Team Name": p.teamName,
-  "Problem Statement": p.paperTitle,
+  "Problem Statement": p.problemStatement,
   "Track Name": track.title,    // ✅ ADD
   "Presenter Name": p.presenterName,
   "Email": p.email,
@@ -2677,7 +2687,7 @@ const exportParticipantsPDF = () => {
       index + 1,
       p.paperId || "",
       p.teamName || "",
-      p.paperTitle || "",
+      p.problemStatement || "",
       leaderName,
       p.phone || "",
       p.email || "",
@@ -3072,7 +3082,7 @@ const submissionUrl =
 
         {/* Problem Statement and Team Name */}
         <div className="mt-1 text-sm text-gray-700 truncate">
-          <b>Team:</b> {p.teamName} &nbsp;|&nbsp; <b>Problem:</b> {p.paperTitle}
+          <b>Team:</b> {p.teamName} &nbsp;|&nbsp; <b>Problem:</b> {p.problemStatement}
         </div>
 
         {/* Institute + Branch */}
@@ -3084,7 +3094,7 @@ const submissionUrl =
       {/* RIGHT SIDE */}
       <div className="flex flex-col items-end gap-2 shrink-0">
         {/* Marks */}
-        {typeof p.assessment?.total === "number" ? (
+        {p.status === "EVALUATED" ? (
           <span className="font-semibold text-gray-800 flex items-center gap-1">
               {sortBy === "marks" && sortOrder === "desc" && index === 0 && "🥇"}
               {sortBy === "marks" && sortOrder === "desc" && index === 1 && "🥈"}
@@ -3184,7 +3194,7 @@ const submissionUrl =
                   <div className="space-y-4 text-sm text-gray-700">
                     <div>
                       <span className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Problem Statement</span>
-                      <p className="font-medium text-gray-900 leading-relaxed">{selectedParticipant.paperTitle || selectedParticipant.problemStatement || "—"}</p>
+                      <p className="font-medium text-gray-900 leading-relaxed">{selectedParticipant.problemStatement || selectedParticipant.problemStatement || "—"}</p>
                     </div>
                     
                     {selectedParticipant.description && (
@@ -3378,7 +3388,19 @@ const submissionUrl =
                                   <span className="text-xl text-violet-700 font-extrabold">{adminAssessmentForm.total}</span>
                                 )}
                               </td>
-                              <td className="px-4 py-4 text-gray-400 text-xs text-center">N/A in Direct Total mode</td>
+                              <td className="px-4 py-4 text-gray-600 text-xs text-center">
+                                {editingAssessment ? (
+                                  <textarea
+                                    rows="2"
+                                    value={adminAssessmentForm.notes || ""}
+                                    onChange={(e) => setAdminAssessmentForm(f => ({ ...f, notes: e.target.value }))}
+                                    className="w-full border border-gray-300 rounded p-2 focus:ring-2 focus:ring-violet-500 focus:border-violet-500 outline-none resize-none"
+                                    placeholder="Overall justification..."
+                                  />
+                                ) : (
+                                  <span className="italic">{adminAssessmentForm.notes || "No justification provided"}</span>
+                                )}
+                              </td>
                             </tr>
                           )}
                         </tbody>
@@ -3513,7 +3535,7 @@ function TrackCard({
 
 
   const totalAssessed = participants.filter(
-  (p) => typeof p.assessment?.total === "number"
+  (p) => p.status === "EVALUATED"
 ).length;
 
 
@@ -3681,8 +3703,7 @@ const normalizedMeetingLink =
               </div>
             ) : (
               participants.map((p, idx) => {
-                const isAssessed =
-  typeof p.assessment?.total === "number";
+                const isAssessed = p.status === "EVALUATED";
 
                 return (
                   <div
@@ -3715,7 +3736,7 @@ const normalizedMeetingLink =
                       </div>
 
                       <div className="text-sm text-gray-700 font-medium">
-                        {p.paperTitle}
+                        {p.problemStatement}
                       </div>
 
                       <div className="text-sm text-gray-600">
@@ -3754,39 +3775,56 @@ const normalizedMeetingLink =
     </div>
   );
 }
-/* ------------------------ Member Assessment Card ------------------------ */
-const MemberAssessmentCard = ({ m }) => {
-  const [open, setOpen] = React.useState(false);
+const MemberInfoField = ({ label, value, fullWidth }) => {
+  if (!value) return null;
   return (
-    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-      <button 
+    <div className={`flex flex-col gap-0.5 ${fullWidth ? 'col-span-1 sm:col-span-2' : ''} min-w-0`}>
+      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{label}</span>
+      <span className="text-xs font-semibold text-gray-800 truncate" title={value}>{value}</span>
+    </div>
+  );
+};
+
+/* ------------------------ Member Assessment Card ------------------------ */
+const MemberAssessmentCard = ({ m, index, total }) => {
+  const [open, setOpen] = React.useState(false);
+
+  return (
+    <div className="relative w-full h-full min-h-[56px]">
+      <div className={`bg-white p-4 rounded-xl shadow-sm border overflow-hidden transition-all duration-300 flex flex-col ${
+          open 
+            ? 'absolute top-0 left-[-2%] sm:left-[-5%] w-[104%] sm:w-[110%] shadow-2xl shadow-purple-500/20 border-purple-300 z-50' 
+            : 'relative w-full h-full border-gray-200 hover:shadow-md z-10'
+        }`}>
+        <button 
         onClick={() => setOpen(!open)}
         className="w-full flex items-center justify-between font-semibold text-gray-800 text-sm border-b border-gray-100 pb-2 focus:outline-none"
       >
-         <span className="flex items-center gap-2">
-           {m.name} 
-           {m.isLeader && <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded uppercase tracking-wider">Leader</span>}
+         <span className="flex items-center gap-2 truncate pr-2">
+           <span className="truncate">{m.name}</span>
+           {m.isLeader && <span className="text-[9px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0">Leader</span>}
          </span>
-         <span className="text-gray-400 text-[10px] font-bold uppercase tracking-wider">{open ? "▲ Hide" : "▼ Show"}</span>
+         <span className="text-gray-400 text-[10px] font-bold uppercase tracking-wider shrink-0">{open ? "▲ Hide" : "▼ Show"}</span>
       </button>
       {open && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-2 gap-x-2 text-xs text-gray-600 mt-3">
-           {(m.organisation || m.institute) && <div className="col-span-1 sm:col-span-2"><span className="font-semibold text-gray-500 block text-[10px] uppercase mb-0.5">Org/Institute</span> <span className="break-words font-medium">{m.organisation || m.institute}</span></div>}
-           {m.email && <div className="col-span-1 sm:col-span-2 truncate" title={m.email}><span className="font-semibold text-gray-500 mr-1">Email:</span> {m.email}</div>}
-           {(m.mobile || m.phone) && <div><span className="font-semibold text-gray-500 mr-1">Phone:</span> {m.mobile || m.phone}</div>}
-           {m.location && <div className="truncate" title={m.location}><span className="font-semibold text-gray-500 mr-1">Location:</span> {m.location}</div>}
-           {m.userType && <div className="truncate" title={m.userType}><span className="font-semibold text-gray-500 mr-1">Type:</span> {m.userType}</div>}
-           {(m.domain || m.category) && <div className="truncate" title={m.domain || m.category}><span className="font-semibold text-gray-500 mr-1">Domain:</span> {m.domain || m.category}</div>}
-           {(m.course || m.degree) && <div className="truncate" title={m.course || m.degree}><span className="font-semibold text-gray-500 mr-1">Course:</span> {m.course || m.degree}</div>}
-           {(m.specialization || m.branch) && <div className="truncate" title={m.specialization || m.branch}><span className="font-semibold text-gray-500 mr-1">Specialization:</span> {m.specialization || m.branch}</div>}
-           {m.courseType && <div className="truncate" title={m.courseType}><span className="font-semibold text-gray-500 mr-1">Course Type:</span> {m.courseType}</div>}
-           {m.courseDuration && <div className="truncate" title={m.courseDuration}><span className="font-semibold text-gray-500 mr-1">Duration:</span> {m.courseDuration} {m.courseDuration && !isNaN(m.courseDuration) ? 'yrs' : ''}</div>}
-           {m.gradYear && <div><span className="font-semibold text-gray-500 mr-1">Grad Year:</span> {m.gradYear}</div>}
-           {m.designation && <div className="truncate" title={m.designation}><span className="font-semibold text-gray-500 mr-1">Designation:</span> {m.designation}</div>}
-           {m.workExperience && <div className="truncate" title={m.workExperience}><span className="font-semibold text-gray-500 mr-1">Experience:</span> {m.workExperience}</div>}
-           {m.differentlyAbled !== undefined && m.differentlyAbled !== "" && <div><span className="font-semibold text-gray-500 mr-1">Diff. Abled:</span> {String(m.differentlyAbled) === "true" ? "Yes" : "No"}</div>}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-4 gap-x-4 mt-3 pt-3 border-t border-gray-50 bg-gray-50/30 rounded-b-lg px-1 pb-1">
+           <MemberInfoField label="Org / Institute" value={m.organisation || m.institute} fullWidth />
+           <MemberInfoField label="Email" value={m.email} fullWidth />
+           <MemberInfoField label="Phone" value={m.mobile || m.phone} />
+           <MemberInfoField label="Location" value={m.location} />
+           <MemberInfoField label="Type" value={m.userType} />
+           <MemberInfoField label="Domain" value={m.domain || m.category} />
+           <MemberInfoField label="Course" value={m.course || m.degree} />
+           <MemberInfoField label="Specialization" value={m.specialization || m.branch} />
+           <MemberInfoField label="Course Type" value={m.courseType} />
+           <MemberInfoField label="Duration" value={m.courseDuration ? `${m.courseDuration} ${!isNaN(m.courseDuration) ? 'yrs' : ''}` : null} />
+           <MemberInfoField label="Grad Year" value={m.gradYear} />
+           <MemberInfoField label="Designation" value={m.designation} />
+           <MemberInfoField label="Experience" value={m.workExperience} />
+           <MemberInfoField label="Diff. Abled" value={m.differentlyAbled !== undefined && m.differentlyAbled !== "" ? (String(m.differentlyAbled) === "true" ? "Yes" : "No") : null} />
         </div>
       )}
+    </div>
     </div>
   );
 };
@@ -3806,7 +3844,7 @@ function AssessmentModal({
   persistParticipants,
 }) {
   const [savedMsg, setSavedMsg] = React.useState(false);
-  const [showMarks, setShowMarks] = React.useState(false);
+
 
   const [assessmentMode, setAssessmentMode] = React.useState("criteria");
   const [isDirty, setIsDirty] = React.useState(false);
@@ -3834,13 +3872,6 @@ function AssessmentModal({
   };
   const [form, setForm] = React.useState(DEFAULT_FORM);
 
-  React.useEffect(() => {
-    if (!showMarks) return;
-    const timer = setTimeout(() => {
-      setShowMarks(false);
-    }, 1000);
-    return () => clearTimeout(timer);
-  }, [showMarks]);
 
   React.useEffect(() => {
     if (!participants?.length) return;
@@ -3955,10 +3986,15 @@ function AssessmentModal({
       return;
     }
 
+    if (assessmentMode === "direct" && (!form.notes || form.notes.trim() === "")) {
+      alert("Please provide an overall justification for the direct marks.");
+      return;
+    }
+
     const assessmentPayload = {
       criteria: assessmentMode === "criteria" ? form.criteria.map(Number) : [],
       total: Number(form.total),
-      notes: form.justifications.some(j => j) ? "JSON:" + JSON.stringify(form.justifications) : form.notes,
+      notes: assessmentMode === "criteria" ? "JSON:" + JSON.stringify(form.justifications) : form.notes,
       mode: assessmentMode,
       slideTimings: form.slideTimings,
       totalPptTime: form.totalPptTime,
@@ -4128,7 +4164,7 @@ function AssessmentModal({
         <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50/50">
           
           {/* Section 1: About Team */}
-          <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm bg-white">
+          <div className={`border border-gray-200 rounded-xl shadow-sm bg-white ${openSection === 1 ? '' : 'overflow-hidden'}`}>
             <button 
                onClick={() => setOpenSection(openSection === 1 ? null : 1)}
                className="w-full flex justify-between items-center p-4 bg-gray-50 hover:bg-gray-100 transition-colors text-left font-semibold text-gray-800"
@@ -4151,7 +4187,7 @@ function AssessmentModal({
                   <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Team Members ({p.members?.length || 0})</h4>
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     {(p.members || []).map((m, idx) => (
-                      <MemberAssessmentCard key={idx} m={m} />
+                      <MemberAssessmentCard key={idx} m={m} index={idx} total={(p.members || []).length} />
                     ))}
                   </div>
                </div>
@@ -4159,14 +4195,14 @@ function AssessmentModal({
           </div>
 
           {/* Section 2: Problem Statement */}
-          <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm bg-white">
+          <div className={`border border-gray-200 rounded-xl shadow-sm bg-white ${openSection === 2 ? '' : 'overflow-hidden'}`}>
             <button 
                onClick={() => setOpenSection(openSection === 2 ? null : 2)}
                className="w-full flex justify-between items-center p-4 bg-gray-50 hover:bg-gray-100 transition-colors text-left font-semibold text-gray-800"
             >
                <span className="flex items-center gap-2">
                   2. Problem Statement
-                  {openSection !== 2 && <span className="text-gray-500 font-normal text-sm ml-2 truncate max-w-xs">{p.paperTitle}</span>}
+                  {openSection !== 2 && <span className="text-gray-500 font-normal text-sm ml-2 truncate max-w-xs">{p.problemStatement}</span>}
                </span>
                <span className="text-gray-400">{openSection === 2 ? "▲" : "▼"}</span>
             </button>
@@ -4174,7 +4210,7 @@ function AssessmentModal({
                <div className="p-5 border-t border-gray-100">
                   <div className="mb-5 bg-gray-50 p-4 rounded-xl border border-gray-100">
                     <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Title</div>
-                    <div className="text-gray-800 font-medium text-sm md:text-base">{p.paperTitle}</div>
+                    <div className="text-gray-800 font-medium text-sm md:text-base">{p.problemStatement}</div>
                   </div>
                   {p.description && (
                     <div className="mb-5">
@@ -4201,7 +4237,7 @@ function AssessmentModal({
           </div>
 
           {/* Section 3: Assessment */}
-          <div className="border border-green-200 rounded-xl overflow-hidden shadow-sm bg-white ring-1 ring-green-50">
+          <div className={`border border-green-200 rounded-xl shadow-sm bg-white ring-1 ring-green-50 ${openSection === 3 ? '' : 'overflow-hidden'}`}>
             <button 
                onClick={() => setOpenSection(openSection === 3 ? null : 3)}
                className="w-full flex justify-between items-center p-4 bg-green-50 hover:bg-green-100 transition-colors text-left font-semibold text-green-900"
@@ -4223,7 +4259,7 @@ function AssessmentModal({
                           <div className="text-sm font-semibold text-gray-800 mt-1 md:pr-4">{i + 1}. {label}</div>
                           <div className="flex flex-col gap-1 relative">
                              <input
-                                type={showMarks ? "number" : "password"}
+                                type="number"
                                 min={0} max={10}
                                 value={form.criteria[i]}
                                 onChange={(e) => setCriteria(i, e.target.value)}
@@ -4258,7 +4294,7 @@ function AssessmentModal({
                         <label className="text-sm font-bold text-green-900 uppercase tracking-wide">Total Score</label>
                         <div className="flex items-baseline gap-2">
                           <input
-                             type={showMarks ? "number" : "password"}
+                             type="number"
                              min={0} max={50}
                              value={form.total}
                              disabled={assessmentMode === "criteria"}
@@ -4268,10 +4304,21 @@ function AssessmentModal({
                           <span className="text-green-700 font-bold text-lg">/ 50</span>
                         </div>
                      </div>
-                     <button type="button" onClick={() => setShowMarks((v) => !v)} className="px-4 py-2 mt-4 sm:mt-0 rounded-lg text-sm font-semibold border-2 bg-white text-green-700 border-green-200 hover:bg-green-100 hover:border-green-300 transition-colors">
-                        {showMarks ? "Hide Marks" : "Show Marks"}
-                     </button>
+
                   </div>
+
+                  {assessmentMode === "direct" && (
+                     <div className="mt-4 bg-green-50 p-5 rounded-xl border border-green-200 shadow-sm">
+                        <label className="text-sm font-bold text-green-900 uppercase tracking-wide block mb-2">Overall Justification</label>
+                        <textarea 
+                           rows="3" 
+                           placeholder="Please provide a justification for the overall direct score..." 
+                           value={form.notes || ""} 
+                           onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} 
+                           className="w-full border border-green-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-green-400 focus:border-transparent outline-none transition-shadow resize-none bg-white"
+                        ></textarea>
+                     </div>
+                  )}
                </div>
             )}
           </div>
@@ -4300,7 +4347,7 @@ function AssessmentModal({
       {showPptModal && (
          <div className="fixed inset-0 z-[70] bg-black/90 flex flex-col p-2 md:p-6 backdrop-blur-md">
             <div className="flex justify-between items-center mb-4 text-white px-2">
-               <div className="font-bold text-lg truncate pr-4">{p.paperTitle} - Presentation</div>
+               <div className="font-bold text-lg truncate pr-4">{p.problemStatement} - Presentation</div>
                <button onClick={() => setShowPptModal(false)} className="bg-white/20 hover:bg-white/40 p-2 rounded-lg font-bold px-4 transition-colors text-sm flex items-center gap-2">Close ✕</button>
             </div>
             <div className="flex-1 w-full bg-white rounded-xl overflow-hidden shadow-2xl relative border border-gray-800">
@@ -4379,7 +4426,7 @@ function AssessmentSummary({ participants, onClose }) {
 </td>
 
                   <td className="border px-2 py-1">
-                    {p.paperTitle}
+                    {p.problemStatement}
                   </td>
 
                   {mode === "direct" ? (
@@ -4438,7 +4485,7 @@ function SessionChairConsole() {
           _id: p._id,
           paperId: p.teamId || p.paperId || "N/A",
           presenterName: p.teamName || p.presenterName || "Unnamed Team",
-          paperTitle: p.problemStatement || p.description || p.paperTitle || "No problem statement provided",
+          problemStatement: p.problemStatement || p.description || p.problemStatement || "No problem statement provided",
           institute: (institute && institute.trim()) ? institute : "Unknown Institute",
           branch: (branch && branch.trim()) ? branch : "Unknown Branch",
           mode: p.members?.length ? `${p.members.length} members` : p.mode || "Unknown",
@@ -4631,13 +4678,13 @@ const saveAssessmentAndProceed = async (idx, assessmentObj) => {
   }
 
   if (result?.success && result.participant) {
-  setParticipants((prev) =>
-    prev.map((p) =>
-      p._id === result.participant._id
-        ? result.participant   // ✅ backend is truth
-        : p
-    )
-  );
+    setParticipants((prev) =>
+      prev.map((p) =>
+        p._id === result.participant._id
+          ? normalizeParticipants([result.participant])[0]   // ✅ backend is truth, but must be normalized!
+          : p
+      )
+    );
 }
 
 };
@@ -4724,7 +4771,7 @@ const handleNext = () => {
               sessionStorage.clear();
               navigate("/login");
             }}
-            className="px-4 py-2 border rounded"
+            className="px-4 py-2 text-sm font-medium rounded-lg bg-green-600 text-white hover:bg-green-700 transition flex items-center justify-center gap-2"
           >
             Back to Login
           </button>

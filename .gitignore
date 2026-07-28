@@ -38,3 +38,8 @@ temp/
 *.sln
 *.sw?
 participantData.csv
+backend/mongo-data/
+
+
+# misc files
+todo.txt

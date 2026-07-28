@@ -105,7 +105,7 @@ Question: ${query}
 Provide a concise, direct, and helpful answer. Do not hallucinate information not present in the slides.`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-flash-latest',
+      model: 'gemini-1.5-flash',
       contents: prompt,
     });
 
