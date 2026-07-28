@@ -1,5 +1,2 @@
-[phases.build]
-cmds = ["npm install --include=optional"]
-
-[phases.install]
-dependsOn = ["setup"]
+[variables]
+NIXPACKS_NODE_VERSION = "20"
