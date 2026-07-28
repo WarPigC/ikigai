@@ -97,6 +97,7 @@ const SessionChairSchema = new mongoose.Schema(
     eventId: String,
     updateToken: String,
     updateTokenExpiry: Date,
+    inviteSent: { type: Boolean, default: false },
   },
   { timestamps: true }
 );
@@ -2489,8 +2490,8 @@ const PORT = process.env.PORT || 5000;
     const frontendUrl = process.env.FRONTEND_URL || "https://ikigai-csit.up.railway.app";
     return `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
-        <div style="text-align: center; padding: 20px;">
-          <img src="https://res.cloudinary.com/dixdw1mus/image/upload/v1785233443/ikigai_fjnl8b.png" width="200" alt="IKIGAI 2026 Logo" />
+        <div style="text-align: center; padding: 20px; background-color: #ffffff; border-radius: 8px;">
+          <img src="https://res.cloudinary.com/dixdw1mus/image/upload/v1785233443/ikigai_fjnl8b.png" width="200" alt="IKIGAI 2026 Logo" style="background-color: #ffffff;" />
         </div>
         <h2 style="color: #2c3e50;">Dear Evaluator ${name},</h2>
         <p>Welcome to IKIGAI 2026! We are honored to have you on board as a distinguished evaluator. Your expertise and insights are invaluable in helping us recognize and celebrate the innovative projects presented by our talented participants.</p>
@@ -2525,6 +2526,7 @@ const PORT = process.env.PORT || 5000;
       evaluator.passwordHash = hashPassword(tempPassword);
       evaluator.updateToken = updateToken;
       evaluator.updateTokenExpiry = Date.now() + 15 * 60 * 1000; // 15 mins
+      evaluator.inviteSent = true;
       await evaluator.save();
 
       await sendMail({
@@ -2554,6 +2556,47 @@ const PORT = process.env.PORT || 5000;
           evaluator.passwordHash = hashPassword(tempPassword);
           evaluator.updateToken = updateToken;
           evaluator.updateTokenExpiry = Date.now() + 15 * 60 * 1000;
+          evaluator.inviteSent = true;
+          await evaluator.save();
+
+          await sendMail({
+            to: evaluator.email,
+            subject: "IKIGAI 2026 - Evaluator Invitation",
+            html: generateInviteEmailHtml(evaluator.name, evaluator.email, tempPassword, updateToken)
+          });
+          sent++;
+        } catch (e) {
+          console.error("Failed to send to", evaluator.email, e);
+          failed++;
+        }
+      }
+
+      res.json({ success: true, message: `Sent ${sent} invitations, ${failed} failed.` });
+    } catch (error) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  });
+
+  app.post("/api/admin/evaluators/send-invites-selected", async (req, res) => {
+    try {
+      const { evaluatorIds } = req.body;
+      if (!evaluatorIds || !Array.isArray(evaluatorIds)) {
+        return res.status(400).json({ success: false, message: "No evaluators selected" });
+      }
+
+      const evaluators = await SessionChair.find({ _id: { $in: evaluatorIds } });
+      let sent = 0;
+      let failed = 0;
+
+      for (let evaluator of evaluators) {
+        try {
+          const tempPassword = generateTempPassword(evaluator.name);
+          const updateToken = crypto.randomBytes(32).toString("hex");
+          
+          evaluator.passwordHash = hashPassword(tempPassword);
+          evaluator.updateToken = updateToken;
+          evaluator.updateTokenExpiry = Date.now() + 15 * 60 * 1000;
+          evaluator.inviteSent = true;
           await evaluator.save();
 
           await sendMail({
