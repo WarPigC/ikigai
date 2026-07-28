@@ -341,6 +341,22 @@ const hashPassword = (password) =>
 const generateOTP = () =>
   Math.floor(1000 + Math.random() * 9000).toString();
 
+const checkEmailUnique = async (email, excludeId = null, excludeRole = null) => {
+  if (!email) return true;
+  const normEmail = email.trim().toLowerCase();
+  if (process.env.ADMIN_EMAIL && normEmail === process.env.ADMIN_EMAIL.trim().toLowerCase()) return false;
+  
+  const chairQuery = { email: normEmail };
+  if (excludeId && excludeRole === 'sessionChair') chairQuery._id = { $ne: excludeId };
+  if (await SessionChair.findOne(chairQuery).lean()) return false;
+
+  const studentQuery = { email: normEmail };
+  if (excludeId && excludeRole === 'studentCoordinator') studentQuery._id = { $ne: excludeId };
+  if (await StudentCoordinator.findOne(studentQuery).lean()) return false;
+
+  return true;
+};
+
 
 /* ------------------------------- Routes -------------------------------- */
 // 🔴 REQUIRED ROOT ROUTE (Railway health)
@@ -386,6 +402,12 @@ app.post("/api/admin/events", async (req, res) => {
         continue;
       }
 
+      const isUnique = await checkEmailUnique(email);
+      if (!isUnique) {
+        console.log("⛔ Skipping: email already in use globally");
+        continue;
+      }
+
       const exists = await SessionChair.findOne({
         email,
         eventId: event._id.toString(),
@@ -420,8 +442,14 @@ app.post("/api/admin/events", async (req, res) => {
        STUDENT COORDINATORS (EMAIL ON)
     =============================== */
     for (const sc of eventData.studentCoordinators || []) {
+      const email = sc.email?.trim().toLowerCase();
+      if (!email) continue;
+      
+      const isUnique = await checkEmailUnique(email);
+      if (!isUnique) continue;
+
       const exists = await StudentCoordinator.findOne({
-        email: sc.email,
+        email,
         eventId: event._id.toString(),
       });
 
@@ -847,80 +875,13 @@ for (const chair of eventData.sessionChairs || []) {
 const hasSessionChairUpdate = Array.isArray(incoming.sessionChairs);
 
 if (hasSessionChairUpdate) {
-  const incoming = req.body;
-
-const incomingChairs = Array.isArray(incoming.sessionChairs)
-  ? incoming.sessionChairs
-  : [];
-
-if (incomingChairs.length > 0) {
-  // ===================== SESSION CHAIR SYNC =====================
-
-// normalize incoming chairs
-const normalizedChairs = incomingChairs.map((c) => ({
-  ...c,
-  email: c.email.toLowerCase().trim(),
-}));
-
-// fetch existing chairs for this event
-const dbChairs = await SessionChair.find({ eventId });
-
-// create a lookup map: email-trackId → chair
-const dbChairMap = new Map(
-  dbChairs.map((c) => [`${c.email}-${c.trackId}`, c])
-);
-
-// keys sent from frontend
-const incomingChairKeys = new Set(
-  normalizedChairs.map((c) => `${c.email}-${c.trackId}`)
-);
-
-// 🔹 UPSERT (create or update)
-for (const c of normalizedChairs) {
-  const key = `${c.email}-${c.trackId}`;
-
-  if (!dbChairMap.has(key)) {
-    // ➕ NEW CHAIR
-    await SessionChair.create({
-      name: c.name,
-      email: c.email,
-      phone: c.phone,
-      type: c.type,
-      passwordHash: hashPassword(c.password),
-      trackId: c.trackId,
-      eventId,
-    });
-  } else {
-    // ✏️ UPDATE EXISTING
-    await SessionChair.updateOne(
-      { email: c.email, trackId: c.trackId, eventId },
-      {
-        $set: {
-          name: c.name,
-          phone: c.phone,
-          type: c.type,
-        },
-      }
-    );
-  }
-}
-
-// 🗑️ DELETE REMOVED CHAIRS
-for (const db of dbChairs) {
-  const key = `${db.email}-${db.trackId}`;
-  if (!incomingChairKeys.has(key)) {
-    await SessionChair.deleteOne({ _id: db._id });
-  }
-}
-
-}
+  const incomingChairs = incoming.sessionChairs;
   const normalizedChairs = incomingChairs.map(c => ({
     ...c,
     email: c.email.toLowerCase().trim(),
   }));
 
   const dbChairs = await SessionChair.find({ eventId });
-
   const dbChairMap = new Map(
     dbChairs.map(c => [`${c.email}-${c.trackId}`, c])
   );
@@ -929,11 +890,14 @@ for (const db of dbChairs) {
     normalizedChairs.map(c => `${c.email}-${c.trackId}`)
   );
 
-  // UPSERT
+  // UPSERT CHAIRS
   for (const c of normalizedChairs) {
     const key = `${c.email}-${c.trackId}`;
 
     if (!dbChairMap.has(key)) {
+      const isUnique = await checkEmailUnique(c.email);
+      if (!isUnique) continue;
+      
       await SessionChair.create({
         name: c.name,
         email: c.email,
@@ -944,6 +908,10 @@ for (const db of dbChairs) {
         eventId,
       });
     } else {
+      const dbChair = dbChairMap.get(key);
+      const isUnique = await checkEmailUnique(c.email, dbChair._id, "sessionChair");
+      if (!isUnique) continue;
+
       await SessionChair.updateOne(
         { email: c.email, trackId: c.trackId, eventId },
         {
@@ -957,7 +925,7 @@ for (const db of dbChairs) {
     }
   }
 
-  // DELETE ONLY IF USER SENT DATA
+  // DELETE REMOVED CHAIRS
   for (const db of dbChairs) {
     const key = `${db.email}-${db.trackId}`;
     if (!incomingChairKeys.has(key)) {
@@ -966,59 +934,6 @@ for (const db of dbChairs) {
   }
 }
 
-    const normalizedChairs = incomingChairs.map(c => ({
-      ...c,
-      email: c.email.toLowerCase().trim(),
-    }));
-
-    const dbChairs = await SessionChair.find({ eventId });
-
-    const dbChairMap = new Map(
-      dbChairs.map(c => [`${c.email}-${c.trackId}`, c])
-    );
-
-    const incomingChairKeys = new Set(
-      normalizedChairs.map(c => `${c.email}-${c.trackId}`)
-    );
-
-    // UPSERT CHAIRS
-    for (const c of normalizedChairs) {
-      const key = `${c.email}-${c.trackId}`;
-
-      if (!dbChairMap.has(key)) {
-        await SessionChair.create({
-          name: c.name,
-          email: c.email,
-          phone: c.phone,
-          type: c.type,
-          passwordHash: hashPassword(c.password),
-          trackId: c.trackId,
-          eventId,
-        });
-      } else {
-        await SessionChair.updateOne(
-          { email: c.email, trackId: c.trackId, eventId },
-          {
-            $set: {
-              name: c.name,
-              phone: c.phone,
-              type: c.type,
-            },
-          }
-        );
-      }
-    }
-
-    // DELETE REMOVED CHAIRS
-    for (const db of dbChairs) {
-      const key = `${db.email}-${db.trackId}`;
-      if (!incomingChairKeys.has(key)) {
-        await SessionChair.deleteOne({ _id: db._id });
-      }
-    }
-
-   
-    
     /* ===================== EVENT UPDATE ===================== */
 
   const updatePayload = {};
@@ -1083,6 +998,11 @@ app.post("/api/admin/student-coordinator", async (req, res) => {
         success: false,
         message: "Missing required fields",
       });
+    }
+
+    const isUnique = await checkEmailUnique(email);
+    if (!isUnique) {
+      return res.status(400).json({ success: false, message: "This email is already in use by another role in the system." });
     }
 
     // 🔐 AUTO PASSWORD (firstname123)
@@ -2117,6 +2037,11 @@ app.put("/api/admin/student-coordinator", async (req, res) => {
   if (!id) {
     return res.status(400).json({ success: false });
   }
+  
+  const isUnique = await checkEmailUnique(email, id, "studentCoordinator");
+  if (!isUnique) {
+    return res.status(400).json({ success: false, message: "This email is already in use by another user." });
+  }
 
   const update = {
     name,
@@ -2453,6 +2378,12 @@ const PORT = process.env.PORT || 5000;
   app.post("/api/admin/evaluators", async (req, res) => {
     try {
       const { eventId, trackId, name, email, phone } = req.body;
+      
+      const isUnique = await checkEmailUnique(email);
+      if (!isUnique) {
+        return res.status(400).json({ success: false, message: "This email is already in use by another role in the system." });
+      }
+      
       const exists = await SessionChair.findOne({ email, eventId, trackId });
       if (exists) return res.status(400).json({ success: false, message: "Evaluator with this email already exists in this track." });
       
@@ -2682,6 +2613,12 @@ const PORT = process.env.PORT || 5000;
   app.put("/api/admin/evaluators/:id", async (req, res) => {
     try {
       const { name, email, phone } = req.body;
+      
+      const isUnique = await checkEmailUnique(email, req.params.id, "sessionChair");
+      if (!isUnique) {
+        return res.status(400).json({ success: false, message: "This email is already in use by another user." });
+      }
+
       const evaluator = await SessionChair.findByIdAndUpdate(req.params.id, {
         name, email: email.trim().toLowerCase(), phone
       }, { new: true });
@@ -2718,10 +2655,10 @@ app.post("/api/admin/student-coordinators/global", async (req, res) => {
   try {
     const { name, firstName, email, phone } = req.body;
     
-    // Check if exists
-    const exists = await StudentCoordinator.findOne({ email });
-    if (exists) {
-      return res.status(400).json({ success: false, message: "Email already in use" });
+    // Check if exists globally
+    const isUnique = await checkEmailUnique(email);
+    if (!isUnique) {
+      return res.status(400).json({ success: false, message: "This email is already in use by another role in the system." });
     }
 
     const tempPassword = (firstName || "student").toLowerCase().replace(/[^a-z0-9]/g, "") + "123";

@@ -195,7 +195,7 @@ function Header({ user, onLogout }) {
           </button>
 
           {open && (
-            <div className="absolute right-0 top-full mt-2 w-64 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden">
+            <div className="absolute right-0 top-14 w-64 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden">
               <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
                 <p className="text-sm font-bold text-gray-800 truncate">{user.name}</p>
                 <p className="text-xs text-gray-500 truncate">{user.email || "No email"}</p>
