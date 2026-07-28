@@ -816,7 +816,7 @@ const deleteStudent = (id) => {
   const [pForm, setPForm] = useState({
     id: "",
     presenterName: "",
-    paperTitle: "",
+    problemStatement: "",
     file: null, // file object
     fileName: "",
     mode: "",
@@ -829,7 +829,7 @@ const deleteStudent = (id) => {
     setPForm({
       id: "",
       presenterName: "",
-      paperTitle: "",
+      problemStatement: "",
       file: null,
       fileName: "",
       mode: "",
@@ -855,9 +855,9 @@ const deleteStudent = (id) => {
   };
 
   const addParticipant = () => {
-    const { presenterName, paperTitle, file, mode, email, phone } = pForm;
+    const { presenterName, problemStatement, file, mode, email, phone } = pForm;
     if (!presenterName.trim()) return alert("Presenter name required");
-    if (!paperTitle.trim()) return alert("Paper title required");
+    if (!problemStatement.trim()) return alert("Paper title required");
     if (!file) return alert("Please upload the research paper (.pdf or .docx)");
     if (!fileIsValid(file)) return alert("Invalid file type. Use PDF or DOCX.");
     if (!mode) return alert("Select presentation mode");
@@ -868,7 +868,7 @@ const deleteStudent = (id) => {
     const saved = {
       paperId: pid,              // ✅ FIX
       presenterName: presenterName.trim(),
-      paperTitle: paperTitle.trim(),
+      problemStatement: problemStatement.trim(),
       fileName: pForm.fileName || file.name,
       file, // keep file object in state (local)
       mode,
@@ -891,7 +891,7 @@ const deleteStudent = (id) => {
     setPForm({
       id: "",
       presenterName: "",
-      paperTitle: "",
+      problemStatement: "",
       file: null,
       fileName: "",
       mode: "",
@@ -1705,12 +1705,12 @@ const step4Valid =
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
-                    Paper Title *
+                    Problem Statement *
                   </label>
                   <input
-                    value={pForm.paperTitle}
+                    value={pForm.problemStatement}
                     onChange={(e) =>
-                      setPForm({ ...pForm, paperTitle: e.target.value })
+                      setPForm({ ...pForm, problemStatement: e.target.value })
                     }
                     className="w-full border border-green-200 rounded-md px-3 py-2"
                   />
@@ -2412,7 +2412,7 @@ useEffect(() => {
             ...p,
             paperId: p.teamId || p._id,
             teamName: p.teamName || "",
-            paperTitle: p.problemStatement || "",
+            problemStatement: p.problemStatement || "",
             presenterName: leader.name || "Unknown",
             email: leader.email || "",
             phone: leader.mobile || "",
@@ -2503,7 +2503,7 @@ const filteredParticipants = participants
   p.paperId,
   p.teamName,
   p.presenterName,
-  p.paperTitle,
+  p.problemStatement,
   track.title,
   p.institute || "",
   p.branch || "",
@@ -2552,7 +2552,7 @@ const exportParticipantsXLSX = () => {
   "S.No": index + 1,
   "Team ID": p.paperId,
   "Team Name": p.teamName,
-  "Problem Statement": p.paperTitle,
+  "Problem Statement": p.problemStatement,
   "Track Name": track.title,    // ✅ ADD
   "Presenter Name": p.presenterName,
   "Email": p.email,
@@ -2677,7 +2677,7 @@ const exportParticipantsPDF = () => {
       index + 1,
       p.paperId || "",
       p.teamName || "",
-      p.paperTitle || "",
+      p.problemStatement || "",
       leaderName,
       p.phone || "",
       p.email || "",
@@ -3072,7 +3072,7 @@ const submissionUrl =
 
         {/* Problem Statement and Team Name */}
         <div className="mt-1 text-sm text-gray-700 truncate">
-          <b>Team:</b> {p.teamName} &nbsp;|&nbsp; <b>Problem:</b> {p.paperTitle}
+          <b>Team:</b> {p.teamName} &nbsp;|&nbsp; <b>Problem:</b> {p.problemStatement}
         </div>
 
         {/* Institute + Branch */}
@@ -3184,7 +3184,7 @@ const submissionUrl =
                   <div className="space-y-4 text-sm text-gray-700">
                     <div>
                       <span className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Problem Statement</span>
-                      <p className="font-medium text-gray-900 leading-relaxed">{selectedParticipant.paperTitle || selectedParticipant.problemStatement || "—"}</p>
+                      <p className="font-medium text-gray-900 leading-relaxed">{selectedParticipant.problemStatement || selectedParticipant.problemStatement || "—"}</p>
                     </div>
                     
                     {selectedParticipant.description && (
@@ -3715,7 +3715,7 @@ const normalizedMeetingLink =
                       </div>
 
                       <div className="text-sm text-gray-700 font-medium">
-                        {p.paperTitle}
+                        {p.problemStatement}
                       </div>
 
                       <div className="text-sm text-gray-600">
@@ -4166,7 +4166,7 @@ function AssessmentModal({
             >
                <span className="flex items-center gap-2">
                   2. Problem Statement
-                  {openSection !== 2 && <span className="text-gray-500 font-normal text-sm ml-2 truncate max-w-xs">{p.paperTitle}</span>}
+                  {openSection !== 2 && <span className="text-gray-500 font-normal text-sm ml-2 truncate max-w-xs">{p.problemStatement}</span>}
                </span>
                <span className="text-gray-400">{openSection === 2 ? "▲" : "▼"}</span>
             </button>
@@ -4174,7 +4174,7 @@ function AssessmentModal({
                <div className="p-5 border-t border-gray-100">
                   <div className="mb-5 bg-gray-50 p-4 rounded-xl border border-gray-100">
                     <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Title</div>
-                    <div className="text-gray-800 font-medium text-sm md:text-base">{p.paperTitle}</div>
+                    <div className="text-gray-800 font-medium text-sm md:text-base">{p.problemStatement}</div>
                   </div>
                   {p.description && (
                     <div className="mb-5">
@@ -4300,7 +4300,7 @@ function AssessmentModal({
       {showPptModal && (
          <div className="fixed inset-0 z-[70] bg-black/90 flex flex-col p-2 md:p-6 backdrop-blur-md">
             <div className="flex justify-between items-center mb-4 text-white px-2">
-               <div className="font-bold text-lg truncate pr-4">{p.paperTitle} - Presentation</div>
+               <div className="font-bold text-lg truncate pr-4">{p.problemStatement} - Presentation</div>
                <button onClick={() => setShowPptModal(false)} className="bg-white/20 hover:bg-white/40 p-2 rounded-lg font-bold px-4 transition-colors text-sm flex items-center gap-2">Close ✕</button>
             </div>
             <div className="flex-1 w-full bg-white rounded-xl overflow-hidden shadow-2xl relative border border-gray-800">
@@ -4379,7 +4379,7 @@ function AssessmentSummary({ participants, onClose }) {
 </td>
 
                   <td className="border px-2 py-1">
-                    {p.paperTitle}
+                    {p.problemStatement}
                   </td>
 
                   {mode === "direct" ? (
@@ -4438,7 +4438,7 @@ function SessionChairConsole() {
           _id: p._id,
           paperId: p.teamId || p.paperId || "N/A",
           presenterName: p.teamName || p.presenterName || "Unnamed Team",
-          paperTitle: p.problemStatement || p.description || p.paperTitle || "No problem statement provided",
+          problemStatement: p.problemStatement || p.description || p.problemStatement || "No problem statement provided",
           institute: (institute && institute.trim()) ? institute : "Unknown Institute",
           branch: (branch && branch.trim()) ? branch : "Unknown Branch",
           mode: p.members?.length ? `${p.members.length} members` : p.mode || "Unknown",

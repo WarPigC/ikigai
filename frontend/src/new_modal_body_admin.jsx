@@ -13,7 +13,7 @@
                   <div className="space-y-4 text-sm text-gray-700">
                     <div>
                       <span className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Problem Statement</span>
-                      <p className="font-medium text-gray-900 leading-relaxed">{selectedParticipant.paperTitle || selectedParticipant.problemStatement || "—"}</p>
+                      <p className="font-medium text-gray-900 leading-relaxed">{selectedParticipant.problemStatement || selectedParticipant.problemStatement || "—"}</p>
                     </div>
                     
                     {selectedParticipant.description && (

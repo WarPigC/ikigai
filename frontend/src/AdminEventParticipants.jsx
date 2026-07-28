@@ -219,7 +219,7 @@ export default function AdminEventParticipants() {
       p.trackRank,
       p.paperId,
       p.teamName,
-      p.paperTitle,
+      p.problemStatement,
       p.trackName,
       p.presenterName,
       p.email ?? "",
@@ -275,7 +275,7 @@ export default function AdminEventParticipants() {
         "Track Rank": p.trackRank,
         "Team ID": p.paperId,
         "Team Name": p.teamName,
-        "Problem Statement": p.paperTitle,
+        "Problem Statement": p.problemStatement,
         "Track Name": p.trackName,
         "Presenter Name": p.presenterName,
         "Email": p.email || "",
@@ -374,7 +374,7 @@ export default function AdminEventParticipants() {
         p.trackRank,
         p.paperId,
         p.teamName,
-        p.paperTitle,
+        p.problemStatement,
         p.trackName,
         leaderName,
         p.phone || "",
@@ -651,7 +651,7 @@ export default function AdminEventParticipants() {
               </div>
               {/* Problem Statement and Team Name */}
               <div className="text-sm text-gray-700 mt-1 truncate">
-                <b>Team:</b> {p.teamName} &nbsp;|&nbsp; <b>Problem:</b> {p.paperTitle}
+                <b>Team:</b> {p.teamName} &nbsp;|&nbsp; <b>Problem:</b> {p.problemStatement}
               </div>
 
 
@@ -757,111 +757,7 @@ export default function AdminEventParticipants() {
           </div>
         </div>
       </div>
-    </div>
-  </div>
-)}
 
-{selectedEvaluationReport && (
-  <div className="fixed inset-0 z-[60] bg-black/40 flex items-center justify-center p-4">
-    <div className="bg-white rounded-2xl w-full max-w-2xl p-6 relative shadow-2xl max-h-[90vh] flex flex-col">
-      <button
-        onClick={() => setSelectedEvaluationReport(null)}
-        className="absolute top-3 right-4 text-gray-400 hover:text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-full w-8 h-8 flex items-center justify-center transition-colors"
-      >
-        ✕
-      </button>
-
-      <h3 className="text-xl font-bold text-gray-800 mb-1">
-        Evaluation Report
-      </h3>
-      <p className="text-sm text-gray-500 mb-6 border-b border-gray-100 pb-4">
-        {selectedEvaluationReport.teamName} • {selectedEvaluationReport.paperId}
-      </p>
-
-      <div className="flex-1 overflow-y-auto pr-2">
-        {!selectedEvaluationReport.assessment || typeof selectedEvaluationReport.assessment.total !== "number" ? (
-          <div className="p-8 text-center bg-gray-50 rounded-xl border border-dashed border-gray-300">
-            <span className="text-gray-500 font-medium text-lg">Participant not evaluated yet.</span>
-            <p className="text-sm text-gray-400 mt-2">No evaluation data is available for this team.</p>
-          </div>
-        ) : (
-          <div className="bg-white">
-            <div className="mb-4 bg-gray-50 p-4 rounded-xl border border-gray-100">
-              <span className="font-semibold text-gray-600 text-sm uppercase tracking-wide">Assigned Evaluator</span>
-              <div className="font-medium text-gray-900 mt-1 text-lg">
-                {selectedEvaluationReport.assignedEvaluator?.name || "Unknown"}
-                {selectedEvaluationReport.assignedEvaluator?.email ? <span className="text-gray-500 text-sm ml-2">({selectedEvaluationReport.assignedEvaluator.email})</span> : ""}
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-              <div className="bg-purple-50 p-4 rounded-xl border border-purple-100">
-                <span className="font-semibold text-purple-700 text-xs uppercase tracking-wide">Total Time</span>
-                <div className="font-bold text-purple-900 mt-1 text-2xl">
-                  {selectedEvaluationReport.assessment.totalPptTime || 0}s
-                </div>
-              </div>
-              
-              <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
-                <span className="font-semibold text-blue-700 text-xs uppercase tracking-wide">Avg Time / Slide</span>
-                <div className="font-bold text-blue-900 mt-1 text-2xl">
-                  {selectedEvaluationReport.assessment.slideTimings?.length > 0 
-                    ? Math.round((selectedEvaluationReport.assessment.totalPptTime || 0) / selectedEvaluationReport.assessment.slideTimings.length) 
-                    : 0}s
-                </div>
-              </div>
-            </div>
-            
-            {/* Slide-wise Time Table */}
-            <h5 className="text-sm font-bold text-gray-700 mb-3">Slide-wise Time Breakdown</h5>
-            {selectedEvaluationReport.assessment.slideTimings && selectedEvaluationReport.assessment.slideTimings.length > 0 ? (
-              <div className="border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm">
-                <table className="w-full text-sm text-left">
-                  <thead className="bg-gray-50 border-b border-gray-200">
-                    <tr>
-                      <th className="px-6 py-3 font-semibold text-gray-700">Slide Number</th>
-                      <th className="px-6 py-3 font-semibold text-gray-700">Time Spent</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {selectedEvaluationReport.assessment.slideTimings.map((timing, idx) => (
-                      <tr key={idx} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-6 py-3 font-medium text-gray-800">Slide {timing.slide}</td>
-                        <td className="px-6 py-3 text-gray-600">
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-gray-100 text-gray-800 font-medium text-xs">
-                            ⏱️ {timing.duration} sec
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div className="text-sm text-gray-500 italic bg-gray-50 p-4 rounded-xl border border-dashed border-gray-200">No detailed slide timing recorded.</div>
-            )}
-            
-            {/* AI Queries Section */}
-            <h5 className="text-sm font-bold text-gray-700 mt-6 mb-3">Evaluator "Ask AI" Queries</h5>
-            {selectedEvaluationReport.assessment.aiQueries && selectedEvaluationReport.assessment.aiQueries.length > 0 ? (
-              <div className="space-y-3">
-                {selectedEvaluationReport.assessment.aiQueries.map((q, idx) => (
-                  <div key={idx} className="bg-blue-50 border border-blue-100 p-3 rounded-lg flex flex-col gap-1">
-                    <span className="text-xs font-semibold text-blue-800 flex justify-between">
-                      Query {idx + 1}
-                      <span className="font-normal text-blue-600">{new Date(q.timestamp).toLocaleTimeString()}</span>
-                    </span>
-                    <p className="text-sm text-blue-900">{q.query}</p>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-sm text-gray-500 italic bg-gray-50 p-4 rounded-xl border border-dashed border-gray-200">No AI queries were asked during this evaluation.</div>
-            )}
-
-          </div>
-        )}
-      </div>
 
         {/* Modal Body (Scrollable) */}
         <div className="flex-1 overflow-y-auto p-6 bg-gray-50/30">
@@ -878,7 +774,7 @@ export default function AdminEventParticipants() {
                   <div className="space-y-4 text-sm text-gray-700">
                     <div>
                       <span className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Problem Statement</span>
-                      <p className="font-medium text-gray-900 leading-relaxed">{selectedParticipant.paperTitle || selectedParticipant.problemStatement || "—"}</p>
+                      <p className="font-medium text-gray-900 leading-relaxed">{selectedParticipant.problemStatement || "—"}</p>
                     </div>
                     
                     {selectedParticipant.description && (
@@ -1034,6 +930,111 @@ export default function AdminEventParticipants() {
     </div>
   </div>
 )}
+{selectedEvaluationReport && (
+  <div className="fixed inset-0 z-[60] bg-black/40 flex items-center justify-center p-4">
+    <div className="bg-white rounded-2xl w-full max-w-2xl p-6 relative shadow-2xl max-h-[90vh] flex flex-col">
+      <button
+        onClick={() => setSelectedEvaluationReport(null)}
+        className="absolute top-3 right-4 text-gray-400 hover:text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-full w-8 h-8 flex items-center justify-center transition-colors"
+      >
+        ✕
+      </button>
+
+      <h3 className="text-xl font-bold text-gray-800 mb-1">
+        Evaluation Report
+      </h3>
+      <p className="text-sm text-gray-500 mb-6 border-b border-gray-100 pb-4">
+        {selectedEvaluationReport.teamName} • {selectedEvaluationReport.paperId}
+      </p>
+
+      <div className="flex-1 overflow-y-auto pr-2">
+        {!selectedEvaluationReport.assessment || typeof selectedEvaluationReport.assessment.total !== "number" ? (
+          <div className="p-8 text-center bg-gray-50 rounded-xl border border-dashed border-gray-300">
+            <span className="text-gray-500 font-medium text-lg">Participant not evaluated yet.</span>
+            <p className="text-sm text-gray-400 mt-2">No evaluation data is available for this team.</p>
+          </div>
+        ) : (
+          <div className="bg-white">
+            <div className="mb-4 bg-gray-50 p-4 rounded-xl border border-gray-100">
+              <span className="font-semibold text-gray-600 text-sm uppercase tracking-wide">Assigned Evaluator</span>
+              <div className="font-medium text-gray-900 mt-1 text-lg">
+                {selectedEvaluationReport.assignedEvaluator?.name || "Unknown"}
+                {selectedEvaluationReport.assignedEvaluator?.email ? <span className="text-gray-500 text-sm ml-2">({selectedEvaluationReport.assignedEvaluator.email})</span> : ""}
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+              <div className="bg-purple-50 p-4 rounded-xl border border-purple-100">
+                <span className="font-semibold text-purple-700 text-xs uppercase tracking-wide">Total Time</span>
+                <div className="font-bold text-purple-900 mt-1 text-2xl">
+                  {selectedEvaluationReport.assessment.totalPptTime || 0}s
+                </div>
+              </div>
+              
+              <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                <span className="font-semibold text-blue-700 text-xs uppercase tracking-wide">Avg Time / Slide</span>
+                <div className="font-bold text-blue-900 mt-1 text-2xl">
+                  {selectedEvaluationReport.assessment.slideTimings?.length > 0 
+                    ? Math.round((selectedEvaluationReport.assessment.totalPptTime || 0) / selectedEvaluationReport.assessment.slideTimings.length) 
+                    : 0}s
+                </div>
+              </div>
+            </div>
+            
+            {/* Slide-wise Time Table */}
+            <h5 className="text-sm font-bold text-gray-700 mb-3">Slide-wise Time Breakdown</h5>
+            {selectedEvaluationReport.assessment.slideTimings && selectedEvaluationReport.assessment.slideTimings.length > 0 ? (
+              <div className="border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm">
+                <table className="w-full text-sm text-left">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="px-6 py-3 font-semibold text-gray-700">Slide Number</th>
+                      <th className="px-6 py-3 font-semibold text-gray-700">Time Spent</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {selectedEvaluationReport.assessment.slideTimings.map((timing, idx) => (
+                      <tr key={idx} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-6 py-3 font-medium text-gray-800">Slide {timing.slide}</td>
+                        <td className="px-6 py-3 text-gray-600">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-gray-100 text-gray-800 font-medium text-xs">
+                            ⏱️ {timing.duration} sec
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="text-sm text-gray-500 italic bg-gray-50 p-4 rounded-xl border border-dashed border-gray-200">No detailed slide timing recorded.</div>
+            )}
+            
+            {/* AI Queries Section */}
+            <h5 className="text-sm font-bold text-gray-700 mt-6 mb-3">Evaluator "Ask AI" Queries</h5>
+            {selectedEvaluationReport.assessment.aiQueries && selectedEvaluationReport.assessment.aiQueries.length > 0 ? (
+              <div className="space-y-3">
+                {selectedEvaluationReport.assessment.aiQueries.map((q, idx) => (
+                  <div key={idx} className="bg-blue-50 border border-blue-100 p-3 rounded-lg flex flex-col gap-1">
+                    <span className="text-xs font-semibold text-blue-800 flex justify-between">
+                      Query {idx + 1}
+                      <span className="font-normal text-blue-600">{new Date(q.timestamp).toLocaleTimeString()}</span>
+                    </span>
+                    <p className="text-sm text-blue-900">{q.query}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-sm text-gray-500 italic bg-gray-50 p-4 rounded-xl border border-dashed border-gray-200">No AI queries were asked during this evaluation.</div>
+            )}
+
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+)}
+
     </div>
   );
 }
