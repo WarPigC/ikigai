@@ -619,6 +619,8 @@ export function UsersView() {
   const [invitingId, setInvitingId] = useState(null);
   const [isBulkInviting, setIsBulkInviting] = useState(false);
   const [selectedEvaluators, setSelectedEvaluators] = useState([]);
+  const [showInviteMenu, setShowInviteMenu] = useState(false);
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
 
   const handleSendInvite = async (e, evId, isResend) => {
     e.stopPropagation();
@@ -654,6 +656,7 @@ export function UsersView() {
       if (data.success) {
         alert(data.message || "Invitations sent successfully!");
         setSelectedEvaluators([]);
+        setIsSelectionMode(false);
         fetchData();
       } else {
         alert(data.message || "Failed to send invitations.");
@@ -795,7 +798,7 @@ export function UsersView() {
       <div className="bg-white border border-green-200 rounded-2xl shadow-sm overflow-hidden mb-6">
         <div className="bg-green-50 px-6 py-4 border-b border-green-100 font-bold text-green-800 text-lg flex justify-between items-center">
           <div className="flex items-center gap-3">
-            {evaluators.length > 0 && (
+            {evaluators.length > 0 && isSelectionMode && (
               <input 
                 type="checkbox"
                 checked={selectedEvaluators.length === evaluators.length && evaluators.length > 0}
@@ -808,24 +811,54 @@ export function UsersView() {
             )}
             <span>Evaluators ({evaluators.length})</span>
           </div>
-          <div className="flex gap-2">
-            {selectedEvaluators.length > 0 && (
-              <button
-                onClick={handleSendSelected}
-                disabled={isBulkInviting}
-                className="text-sm px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded shadow transition disabled:opacity-50"
-              >
-                Send to Selected ({selectedEvaluators.length})
-              </button>
-            )}
+          <div className="flex gap-2 relative">
             {evaluators.length > 0 && (
-              <button
-                onClick={handleBulkInvite}
-                disabled={isBulkInviting}
-                className="text-sm px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded shadow transition disabled:opacity-50"
-              >
-                {isBulkInviting ? "Sending..." : "Send to All"}
-              </button>
+              isSelectionMode ? (
+                <>
+                  <button
+                    onClick={() => {
+                      setIsSelectionMode(false);
+                      setSelectedEvaluators([]);
+                    }}
+                    className="text-sm px-4 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded shadow transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSendSelected}
+                    disabled={isBulkInviting || selectedEvaluators.length === 0}
+                    className="text-sm px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded shadow transition disabled:opacity-50"
+                  >
+                    {isBulkInviting ? "Sending..." : `Confirm Send (${selectedEvaluators.length})`}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => setShowInviteMenu(!showInviteMenu)}
+                    disabled={isBulkInviting}
+                    className="text-sm px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded shadow transition flex items-center gap-1 disabled:opacity-50"
+                  >
+                    {isBulkInviting ? "Sending..." : "Send Invitations ▾"}
+                  </button>
+                  {showInviteMenu && !isBulkInviting && (
+                    <div className="absolute right-0 top-full mt-2 w-56 bg-white border border-gray-200 rounded-lg shadow-xl z-10 overflow-hidden">
+                      <button
+                        onClick={() => { setShowInviteMenu(false); handleBulkInvite(); }}
+                        className="w-full text-left px-4 py-3 hover:bg-gray-50 text-gray-700 font-semibold text-sm border-b border-gray-100 transition"
+                      >
+                        Send to All ({evaluators.length})
+                      </button>
+                      <button
+                        onClick={() => { setShowInviteMenu(false); setIsSelectionMode(true); }}
+                        className="w-full text-left px-4 py-3 font-semibold text-sm transition hover:bg-gray-50 text-indigo-700"
+                      >
+                        Send to Custom Users
+                      </button>
+                    </div>
+                  )}
+                </>
+              )
             )}
           </div>
         </div>
@@ -839,16 +872,18 @@ export function UsersView() {
               <div key={ev._id} className="p-4 hover:bg-gray-50 transition cursor-pointer" onClick={() => setExpandedId(expandedId === ev._id ? null : ev._id)}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <input 
-                      type="checkbox"
-                      checked={selectedEvaluators.includes(ev._id)}
-                      onClick={(e) => e.stopPropagation()}
-                      onChange={(e) => {
-                        if (e.target.checked) setSelectedEvaluators([...selectedEvaluators, ev._id]);
-                        else setSelectedEvaluators(selectedEvaluators.filter(id => id !== ev._id));
-                      }}
-                      className="w-4 h-4 cursor-pointer"
-                    />
+                    {isSelectionMode && (
+                      <input 
+                        type="checkbox"
+                        checked={selectedEvaluators.includes(ev._id)}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) => {
+                          if (e.target.checked) setSelectedEvaluators([...selectedEvaluators, ev._id]);
+                          else setSelectedEvaluators(selectedEvaluators.filter(id => id !== ev._id));
+                        }}
+                        className="w-4 h-4 cursor-pointer"
+                      />
+                    )}
                     <div>
                       <h4 className="font-semibold text-gray-800 flex items-center gap-2">
                         <span className={`text-green-600 transition-transform ${expandedId === ev._id ? 'rotate-90' : ''}`}>▶</span>

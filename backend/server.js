@@ -2471,7 +2471,7 @@ const PORT = process.env.PORT || 5000;
         await sendMail({
           from: `"HackEval" <${process.env.MAIL_USER}>`,
           to: email,
-          subject: "HackEval – Evaluator Invitation",
+          subject: "IKIGAI 2026 - Evaluator Invitation",
           html: `<p>Hello <b>${name}</b>,</p><p>You have been assigned as an Evaluator.</p><p><b>Track:</b> ${trackId}</p><p><b>Login Email:</b> ${email}</p><p><b>Temporary Password:</b> ${tempPassword}</p>`
         });
       } catch (e) {
@@ -2531,7 +2531,7 @@ const PORT = process.env.PORT || 5000;
 
       await sendMail({
         to: evaluator.email,
-        subject: "IKIGAI 2026 - Evaluator Invitation",
+        subject: `IKIGAI 2026 - Evaluator Invitation [${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}]`,
         html: generateInviteEmailHtml(evaluator.name, evaluator.email, tempPassword, updateToken)
       });
 
@@ -2561,7 +2561,7 @@ const PORT = process.env.PORT || 5000;
 
           await sendMail({
             to: evaluator.email,
-            subject: "IKIGAI 2026 - Evaluator Invitation",
+            subject: `IKIGAI 2026 - Evaluator Invitation [${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}]`,
             html: generateInviteEmailHtml(evaluator.name, evaluator.email, tempPassword, updateToken)
           });
           sent++;
@@ -2601,7 +2601,7 @@ const PORT = process.env.PORT || 5000;
 
           await sendMail({
             to: evaluator.email,
-            subject: "IKIGAI 2026 - Evaluator Invitation",
+            subject: `IKIGAI 2026 - Evaluator Invitation [${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}]`,
             html: generateInviteEmailHtml(evaluator.name, evaluator.email, tempPassword, updateToken)
           });
           sent++;
