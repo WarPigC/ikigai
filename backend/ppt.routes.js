@@ -2,7 +2,6 @@ import express from "express";
 import multer from "multer";
 import cloudinary from "cloudinary";
 import AdmZip from "adm-zip";
-import sharp from "sharp";
 const router = express.Router();
 
 /* ================== CLOUDINARY ================== */
@@ -86,27 +85,33 @@ router.post("/", upload.single("file"), async (req, res) => {
     // 🚀 NEW LOGIC: Native PPTX Media Compression
     if (ext === ".pptx" && fileBuffer.length > 9.5 * 1024 * 1024) { // Compress if > 9.5MB
       try {
-        console.log("🔄 PPTX exceeds 5MB. Attempting native JS compression...");
-        const zip = new AdmZip(fileBuffer);
-        const zipEntries = zip.getEntries();
-        
-        for (const entry of zipEntries) {
-          if (entry.entryName.startsWith('ppt/media/') && (entry.entryName.endsWith('.jpeg') || entry.entryName.endsWith('.jpg') || entry.entryName.endsWith('.png'))) {
-            const imgBuffer = entry.getData();
-            try {
-              const compressedImg = await sharp(imgBuffer)
-                .resize({ width: 1920, height: 1080, fit: 'inside', withoutEnlargement: true })
-                .jpeg({ quality: 65, force: false })
-                .png({ quality: 65, force: false })
-                .toBuffer();
-              zip.updateFile(entry.entryName, compressedImg);
-            } catch (err) {
-              console.error(`⚠️ Failed to compress image ${entry.entryName}:`, err.message);
+        console.log("🔄 PPTX exceeds 9.5MB. Attempting native JS compression...");
+        const sharpModule = await import("sharp").catch(() => null);
+        if (!sharpModule) {
+          console.warn("⚠️ sharp module not available, uploading original.");
+        } else {
+          const sharp = sharpModule.default;
+          const zip = new AdmZip(fileBuffer);
+          const zipEntries = zip.getEntries();
+          
+          for (const entry of zipEntries) {
+            if (entry.entryName.startsWith('ppt/media/') && (entry.entryName.endsWith('.jpeg') || entry.entryName.endsWith('.jpg') || entry.entryName.endsWith('.png'))) {
+              const imgBuffer = entry.getData();
+              try {
+                const compressedImg = await sharp(imgBuffer)
+                  .resize({ width: 1920, height: 1080, fit: 'inside', withoutEnlargement: true })
+                  .jpeg({ quality: 65, force: false })
+                  .png({ quality: 65, force: false })
+                  .toBuffer();
+                zip.updateFile(entry.entryName, compressedImg);
+              } catch (err) {
+                console.error(`⚠️ Failed to compress image ${entry.entryName}:`, err.message);
+              }
             }
           }
+          fileBuffer = zip.toBuffer();
+          console.log("✅ Successfully compressed PPTX natively in memory!");
         }
-        fileBuffer = zip.toBuffer();
-        console.log("✅ Successfully compressed PPTX natively in memory!");
       } catch (conversionErr) {
         console.warn("⚠️ Failed to compress PPTX. Uploading original instead.", conversionErr.message);
       }
