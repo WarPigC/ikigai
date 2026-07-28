@@ -136,6 +136,7 @@ function ChangePasswordModal({ user, onClose }) {
 /* ----------------------------- Shared Header ----------------------------- */
 function Header({ user, onLogout }) {
   const [open, setOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   
   const displayRole = user.role === "sessionChair" ? "Evaluator" : user.role === "studentCoordinator" ? "Student Coordinator" : "Admin";
@@ -156,7 +157,7 @@ function Header({ user, onLogout }) {
 
 
         <div className="flex items-center gap-2 relative">
-          {user.role === "sessionChair" && (
+          {user.role !== "admin" && (
             <div className="relative">
               <button 
                 onClick={() => setNotifOpen((v) => !v)}
