@@ -170,14 +170,15 @@ const EventSchema = new mongoose.Schema(
     criteria: {
       type: [{
         name: String,
-        maxMarks: Number
+        maxMarks: Number,
+        inputType: { type: String, default: "number" }
       }],
       default: [
-        { name: "Innovation & Originality", maxMarks: 10 },
-        { name: "Technical Complexity", maxMarks: 10 },
-        { name: "Business & Market Viability", maxMarks: 10 },
-        { name: "User Experience & Design", maxMarks: 10 },
-        { name: "Presentation & Q&A", maxMarks: 10 }
+        { name: "Innovation & Originality", maxMarks: 10, inputType: "number" },
+        { name: "Technical Complexity", maxMarks: 10, inputType: "number" },
+        { name: "Business & Market Viability", maxMarks: 10, inputType: "number" },
+        { name: "User Experience & Design", maxMarks: 10, inputType: "number" },
+        { name: "Presentation & Q&A", maxMarks: 10, inputType: "number" }
       ]
     },
     allowComments: { type: Boolean, default: true },
@@ -275,7 +276,7 @@ const ParticipantSchema = new mongoose.Schema(
         index: true
       },
       criteria: {
-        type: [Number],
+        type: [mongoose.Schema.Types.Mixed],
         default: [],
       },
       total: {
@@ -2675,7 +2676,6 @@ const PORT = process.env.PORT || 5000;
       res.status(500).json({ success: false, message: error.message });
     }
   });
-
   // --- End New Routes ---
 
   // Evaluator PUT
