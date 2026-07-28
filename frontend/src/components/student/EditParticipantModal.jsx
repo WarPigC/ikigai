@@ -100,6 +100,13 @@ export default function EditParticipantModal({ isOpen, onClose, participant, eve
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Block large PDFs to prevent Cloudinary errors (10MB limit)
+    if (file.type === "application/pdf" && file.size > 9.5 * 1024 * 1024) {
+      setError("Your PDF exceeds 9.5MB. Please compress it (e.g. at ilovepdf.com) or upload a PPTX instead.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
     setUploadingPpt(true);
     setUploadProgress(0);
     setError(null);
@@ -272,7 +279,7 @@ export default function EditParticipantModal({ isOpen, onClose, participant, eve
                       disabled={uploadingPpt}
                       className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium hover:bg-gray-50 flex items-center gap-2"
                     >
-                      <Upload size={16} /> {uploadingPpt ? "Uploading..." : "Update File"}
+                      <Upload size={16} /> {uploadingPpt ? (uploadProgress === 100 ? "Compressing & Saving..." : "Uploading...") : "Update File"}
                     </button>
                     <input
                       type="file"
@@ -290,11 +297,16 @@ export default function EditParticipantModal({ isOpen, onClose, participant, eve
                     />
                   </div>
                   {uploadingPpt && (
-                    <div className="mt-2 w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
-                      <div 
-                        className="bg-green-600 h-1.5 rounded-full transition-all duration-300" 
-                        style={{ width: `${uploadProgress}%` }}
-                      ></div>
+                    <div className="mt-2">
+                      <div className="w-full bg-gray-200 rounded-full h-1.5">
+                        <div 
+                          className="bg-indigo-600 h-1.5 rounded-full transition-all duration-300"
+                          style={{ width: `${uploadProgress}%` }}
+                        ></div>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1 text-right">
+                        {uploadProgress === 100 ? "Processing and optimizing file..." : `${uploadProgress}% uploaded`}
+                      </p>
                     </div>
                   )}
                 </div>
