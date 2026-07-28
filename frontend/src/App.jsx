@@ -2518,7 +2518,7 @@ const filteredParticipants = participants
   p.branch || "",
   p.email || "",
   p.phone || "",
-  typeof p.assessment?.total === "number"
+  p.status === "EVALUATED"
     ? p.assessment.total
     : "Pending",
 ]);
@@ -3093,7 +3093,7 @@ const submissionUrl =
       {/* RIGHT SIDE */}
       <div className="flex flex-col items-end gap-2 shrink-0">
         {/* Marks */}
-        {typeof p.assessment?.total === "number" ? (
+        {p.status === "EVALUATED" ? (
           <span className="font-semibold text-gray-800 flex items-center gap-1">
               {sortBy === "marks" && sortOrder === "desc" && index === 0 && "🥇"}
               {sortBy === "marks" && sortOrder === "desc" && index === 1 && "🥈"}
@@ -3690,8 +3690,7 @@ const normalizedMeetingLink =
               </div>
             ) : (
               participants.map((p, idx) => {
-                const isAssessed =
-  typeof p.assessment?.total === "number";
+                const isAssessed = p.status === "EVALUATED";
 
                 return (
                   <div
