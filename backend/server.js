@@ -14,10 +14,18 @@ import { sendMail } from "./mailer.js";
 const app = express();
 app.use(
   cors({
-    origin: [
-      "http://localhost:5173",
-      "https://care-zeta.vercel.app",
-    ],
+    origin: function (origin, callback) {
+      const allowedOrigins = [
+        "http://localhost:5173",
+        "https://care-zeta.vercel.app",
+        "https://ikigai-csit.up.railway.app"
+      ];
+      if (!origin || allowedOrigins.includes(origin) || origin.endsWith('.up.railway.app')) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
