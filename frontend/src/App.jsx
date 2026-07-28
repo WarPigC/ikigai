@@ -2346,6 +2346,7 @@ const handleAdminSaveMarks = async () => {
     : {
         assessment: {
           total: adminAssessmentForm.total,
+          notes: adminAssessmentForm.notes,
         },
       };
 
@@ -3387,7 +3388,19 @@ const submissionUrl =
                                   <span className="text-xl text-violet-700 font-extrabold">{adminAssessmentForm.total}</span>
                                 )}
                               </td>
-                              <td className="px-4 py-4 text-gray-400 text-xs text-center">N/A in Direct Total mode</td>
+                              <td className="px-4 py-4 text-gray-600 text-xs text-center">
+                                {editingAssessment ? (
+                                  <textarea
+                                    rows="2"
+                                    value={adminAssessmentForm.notes || ""}
+                                    onChange={(e) => setAdminAssessmentForm(f => ({ ...f, notes: e.target.value }))}
+                                    className="w-full border border-gray-300 rounded p-2 focus:ring-2 focus:ring-violet-500 focus:border-violet-500 outline-none resize-none"
+                                    placeholder="Overall justification..."
+                                  />
+                                ) : (
+                                  <span className="italic">{adminAssessmentForm.notes || "No justification provided"}</span>
+                                )}
+                              </td>
                             </tr>
                           )}
                         </tbody>
@@ -3981,7 +3994,7 @@ function AssessmentModal({
     const assessmentPayload = {
       criteria: assessmentMode === "criteria" ? form.criteria.map(Number) : [],
       total: Number(form.total),
-      notes: form.justifications.some(j => j) ? "JSON:" + JSON.stringify(form.justifications) : form.notes,
+      notes: assessmentMode === "criteria" ? "JSON:" + JSON.stringify(form.justifications) : form.notes,
       mode: assessmentMode,
       slideTimings: form.slideTimings,
       totalPptTime: form.totalPptTime,
