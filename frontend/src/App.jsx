@@ -3755,11 +3755,17 @@ const normalizedMeetingLink =
   );
 }
 /* ------------------------ Member Assessment Card ------------------------ */
-const MemberAssessmentCard = ({ m }) => {
+const MemberAssessmentCard = ({ m, index, total }) => {
   const [open, setOpen] = React.useState(false);
+
   return (
-    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-      <button 
+    <div className="relative w-full h-full min-h-[56px]">
+      <div className={`bg-white p-4 rounded-xl shadow-sm border overflow-hidden transition-all duration-300 flex flex-col ${
+          open 
+            ? 'absolute top-0 left-[-2%] sm:left-[-5%] w-[104%] sm:w-[110%] shadow-2xl shadow-purple-500/20 border-purple-300 z-50' 
+            : 'relative w-full h-full border-gray-200 hover:shadow-md z-10'
+        }`}>
+        <button 
         onClick={() => setOpen(!open)}
         className="w-full flex items-center justify-between font-semibold text-gray-800 text-sm border-b border-gray-100 pb-2 focus:outline-none"
       >
@@ -3787,6 +3793,7 @@ const MemberAssessmentCard = ({ m }) => {
            {m.differentlyAbled !== undefined && m.differentlyAbled !== "" && <div><span className="font-semibold text-gray-500 mr-1">Diff. Abled:</span> {String(m.differentlyAbled) === "true" ? "Yes" : "No"}</div>}
         </div>
       )}
+    </div>
     </div>
   );
 };
@@ -4128,7 +4135,7 @@ function AssessmentModal({
         <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50/50">
           
           {/* Section 1: About Team */}
-          <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm bg-white">
+          <div className={`border border-gray-200 rounded-xl shadow-sm bg-white ${openSection === 1 ? '' : 'overflow-hidden'}`}>
             <button 
                onClick={() => setOpenSection(openSection === 1 ? null : 1)}
                className="w-full flex justify-between items-center p-4 bg-gray-50 hover:bg-gray-100 transition-colors text-left font-semibold text-gray-800"
@@ -4151,7 +4158,7 @@ function AssessmentModal({
                   <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Team Members ({p.members?.length || 0})</h4>
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     {(p.members || []).map((m, idx) => (
-                      <MemberAssessmentCard key={idx} m={m} />
+                      <MemberAssessmentCard key={idx} m={m} index={idx} total={(p.members || []).length} />
                     ))}
                   </div>
                </div>
@@ -4159,7 +4166,7 @@ function AssessmentModal({
           </div>
 
           {/* Section 2: Problem Statement */}
-          <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm bg-white">
+          <div className={`border border-gray-200 rounded-xl shadow-sm bg-white ${openSection === 2 ? '' : 'overflow-hidden'}`}>
             <button 
                onClick={() => setOpenSection(openSection === 2 ? null : 2)}
                className="w-full flex justify-between items-center p-4 bg-gray-50 hover:bg-gray-100 transition-colors text-left font-semibold text-gray-800"
@@ -4201,7 +4208,7 @@ function AssessmentModal({
           </div>
 
           {/* Section 3: Assessment */}
-          <div className="border border-green-200 rounded-xl overflow-hidden shadow-sm bg-white ring-1 ring-green-50">
+          <div className={`border border-green-200 rounded-xl shadow-sm bg-white ring-1 ring-green-50 ${openSection === 3 ? '' : 'overflow-hidden'}`}>
             <button 
                onClick={() => setOpenSection(openSection === 3 ? null : 3)}
                className="w-full flex justify-between items-center p-4 bg-green-50 hover:bg-green-100 transition-colors text-left font-semibold text-green-900"
