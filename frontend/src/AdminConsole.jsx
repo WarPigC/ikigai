@@ -633,16 +633,21 @@ export function UsersView() {
 
   const [invitingId, setInvitingId] = useState(null);
   const [isBulkInviting, setIsBulkInviting] = useState(false);
+  const [selectedEvaluators, setSelectedEvaluators] = useState([]);
+  const [showInviteMenu, setShowInviteMenu] = useState(false);
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
 
-  const handleSendInvite = async (e, evId) => {
+  const handleSendInvite = async (e, evId, isResend) => {
     e.stopPropagation();
-    if (!confirm("Send invitation email and generate new password for this evaluator?")) return;
+    const msg = isResend ? "Resend the invitation email to this evaluator?" : "Send invitation email to this evaluator?";
+    if (!confirm(msg)) return;
     setInvitingId(evId);
     try {
       const res = await fetch(`${API_BASE}/api/admin/evaluators/${evId}/send-invite`, { method: "POST" });
       const data = await res.json();
       if (data.success) {
         alert("Invitation sent successfully!");
+        fetchData();
       } else {
         alert(data.message || "Failed to send invitation.");
       }
@@ -652,14 +657,40 @@ export function UsersView() {
     setInvitingId(null);
   };
 
+  const handleSendSelected = async () => {
+    if (selectedEvaluators.length === 0) return;
+    if (!confirm(`Send invitation emails to ${selectedEvaluators.length} selected evaluator(s)?`)) return;
+    setIsBulkInviting(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/evaluators/send-invites-selected`, { 
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ evaluatorIds: selectedEvaluators })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(data.message || "Invitations sent successfully!");
+        setSelectedEvaluators([]);
+        setIsSelectionMode(false);
+        fetchData();
+      } else {
+        alert(data.message || "Failed to send invitations.");
+      }
+    } catch (err) {
+      alert("Error sending invitations.");
+    }
+    setIsBulkInviting(false);
+  };
+
   const handleBulkInvite = async () => {
-    if (!confirm("Send invitation emails to ALL evaluators? This will reset all their passwords.")) return;
+    if (!confirm("Send invitation emails to ALL evaluators?")) return;
     setIsBulkInviting(true);
     try {
       const res = await fetch(`${API_BASE}/api/admin/evaluators/send-invites-bulk`, { method: "POST" });
       const data = await res.json();
       if (data.success) {
         alert(data.message || "Invitations sent successfully!");
+        fetchData();
       } else {
         alert(data.message || "Failed to send invitations.");
       }
@@ -781,16 +812,70 @@ export function UsersView() {
       {/* Evaluators */}
       <div className="bg-white border border-green-200 rounded-2xl shadow-sm overflow-hidden mb-6">
         <div className="bg-green-50 px-6 py-4 border-b border-green-100 font-bold text-green-800 text-lg flex justify-between items-center">
-          <span>Evaluators ({evaluators.length})</span>
-          {evaluators.length > 0 && (
-            <button
-              onClick={handleBulkInvite}
-              disabled={isBulkInviting}
-              className="text-sm px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded shadow transition disabled:opacity-50"
-            >
-              {isBulkInviting ? "Sending..." : "Send Invitations to All"}
-            </button>
-          )}
+          <div className="flex items-center gap-3">
+            {evaluators.length > 0 && isSelectionMode && (
+              <input 
+                type="checkbox"
+                checked={selectedEvaluators.length === evaluators.length && evaluators.length > 0}
+                onChange={(e) => {
+                  if (e.target.checked) setSelectedEvaluators(evaluators.map(ev => ev._id));
+                  else setSelectedEvaluators([]);
+                }}
+                className="w-4 h-4 cursor-pointer"
+              />
+            )}
+            <span>Evaluators ({evaluators.length})</span>
+          </div>
+          <div className="flex gap-2 relative">
+            {evaluators.length > 0 && (
+              isSelectionMode ? (
+                <>
+                  <button
+                    onClick={() => {
+                      setIsSelectionMode(false);
+                      setSelectedEvaluators([]);
+                    }}
+                    className="text-sm px-4 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded shadow transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSendSelected}
+                    disabled={isBulkInviting || selectedEvaluators.length === 0}
+                    className="text-sm px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded shadow transition disabled:opacity-50"
+                  >
+                    {isBulkInviting ? "Sending..." : `Confirm Send (${selectedEvaluators.length})`}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => setShowInviteMenu(!showInviteMenu)}
+                    disabled={isBulkInviting}
+                    className="text-sm px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded shadow transition flex items-center gap-1 disabled:opacity-50"
+                  >
+                    {isBulkInviting ? "Sending..." : "Send Invitations ▾"}
+                  </button>
+                  {showInviteMenu && !isBulkInviting && (
+                    <div className="absolute right-0 top-full mt-2 w-56 bg-white border border-gray-200 rounded-lg shadow-xl z-10 overflow-hidden">
+                      <button
+                        onClick={() => { setShowInviteMenu(false); handleBulkInvite(); }}
+                        className="w-full text-left px-4 py-3 hover:bg-gray-50 text-gray-700 font-semibold text-sm border-b border-gray-100 transition"
+                      >
+                        Send to All ({evaluators.length})
+                      </button>
+                      <button
+                        onClick={() => { setShowInviteMenu(false); setIsSelectionMode(true); }}
+                        className="w-full text-left px-4 py-3 font-semibold text-sm transition hover:bg-gray-50 text-indigo-700"
+                      >
+                        Send to Custom Users
+                      </button>
+                    </div>
+                  )}
+                </>
+              )
+            )}
+          </div>
         </div>
         {loading ? (
           <div className="p-6 text-gray-500">Loading users...</div>
@@ -801,19 +886,33 @@ export function UsersView() {
             {evaluators.map(ev => (
               <div key={ev._id} className="p-4 hover:bg-gray-50 transition cursor-pointer" onClick={() => setExpandedId(expandedId === ev._id ? null : ev._id)}>
                 <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-semibold text-gray-800 flex items-center gap-2">
-                      <span className={`text-green-600 transition-transform ${expandedId === ev._id ? 'rotate-90' : ''}`}>▶</span>
-                      {ev.name}
-                    </h4>
+                  <div className="flex items-center gap-3">
+                    {isSelectionMode && (
+                      <input 
+                        type="checkbox"
+                        checked={selectedEvaluators.includes(ev._id)}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) => {
+                          if (e.target.checked) setSelectedEvaluators([...selectedEvaluators, ev._id]);
+                          else setSelectedEvaluators(selectedEvaluators.filter(id => id !== ev._id));
+                        }}
+                        className="w-4 h-4 cursor-pointer"
+                      />
+                    )}
+                    <div>
+                      <h4 className="font-semibold text-gray-800 flex items-center gap-2">
+                        <span className={`text-green-600 transition-transform ${expandedId === ev._id ? 'rotate-90' : ''}`}>▶</span>
+                        {ev.name}
+                      </h4>
                     <p className="text-sm text-gray-500 ml-5">{ev.email}</p>
                   </div>
+                  </div>
                   <button 
-                    onClick={(e) => handleSendInvite(e, ev._id)} 
+                    onClick={(e) => handleSendInvite(e, ev._id, ev.inviteSent)} 
                     disabled={invitingId === ev._id}
-                    className="mr-4 text-xs font-semibold px-3 py-1 bg-blue-50 text-blue-600 border border-blue-200 rounded hover:bg-blue-100 transition disabled:opacity-50"
+                    className={`mr-4 text-xs font-semibold px-3 py-1 border rounded transition disabled:opacity-50 ${ev.inviteSent ? 'bg-orange-50 text-orange-600 border-orange-200 hover:bg-orange-100' : 'bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100'}`}
                   >
-                    {invitingId === ev._id ? "Sending..." : "Send Invite"}
+                    {invitingId === ev._id ? "Sending..." : ev.inviteSent ? "Resend Invitation" : "Send Invite"}
                   </button>
                 </div>
                 {expandedId === ev._id && (
@@ -825,7 +924,11 @@ export function UsersView() {
                     <div className="col-span-2 mt-2 pt-2 border-t border-gray-200">
                       <span className="font-semibold text-gray-700">Temporary Password:</span> 
                       <span className="ml-2 font-mono bg-white px-2 py-1 rounded border border-gray-300">
-                        {ev.name.split(' ')[1]?.toLowerCase() || 'user'}123
+                        {(() => {
+                          const cleanName = ev.name.replace(/^(mr\.|mrs\.|ms\.|dr\.|prof\.)\s*/i, "").trim();
+                          const firstName = cleanName.split(" ")[0].toLowerCase().replace(/[^a-z0-9]/g, "") || "evaluator";
+                          return `${firstName}123`;
+                        })()}
                       </span>
                     </div>
                   </div>
