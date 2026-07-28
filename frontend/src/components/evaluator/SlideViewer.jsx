@@ -44,8 +44,12 @@ export default function SlideViewer({ fileUrl, onTimingUpdate, onAiQuery }) {
     try {
       const token = localStorage.getItem("care_token") || sessionStorage.getItem("care_token");
       
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5 * 60 * 1000); // 5 min timeout
+
       const res = await fetch(`${API_BASE}/api/ai/ask`, {
         method: "POST",
+        signal: controller.signal,
         headers: {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {})
@@ -55,6 +59,7 @@ export default function SlideViewer({ fileUrl, onTimingUpdate, onAiQuery }) {
           query: userMessage.content,
         }),
       });
+      clearTimeout(timeoutId);
 
       const data = await res.json();
       
@@ -65,7 +70,10 @@ export default function SlideViewer({ fileUrl, onTimingUpdate, onAiQuery }) {
       }
     } catch (err) {
       console.error(err);
-      setChatHistory((prev) => [...prev, { role: "assistant", content: "Failed to connect to AI service." }]);
+      const msg = err.name === "AbortError"
+        ? "AI request timed out (the presentation may be too large). Please try again."
+        : "Failed to connect to AI service.";
+      setChatHistory((prev) => [...prev, { role: "assistant", content: msg }]);
     } finally {
       setIsAiLoading(false);
     }
