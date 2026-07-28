@@ -28,8 +28,8 @@ export async function sendMail({ to, subject, html }) {
 
   return emailApi.sendTransacEmail({
     sender: {
-      name: "CARE System",
-      email: "s.aniruddha3993@gmail.com", // ✅ verify this email in Brevo
+      name: "IKIGAI 2026",
+      email: process.env.BREVO_USER || "s.aniruddha3993@gmail.com",
     },
     to: [{ email: to }],
     subject,
