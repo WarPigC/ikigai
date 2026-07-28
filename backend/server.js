@@ -2595,6 +2595,24 @@ const PORT = process.env.PORT || 5000;
       res.status(500).json({ success: false, message: error.message });
     }
   });
+
+  app.post("/api/auth/change-password", async (req, res) => {
+    try {
+      const { email, newPassword } = req.body;
+      if (!email || !newPassword) return res.status(400).json({ success: false, message: "Email and new password required" });
+
+      const evaluator = await SessionChair.findOne({ email: email.toLowerCase().trim() });
+      if (!evaluator) return res.status(404).json({ success: false, message: "Evaluator not found" });
+
+      evaluator.passwordHash = hashPassword(newPassword);
+      await evaluator.save();
+
+      res.json({ success: true, message: "Password updated successfully" });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  });
   // --- End New Routes ---
 
   // Evaluator PUT

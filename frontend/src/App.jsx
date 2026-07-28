@@ -39,8 +39,54 @@ export const ASSESSMENT_CRITERIA = [
 /* ----------------------------- Shared Header ----------------------------- */
 function Header({ user, onLogout }) {
   const [open, setOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    if (password !== confirmPassword) {
+      setPasswordError("Passwords do not match.");
+      return;
+    }
+    if (password.length < 6) {
+      setPasswordError("Password must be at least 6 characters.");
+      return;
+    }
+    setPasswordLoading(true);
+    setPasswordError("");
+    try {
+      const email = sessionStorage.getItem("care_email");
+      const res = await fetch(`${API_BASE}/api/auth/change-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, newPassword: password }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setPasswordSuccess(true);
+        setTimeout(() => {
+          setShowPasswordModal(false);
+          setPasswordSuccess(false);
+          setPassword("");
+          setConfirmPassword("");
+        }, 2000);
+      } else {
+        setPasswordError(data.message || "Failed to update password.");
+      }
+    } catch (err) {
+      setPasswordError("An error occurred.");
+    }
+    setPasswordLoading(false);
+  };
+
   return (
-    <header className="w-full bg-white/70 backdrop-blur-md border-b border-green-200 shadow-sm">
+    <>
+    <header className="w-full bg-white/70 backdrop-blur-md border-b border-green-200 shadow-sm relative z-40">
       <div className="flex items-center justify-between px-4 md:px-6 py-3 md:h-20">
 
         <div className="flex items-center min-w-0 w-1/2">
@@ -55,10 +101,26 @@ function Header({ user, onLogout }) {
 
         <div className="flex items-center gap-2 relative">
           {user.role === "sessionChair" && (
-            <button className="relative p-2 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-full transition-colors mr-2">
-              <Bell size={22} />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border border-white"></span>
-            </button>
+            <div className="relative">
+              <button 
+                onClick={() => setNotifOpen((v) => !v)}
+                className="relative p-2 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-full transition-colors mr-2">
+                <Bell size={22} />
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border border-white"></span>
+              </button>
+              {notifOpen && (
+                <div className="absolute right-0 top-12 w-64 bg-white border border-gray-100 rounded-lg shadow-xl z-50 overflow-hidden p-4">
+                  <h4 className="text-sm font-bold text-gray-800 mb-2">Welcome, {user.name}!</h4>
+                  <p className="text-xs text-gray-600 mb-4">Please change your default password to secure your account.</p>
+                  <button 
+                    onClick={() => { setNotifOpen(false); setShowPasswordModal(true); }}
+                    className="w-full bg-green-600 text-white text-xs font-bold py-2 rounded hover:bg-green-700 transition"
+                  >
+                    Change Password
+                  </button>
+                </div>
+              )}
+            </div>
           )}
           <button
             onClick={() => setOpen((v) => !v)}
@@ -91,6 +153,68 @@ function Header({ user, onLogout }) {
         </div>
       </div>
     </header>
+
+      {/* Change Password Modal */}
+      {showPasswordModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white p-6 rounded-xl shadow-2xl max-w-sm w-full">
+            <h3 className="text-lg font-bold text-gray-800 mb-2">Change Password</h3>
+            <p className="text-xs text-gray-500 mb-4">Set a new password for your evaluator account.</p>
+            {passwordSuccess ? (
+              <div className="bg-green-50 text-green-700 p-3 rounded-lg text-sm font-medium mb-4">
+                Password changed successfully!
+              </div>
+            ) : (
+              <form onSubmit={handleChangePassword} className="space-y-4">
+                {passwordError && (
+                  <div className="bg-red-50 text-red-600 p-2 rounded text-xs font-medium">
+                    {passwordError}
+                  </div>
+                )}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">New Password</label>
+                  <input
+                    type="password"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
+                    placeholder="••••••••"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Confirm Password</label>
+                  <input
+                    type="password"
+                    required
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
+                    placeholder="••••••••"
+                  />
+                </div>
+                <div className="flex gap-2 justify-end mt-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowPasswordModal(false)}
+                    className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={passwordLoading}
+                    className="px-4 py-2 text-sm bg-green-600 text-white rounded hover:bg-green-700 font-semibold disabled:opacity-50"
+                  >
+                    {passwordLoading ? "Saving..." : "Save Password"}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
