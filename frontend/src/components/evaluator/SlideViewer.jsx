@@ -261,9 +261,9 @@ export default function SlideViewer({ fileUrl, onTimingUpdate, onAiQuery }) {
     documentUrl = documentUrl.replace("http://", "https://");
   }
 
-  const isDefinitelyNotPdf = documentUrl && !documentUrl.split("?")[0].toLowerCase().endsWith('.pdf');
+  const isDefinitelyPpt = documentUrl && (documentUrl.split("?")[0].toLowerCase().endsWith('.pptx') || documentUrl.split("?")[0].toLowerCase().endsWith('.ppt'));
   
-  if (!isPdf || isDefinitelyNotPdf) {
+  if (!isPdf || isDefinitelyPpt) {
     // Use Microsoft Office Viewer for PPT/PPTX as it natively supports slide-by-slide presentation mode
     // Append wdSlideId so that when pageNumber state changes, the iframe reloads to that slide!
     const officeViewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(documentUrl)}&wdSlideId=${pageNumber}`;

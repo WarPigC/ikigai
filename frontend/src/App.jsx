@@ -1,5 +1,8 @@
 // src/App.jsx
 import React, { useEffect, useState, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
+import ErrorBoundary from "./ErrorBoundary";
+import UpdatePassword from "./UpdatePassword";
 import SlideViewer from "./components/evaluator/SlideViewer";
 import {
   BrowserRouter,
@@ -22,7 +25,7 @@ import autoTable from "jspdf-autotable";
 import AdminEventParticipants from "./AdminEventParticipants";
 import StudentDashboard from "./pages/StudentDashboard";
 import ikigaiLogo from "./assets/ikigai.png";
-import { FileText, CheckCircle, Link2, User, Mail, Phone, Building2, BookOpen, GraduationCap, MapPin, X } from "lucide-react";
+import { FileText, CheckCircle, Link2, User, Mail, Phone, Building2, BookOpen, GraduationCap, MapPin, X, Bell } from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
 export const ASSESSMENT_CRITERIA = [
@@ -34,11 +37,113 @@ export const ASSESSMENT_CRITERIA = [
 ];
 
 
+function ChangePasswordModal({ user, onClose }) {
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (newPassword !== confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/change-password-direct`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: user.email,
+          role: user.role,
+          newPassword
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSuccess(true);
+        setTimeout(() => onClose(), 2000);
+      } else {
+        setError(data.message || "Failed to update password");
+      }
+    } catch (err) {
+      setError("An error occurred. Please try again.");
+    }
+    setLoading(false);
+  };
+
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4">
+      <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl">
+        <h2 className="text-2xl font-bold text-gray-800 mb-2">Change Password</h2>
+        <p className="text-gray-500 mb-6 text-sm">Securely update your password.</p>
+        
+        {success ? (
+          <div className="bg-green-100 text-green-700 p-4 rounded-xl text-center font-semibold">
+            Password updated successfully!
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">New Password</label>
+              <input
+                type="password"
+                required
+                className="w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-green-500 outline-none"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Confirm New Password</label>
+              <input
+                type="password"
+                required
+                className="w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-green-500 outline-none"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+              />
+            </div>
+            {error && <div className="text-red-500 text-sm">{error}</div>}
+            
+            <div className="flex gap-3 pt-4">
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold rounded-xl transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex-1 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-xl transition disabled:opacity-50"
+              >
+                {loading ? "Updating..." : "Update Password"}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 /* ----------------------------- Shared Header ----------------------------- */
 function Header({ user, onLogout }) {
   const [open, setOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  
+  const displayRole = user.role === "sessionChair" ? "Evaluator" : user.role === "studentCoordinator" ? "Student Coordinator" : "Admin";
+
   return (
-    <header className="w-full bg-white/70 backdrop-blur-md border-b border-green-200 shadow-sm">
+    <>
+    <header className="w-full bg-white/70 backdrop-blur-md border-b border-green-200 shadow-sm relative z-50">
       <div className="flex items-center justify-between px-4 md:px-6 py-3 md:h-20">
 
         <div className="flex items-center min-w-0 w-1/2">
@@ -51,7 +156,29 @@ function Header({ user, onLogout }) {
 </div>
 
 
-        <div className="relative">
+        <div className="flex items-center gap-2 relative">
+          {user.role !== "admin" && (
+            <div className="relative">
+              <button 
+                onClick={() => setNotifOpen((v) => !v)}
+                className="relative p-2 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-full transition-colors mr-2">
+                <Bell size={22} />
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border border-white"></span>
+              </button>
+              {notifOpen && (
+                <div className="absolute right-0 top-12 w-64 bg-white border border-gray-100 rounded-lg shadow-xl z-50 overflow-hidden p-4">
+                  <h4 className="text-sm font-bold text-gray-800 mb-2">Welcome, {user.name}!</h4>
+                  <p className="text-xs text-gray-600 mb-4">Please change your default password to secure your account.</p>
+                  <button 
+                    onClick={() => { setNotifOpen(false); setShowPasswordModal(true); }}
+                    className="w-full bg-green-600 text-white text-xs font-bold py-2 rounded hover:bg-green-700 transition"
+                  >
+                    Change Password
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
           <button
             onClick={() => setOpen((v) => !v)}
             className="flex items-center gap-2 rounded-full px-3 py-2 hover:bg-green-50"
@@ -59,30 +186,50 @@ function Header({ user, onLogout }) {
             aria-expanded={open}
           >
             <div className="w-10 h-10 bg-green-600 text-white flex items-center justify-center rounded-full font-semibold">
-              {user.name[0].toUpperCase()}
+              {user.name[0]?.toUpperCase() || "U"}
             </div>
             <div className="hidden sm:flex flex-col text-left">
               <span className="text-sm font-semibold">{user.name}</span>
-              <span className="text-xs text-green-700">{user.role}</span>
+              <span className="text-xs text-green-700 capitalize">{displayRole}</span>
             </div>
           </button>
 
           {open && (
-            <div className="absolute right-0 mt-2 w-36 bg-white border border-green-100 rounded-lg shadow-md">
-              <button
-                onClick={() => {
-                  setOpen(false);
-                  onLogout();
-                }}
-                className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-green-50"
-              >
-                Logout
-              </button>
+            <div className="absolute right-0 top-14 w-64 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden">
+              <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
+                <p className="text-sm font-bold text-gray-800 truncate">{user.name}</p>
+                <p className="text-xs text-gray-500 truncate">{user.email || "No email"}</p>
+                <p className="text-xs font-semibold text-green-600 mt-1 capitalize">{displayRole}</p>
+              </div>
+              <div className="py-1">
+                {user.role !== "admin" && (
+                  <button
+                    onClick={() => {
+                      setOpen(false);
+                      setShowPasswordModal(true);
+                    }}
+                    className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100 font-medium"
+                  >
+                    Change Password
+                  </button>
+                )}
+                <button
+                  onClick={() => {
+                    setOpen(false);
+                    onLogout();
+                  }}
+                  className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 font-medium"
+                >
+                  Logout
+                </button>
+              </div>
             </div>
           )}
         </div>
       </div>
     </header>
+    {showPasswordModal && <ChangePasswordModal user={user} onClose={() => setShowPasswordModal(false)} />}
+    </>
   );
 }
 
@@ -1894,6 +2041,8 @@ useEffect(() => {
               }))
             : [],
           sessionChairs: [], // loaded separately if needed
+          criteria: ev.criteria || [],
+          allowDirectTotal: ev.allowDirectTotal ?? true,
         });
 
         return;
@@ -1932,6 +2081,8 @@ useEffect(() => {
             }))
           : [],
         sessionChairs: [],
+        criteria: data.event.criteria || [],
+        allowDirectTotal: data.event.allowDirectTotal ?? true,
       });
     } catch (err) {
       console.error("Fetching single event failed:", err);
@@ -2304,6 +2455,8 @@ function TrackDetails({
 
   const tracks = Array.isArray(local?.tracks) ? local.tracks : [];
   const track = tracks.find((t) => t.id === trackId);
+  const criteriaList = local?.criteria?.length ? local.criteria : ASSESSMENT_CRITERIA.map(name => ({ name, maxMarks: 10 }));
+  const maxTotalMarks = criteriaList.reduce((sum, c) => sum + (Number(c.maxMarks) || 10), 0);
   const [participants, setParticipants] = useState([]);
   const [loadingParticipants, setLoadingParticipants] = useState(true);
   const [selectedParticipant, setSelectedParticipant] = useState(null);
@@ -3225,188 +3378,77 @@ const submissionUrl =
                 </div>
               </div>
 
-              {/* Right Column (Evaluation Table) */}
+              {/* Right Column (Evaluation Tables) */}
               <div className="lg:col-span-2">
-                <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-5 h-full flex flex-col">
+                <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-5 h-full flex flex-col overflow-y-auto max-h-[600px] custom-scrollbar">
                   <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wider mb-4 flex items-center gap-2">
-                    <CheckCircle size={16} className="text-emerald-500" /> Evaluation
+                    <CheckCircle size={16} className="text-emerald-500" /> Evaluation Records
                   </h3>
                   
-                  <div className="mt-2 flex-1">
-                    {/* ===== MODE TABS ===== */}
-                    {isAdmin && (
-                      <div className="flex gap-2 mb-4">
-                        <button
-                          disabled={editingAssessment}
-                          onClick={() => setAssessmentMode("criteria")}
-                          className={`px-3 py-1.5 rounded-md text-sm font-semibold transition-colors ${
-                            assessmentMode === "criteria"
-                              ? "bg-violet-600 text-white shadow-sm"
-                              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                          } ${editingAssessment ? "opacity-50 cursor-not-allowed" : ""}`}
-                        >
-                          Criteria-wise
-                        </button>
+                  <div className="flex-1 space-y-6">
+                    {selectedParticipant.assessments?.length > 0 ? (
+                      selectedParticipant.assessments.map((assessment, aIdx) => {
+                        // Find evaluator name
+                        const evaluator = selectedParticipant.assignedEvaluators?.find(e => String(e._id) === String(assessment.evaluatorId));
+                        const evaluatorName = evaluator ? evaluator.name : `Evaluator ${aIdx + 1}`;
+                        
+                        let parsedComments = [];
+                        if (assessment.comments) {
+                          parsedComments = assessment.comments;
+                        } else if (assessment.notes?.startsWith("JSON:")) {
+                          try {
+                            parsedComments = JSON.parse(assessment.notes.substring(5));
+                          } catch (e) {}
+                        }
 
-                        <button
-                          disabled={editingAssessment}
-                          onClick={() => setAssessmentMode("total")}
-                          className={`px-3 py-1.5 rounded-md text-sm font-semibold transition-colors ${
-                            assessmentMode === "total"
-                              ? "bg-violet-600 text-white shadow-sm"
-                              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                          } ${editingAssessment ? "opacity-50 cursor-not-allowed" : ""}`}
-                        >
-                          Direct Total
-                        </button>
+                        return (
+                          <div key={aIdx} className="border border-violet-100 rounded-lg overflow-hidden shadow-sm">
+                            <div className="bg-violet-50 border-b border-violet-200 px-4 py-2.5 flex justify-between items-center">
+                              <div className="font-semibold text-violet-900 text-sm flex items-center gap-2">
+                                <span className="bg-violet-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">{aIdx + 1}</span>
+                                {evaluatorName}
+                              </div>
+                              <div className="text-xs font-bold bg-white text-violet-700 px-2 py-1 rounded shadow-sm border border-violet-200">
+                                Total: {assessment.criteria?.reduce((s, v, idx) => s + (criteriaList[idx]?.inputType !== "text" && criteriaList[idx]?.inputType !== "boolean" ? Number(v || 0) : 0), 0) || assessment.total || 0}
+                              </div>
+                            </div>
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-sm text-left">
+                                <thead className="bg-gray-50 border-b border-gray-200">
+                                  <tr>
+                                    <th className="px-4 py-2 font-bold text-gray-700 whitespace-nowrap">Criteria</th>
+                                    <th className="px-4 py-2 font-bold text-gray-700 text-center w-20">Marks</th>
+                                    <th className="px-4 py-2 font-bold text-gray-700">Comments</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100 bg-white">
+                                  {criteriaList.map((c, idx) => (
+                                    <tr key={idx} className="hover:bg-gray-50/50">
+                                      <td className="px-4 py-2.5 text-gray-600 font-medium whitespace-nowrap">{c.name}</td>
+                                      <td className="px-4 py-2.5 text-center font-bold text-gray-900">
+                                        {c.inputType === "boolean" 
+                                          ? ((assessment.criteria?.[idx] === true || assessment.criteria?.[idx] === "true") ? "Shortlisted / Yes" : "No")
+                                          : c.inputType === "text"
+                                            ? (assessment.criteria?.[idx] || "-")
+                                            : (assessment.criteria?.[idx] ?? 0)}
+                                      </td>
+                                      <td className="px-4 py-2.5 text-gray-600 text-xs italic">
+                                        {parsedComments[idx] || "No comment"}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <div className="flex flex-col items-center justify-center p-8 bg-gray-50 rounded-lg border border-dashed border-gray-300 h-full min-h-[200px]">
+                        <span className="text-gray-400 mb-2">No assessments completed yet</span>
+                        <span className="text-xl text-violet-700 font-extrabold">Pending</span>
                       </div>
                     )}
-
-                    {/* ===== EDIT BUTTONS ===== */}
-                    {isAdmin && (
-                      <div className="flex justify-end mb-3 gap-2">
-                        {!editingAssessment ? (
-                          <button
-                            onClick={() => setEditingAssessment(true)}
-                            className="px-3 py-1.5 bg-violet-600 text-white rounded-lg text-sm font-semibold hover:bg-violet-700 transition shadow-sm"
-                          >
-                            Edit Marks
-                          </button>
-                        ) : (
-                          <>
-                            <button
-                              onClick={() => setEditingAssessment(false)}
-                              className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm font-semibold text-gray-700 hover:bg-gray-50 transition"
-                            >
-                              Cancel
-                            </button>
-                            <button
-                              onClick={handleAdminSaveMarks}
-                              className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-sm font-semibold hover:bg-emerald-700 transition shadow-sm"
-                            >
-                              Save Changes
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    )}
-
-                    <div className="overflow-x-auto rounded-lg border border-gray-200">
-                      <table className="w-full text-sm text-left">
-                        <thead className="bg-gray-50 border-b border-gray-200">
-                          <tr>
-                            <th className="px-4 py-2.5 font-bold text-gray-700 whitespace-nowrap">Criteria</th>
-                            <th className="px-4 py-2.5 font-bold text-gray-700 text-center w-24">Marks</th>
-                            <th className="px-4 py-2.5 font-bold text-gray-700">Comments</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                          {/* ================= CRITERIA MODE ================= */}
-                          {assessmentMode === "criteria" ? (
-                            <>
-                              {ASSESSMENT_CRITERIA.map((label, idx) => (
-                                <tr key={idx} className="hover:bg-gray-50/50">
-                                  <td className="px-4 py-2.5 text-gray-600 font-medium whitespace-nowrap">{label}</td>
-                                  <td className="px-4 py-2.5 text-center">
-                                    {editingAssessment ? (
-                                      <input
-                                        type="number"
-                                        min={0}
-                                        max={10}
-                                        value={adminAssessmentForm.criteria[idx] ?? 0}
-                                        onChange={(e) => {
-                                          let value = Number(e.target.value) || 0;
-                                          value = Math.max(0, Math.min(10, value)); // 🔒 max 10
-                                          setAdminAssessmentForm((f) => {
-                                            const updated = [...f.criteria];
-                                            updated[idx] = value;
-                                            return { ...f, criteria: updated };
-                                          });
-                                        }}
-                                        className="w-16 border border-gray-300 rounded px-2 py-1 text-center focus:ring-2 focus:ring-violet-500 focus:border-violet-500 outline-none"
-                                      />
-                                    ) : (
-                                      <span className="font-bold text-gray-900">
-                                        {adminAssessmentForm.criteria[idx] ?? 0}
-                                      </span>
-                                    )}
-                                  </td>
-                                  <td className="px-4 py-2.5">
-                                    {editingAssessment ? (
-                                      <input
-                                        type="text"
-                                        placeholder="Add comment..."
-                                        value={adminAssessmentForm.comments?.[idx] || ""}
-                                        onChange={(e) => {
-                                          let value = e.target.value;
-                                          setAdminAssessmentForm((f) => {
-                                            const updated = [...(f.comments || [])];
-                                            updated[idx] = value;
-                                            return { ...f, comments: updated };
-                                          });
-                                        }}
-                                        className="w-full min-w-[200px] border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-violet-500 focus:border-violet-500 outline-none"
-                                      />
-                                    ) : (
-                                      <span className="text-gray-600 text-xs italic">
-                                        {adminAssessmentForm.comments?.[idx] || "No comment"}
-                                      </span>
-                                    )}
-                                  </td>
-                                </tr>
-                              ))}
-                              <tr className="bg-gray-50 font-bold border-t-2 border-gray-200">
-                                <td className="px-4 py-3 text-gray-900 uppercase tracking-wider text-xs">Total</td>
-                                <td className="px-4 py-3 text-center text-lg text-violet-700">
-                                  {adminAssessmentForm.criteria.reduce((s, v) => s + Number(v || 0), 0)}
-                                </td>
-                                <td className="px-4 py-3 text-gray-400 text-xs text-center">—</td>
-                              </tr>
-                            </>
-                          ) : (
-                            /* ================= TOTAL MODE ================= */
-                            <tr className="bg-gray-50 font-bold">
-                              <td className="px-4 py-4 text-gray-900 uppercase tracking-wider text-xs">Total</td>
-                              <td className="px-4 py-4 text-center">
-                                {editingAssessment ? (
-                                  <input
-                                    type="number"
-                                    min={0}
-                                    max={50}
-                                    value={adminAssessmentForm.total}
-                                    onChange={(e) => {
-                                      let value = Number(e.target.value) || 0;
-                                      value = Math.max(0, Math.min(50, value)); // 🔒 max 50
-                                      setAdminAssessmentForm((f) => ({
-                                        ...f,
-                                        total: value,
-                                      }));
-                                    }}
-                                    className="w-16 border border-gray-300 rounded px-2 py-1 text-center focus:ring-2 focus:ring-violet-500 focus:border-violet-500 outline-none"
-                                  />
-                                ) : (
-                                  <span className="text-xl text-violet-700 font-extrabold">{adminAssessmentForm.total}</span>
-                                )}
-                              </td>
-                              <td className="px-4 py-4 text-gray-600 text-xs text-center">
-                                {editingAssessment ? (
-                                  <textarea
-                                    rows="2"
-                                    value={adminAssessmentForm.notes || ""}
-                                    onChange={(e) => setAdminAssessmentForm(f => ({ ...f, notes: e.target.value }))}
-                                    className="w-full border border-gray-300 rounded p-2 focus:ring-2 focus:ring-violet-500 focus:border-violet-500 outline-none resize-none"
-                                    placeholder="Overall justification..."
-                                  />
-                                ) : (
-                                  <span className="italic">{adminAssessmentForm.notes || "No justification provided"}</span>
-                                )}
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-
                   </div>
                 </div>
               </div>
@@ -3535,7 +3577,7 @@ function TrackCard({
 
 
   const totalAssessed = participants.filter(
-  (p) => p.status === "EVALUATED"
+  (p) => p.assessment && typeof p.assessment.total === "number"
 ).length;
 
 
@@ -3703,7 +3745,7 @@ const normalizedMeetingLink =
               </div>
             ) : (
               participants.map((p, idx) => {
-                const isAssessed = p.status === "EVALUATED";
+                const isAssessed = p.assessment && typeof p.assessment.total === "number";
 
                 return (
                   <div
@@ -3837,6 +3879,7 @@ function AssessmentModal({
   currentIndex,
   onSaveAndNext,
   track,
+  event,
   isSaved,
   onNext,
   onPrev,
@@ -3863,10 +3906,13 @@ function AssessmentModal({
   const [openSection, setOpenSection] = React.useState(1);
   const [showPptModal, setShowPptModal] = React.useState(false);
 
+  const criteriaList = event?.criteria?.length ? event.criteria : ASSESSMENT_CRITERIA.map(name => ({ name, maxMarks: 10, inputType: "number" }));
+  const maxTotalMarks = criteriaList.reduce((sum, c) => sum + (c.inputType !== "text" && c.inputType !== "boolean" ? (Number(c.maxMarks) || 10) : 0), 0);
+
   const DEFAULT_FORM = {
     present: true,
-    criteria: Array(ASSESSMENT_CRITERIA.length).fill(0),
-    justifications: Array(ASSESSMENT_CRITERIA.length).fill(""),
+    criteria: Array(criteriaList.length).fill(0),
+    justifications: Array(criteriaList.length).fill(""),
     total: 0,
     notes: "",
   };
@@ -3885,11 +3931,14 @@ function AssessmentModal({
     if (p.assessment) {
       mode = p.assessment.mode === "direct" ? "direct" : "criteria";
 
-      const criteria = Array.isArray(p.assessment.criteria) && p.assessment.criteria.length === ASSESSMENT_CRITERIA.length
-        ? p.assessment.criteria
-        : Array(ASSESSMENT_CRITERIA.length).fill(0);
+      const criteria = Array(criteriaList.length).fill(0);
+      if (Array.isArray(p.assessment.criteria)) {
+         p.assessment.criteria.forEach((val, idx) => {
+            if (idx < criteria.length) criteria[idx] = val;
+         });
+      }
       
-      let justifications = Array(ASSESSMENT_CRITERIA.length).fill("");
+      let justifications = Array(criteriaList.length).fill("");
       let notes = p.assessment.notes ?? "";
       
       if (notes.startsWith("JSON:")) {
@@ -3903,7 +3952,7 @@ function AssessmentModal({
 
       const total = mode === "direct"
         ? p.assessment.total ?? 0
-        : criteria.reduce((a, b) => a + Number(b || 0), 0);
+        : criteria.reduce((a, b, idx) => a + (criteriaList[idx]?.inputType !== "text" && criteriaList[idx]?.inputType !== "boolean" ? Number(b || 0) : 0), 0);
 
       nextForm = {
         present: p.present ?? true,
@@ -3992,7 +4041,10 @@ function AssessmentModal({
     }
 
     const assessmentPayload = {
-      criteria: assessmentMode === "criteria" ? form.criteria.map(Number) : [],
+      criteria: assessmentMode === "criteria" ? form.criteria.map((val, idx) => {
+        if (criteriaList[idx]?.inputType === "text" || criteriaList[idx]?.inputType === "boolean") return val;
+        return Number(val);
+      }) : [],
       total: Number(form.total),
       notes: assessmentMode === "criteria" ? "JSON:" + JSON.stringify(form.justifications) : form.notes,
       mode: assessmentMode,
@@ -4016,8 +4068,8 @@ function AssessmentModal({
     setIsDirty(true);
     setForm((f) => ({
       ...f,
-      total: Math.max(0, Math.min(50, Number(value) || 0)),
-      criteria: Array(ASSESSMENT_CRITERIA.length).fill(0),
+      total: Math.max(0, Math.min(maxTotalMarks, Number(value) || 0)),
+      criteria: Array(criteriaList.length).fill(0),
     }));
   };
 
@@ -4249,40 +4301,71 @@ function AssessmentModal({
                <div className="p-5 border-t border-green-100">
                   <div className="flex gap-4 mb-6 bg-gray-50 p-2 rounded-lg border border-gray-100 inline-flex">
                     <label className="text-sm font-medium text-gray-700 cursor-pointer flex items-center gap-2"><input type="radio" checked={assessmentMode === "criteria"} onChange={() => setAssessmentMode("criteria")} className="text-green-600 focus:ring-green-500" /> Criteria-wise</label>
-                    <label className="text-sm font-medium text-gray-700 cursor-pointer flex items-center gap-2"><input type="radio" checked={assessmentMode === "direct"} onChange={() => setAssessmentMode("direct")} className="text-green-600 focus:ring-green-500" /> Direct total</label>
+                    {event?.allowDirectTotal !== false && (
+                      <label className="text-sm font-medium text-gray-700 cursor-pointer flex items-center gap-2"><input type="radio" checked={assessmentMode === "direct"} onChange={() => setAssessmentMode("direct")} className="text-green-600 focus:ring-green-500" /> Direct total</label>
+                    )}
                   </div>
 
                   {assessmentMode === "criteria" && (
                     <div className="space-y-4 mb-6">
-                      {ASSESSMENT_CRITERIA.map((label, i) => (
+                      {criteriaList.map((c, i) => (
                         <div key={i} className="bg-white border border-gray-200 rounded-xl p-4 grid grid-cols-1 md:grid-cols-[1fr_90px_2fr] gap-4 items-start shadow-sm hover:border-green-300 transition-colors">
-                          <div className="text-sm font-semibold text-gray-800 mt-1 md:pr-4">{i + 1}. {label}</div>
+                          <div className="text-sm font-semibold text-gray-800 mt-1 md:pr-4">{i + 1}. {c.name}</div>
                           <div className="flex flex-col gap-1 relative">
-                             <input
-                                type="number"
-                                min={0} max={10}
-                                value={form.criteria[i]}
-                                onChange={(e) => setCriteria(i, e.target.value)}
-                                onBlur={() => {
-                                   const arr = [...form.criteria];
-                                   arr[i] = normalizeCriteriaValue(arr[i], 10);
-                                   const total = arr.reduce((a, b) => a + Number(b || 0), 0);
-                                   setForm((f) => ({ ...f, criteria: arr, total }));
-                                }}
-                                onFocus={(e) => e.target.select()}
-                                className={`${activeInput} w-full text-lg font-bold text-green-700`}
-                                placeholder="0"
-                             />
-                             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest text-center">Max 10</span>
+                             {(!c.inputType || c.inputType === "number") && (
+                               <>
+                                 <input
+                                    type="number"
+                                    min={0} max={c.maxMarks}
+                                    value={form.criteria[i] ?? ""}
+                                    onChange={(e) => setCriteria(i, e.target.value)}
+                                    onBlur={() => {
+                                       const arr = [...form.criteria];
+                                       arr[i] = normalizeCriteriaValue(arr[i], c.maxMarks);
+                                       const total = arr.reduce((a, b, idx) => a + (criteriaList[idx]?.inputType !== "text" && criteriaList[idx]?.inputType !== "boolean" ? Number(b || 0) : 0), 0);
+                                       setForm((f) => ({ ...f, criteria: arr, total }));
+                                    }}
+                                    onFocus={(e) => e.target.select()}
+                                    className={`${activeInput} w-full text-lg font-bold text-green-700`}
+                                    placeholder="0"
+                                 />
+                                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest text-center">Max {c.maxMarks}</span>
+                               </>
+                             )}
+                             {c.inputType === "text" && (
+                                <input
+                                   type="text"
+                                   value={form.criteria[i] || ""}
+                                   onChange={(e) => setCriteria(i, e.target.value)}
+                                   className={`${activeInput} w-full text-sm font-medium text-gray-800`}
+                                   placeholder="Enter text..."
+                                />
+                             )}
+                             {c.inputType === "boolean" && (
+                                <label className="flex items-center justify-center gap-2 cursor-pointer h-full border border-gray-300 rounded bg-white hover:bg-gray-50 transition-colors">
+                                  <input
+                                    type="checkbox"
+                                    checked={form.criteria[i] === true || form.criteria[i] === "true"}
+                                    onChange={(e) => {
+                                      setCriteria(i, e.target.checked);
+                                    }}
+                                    className="w-5 h-5 text-green-600 focus:ring-green-500 border-gray-300 rounded cursor-pointer"
+                                  />
+                                  <span className="text-sm font-bold text-gray-700">Selected</span>
+                                </label>
+                             )}
                           </div>
                           <div>
+                            {(event?.allowComments ?? true) && (
                              <textarea 
                                 rows="2" 
                                 placeholder="Justification / Reason for marks..." 
                                 value={form.justifications[i] || ""} 
                                 onChange={(e) => setJustification(i, e.target.value)} 
+                                required={event?.requireComments ?? false}
                                 className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-green-400 focus:border-transparent outline-none transition-shadow resize-none"
                              ></textarea>
+                            )}
                           </div>
                         </div>
                       ))}
@@ -4295,13 +4378,13 @@ function AssessmentModal({
                         <div className="flex items-baseline gap-2">
                           <input
                              type="number"
-                             min={0} max={50}
+                             min={0} max={maxTotalMarks}
                              value={form.total}
                              disabled={assessmentMode === "criteria"}
                              onChange={(e) => setDirectTotal(e.target.value)}
                              className={`${assessmentMode === "direct" ? "border-green-400 bg-white shadow-inner focus:ring-2 focus:ring-green-400" : "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"} border-2 rounded-lg px-3 py-2 w-[100px] text-center font-bold text-2xl outline-none`}
                           />
-                          <span className="text-green-700 font-bold text-lg">/ 50</span>
+                          <span className="text-green-700 font-bold text-lg">/ {maxTotalMarks}</span>
                         </div>
                      </div>
 
@@ -4358,7 +4441,8 @@ function AssessmentModal({
     </div>
   );
 }
-function AssessmentSummary({ participants, onClose }) {
+function AssessmentSummary({ participants, onClose, event }) {
+  const criteriaList = event?.criteria?.length ? event.criteria : ASSESSMENT_CRITERIA.map(name => ({ name, maxMarks: 10 }));
   // sort by total marks (descending)
   const sorted = [...participants].sort((a, b) => {
     const ta = a.assessment?.total ?? 0;
@@ -4391,9 +4475,9 @@ function AssessmentSummary({ participants, onClose }) {
               <th className="border px-2 py-1">Presenter Name</th>
               <th className="border px-2 py-1">Team ID</th>
               <th className="border px-2 py-1">Title</th>
-              {ASSESSMENT_CRITERIA.map((c, i) => (
+              {criteriaList.map((c, i) => (
   <th key={i} className="border px-2 py-1 text-xs">
-    {c}
+    {c.name}
   </th>
 ))}
 
@@ -4405,11 +4489,12 @@ function AssessmentSummary({ participants, onClose }) {
             {sorted.map((p, idx) => {
               const assessment = p.assessment || {};
               const mode = assessment.mode || "criteria";
-             const criteria =
-  Array.isArray(assessment.criteria) &&
-  assessment.criteria.length === ASSESSMENT_CRITERIA.length
-    ? assessment.criteria
-    : Array(ASSESSMENT_CRITERIA.length).fill(0);
+              const criteria = Array(criteriaList.length).fill(0);
+              if (Array.isArray(assessment.criteria)) {
+                 assessment.criteria.forEach((val, idx) => {
+                    if (idx < criteria.length) criteria[idx] = val;
+                 });
+              }
 
 
               return (
@@ -4437,14 +4522,20 @@ function AssessmentSummary({ participants, onClose }) {
                       Direct marking
                     </td>
                   ) : (
-                    criteria.map((c, i) => (
-                      <td
-                        key={i}
-                        className="border px-2 py-1 text-center"
-                      >
-                        {c}
-                      </td>
-                    ))
+                    criteria.map((val, i) => {
+                      const cType = criteriaList[i]?.inputType;
+                      const displayVal = cType === "boolean"
+                        ? ((val === true || val === "true") ? "Yes" : "No")
+                        : (cType === "text" ? (val || "-") : val);
+                      return (
+                        <td
+                          key={i}
+                          className="border px-2 py-1 text-center"
+                        >
+                          {displayVal}
+                        </td>
+                      );
+                    })
                   )}
 
                   <td className="border px-2 py-1 text-center font-semibold">
@@ -4468,6 +4559,7 @@ function SessionChairConsole() {
   const [loading, setLoading] = useState(true);
   const [chair, setChair] = useState(null);
   const [track, setTrack] = useState(null);
+  const [event, setEvent] = useState(null);
   const [participants, setParticipants] = useState([]);
   const [collapsed, setCollapsed] = useState(false);
   const [sidebarVisible, setSidebarVisible] = useState(false);
@@ -4475,11 +4567,18 @@ function SessionChairConsole() {
   const [assessmentIndex, setAssessmentIndex] = useState(0);
   const [error, setError] = useState(null);
   const [showSummary, setShowSummary] = useState(false);
-  const normalizeParticipants = (list) =>
+  const normalizeParticipants = (list, evaluatorId) =>
     list
       .map((p) => {
         const institute = p.members?.[0]?.organisation || p.institute;
         const branch = p.members?.[0]?.specialization || p.branch;
+        
+        let currentAssessment = null;
+        if (evaluatorId && p.assessments) {
+          currentAssessment = p.assessments.find(a => String(a.evaluatorId) === String(evaluatorId));
+        }
+        if (!currentAssessment) currentAssessment = p.assessment;
+
         return {
           ...p,
           _id: p._id,
@@ -4491,7 +4590,8 @@ function SessionChairConsole() {
           mode: p.members?.length ? `${p.members.length} members` : p.mode || "Unknown",
           email: p.members?.[0]?.email || p.email || "Unknown",
           phone: p.members?.[0]?.mobile || p.phone || "Unknown",
-          assessment: p.assessment || null,
+          assessment: currentAssessment || null,
+          assessments: p.assessments || [],
         };
       })
       .filter((p) => p.paperId !== "N/A" || p.presenterName !== "Unnamed Team");
@@ -4525,13 +4625,14 @@ function SessionChairConsole() {
 
         setChair(data.chair || {});
         setTrack(data.track || {});
+        setEvent(data.event || {});
 
         const pRes = await fetch(
           `${API_BASE}/api/participants/by-track?eventId=${data.chair.eventId}&trackId=${data.chair.trackId}&evaluatorId=${data.chair._id}`
         );
 
         const pData = await pRes.json();
-        setParticipants(normalizeParticipants(pData.participants || []));
+        setParticipants(normalizeParticipants(pData.participants || [], data.chair._id));
         setError(null);
       } catch (err) {
         console.error("Failed loading session data:", err);
@@ -4639,7 +4740,7 @@ const persistParticipants = async ({ participantId, present, assessment }) => {
     {
       method: "PATCH", // ✅ MUST MATCH BACKEND
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ present, assessment }),
+      body: JSON.stringify({ present, assessment, evaluatorId: chair?._id }),
     }
   );
 
@@ -4681,7 +4782,7 @@ const saveAssessmentAndProceed = async (idx, assessmentObj) => {
     setParticipants((prev) =>
       prev.map((p) =>
         p._id === result.participant._id
-          ? normalizeParticipants([result.participant])[0]   // ✅ backend is truth, but must be normalized!
+          ? normalizeParticipants([result.participant], chair._id)[0]   // ✅ backend is truth, but must be normalized!
           : p
       )
     );
@@ -4784,11 +4885,12 @@ const handleNext = () => {
   return (
     <div className="min-h-screen bg-linear-to-br from-green-50 via-green-100 to-green-200 text-gray-800">
       <Header
-  user={{
-    name: chair?.name || "Session Chair",
-    role: "sessionChair",
-  }}
-  onLogout={handleLogout}
+        user={{
+          name: chair?.name || "Session Chair",
+          role: "sessionChair",
+          email: chair?.email
+        }}
+        onLogout={handleLogout}
         onProfileClick={() => setShowProfile((v) => !v)} // ✅ FIXED
       />
       <TrackCard
@@ -4812,6 +4914,7 @@ const handleNext = () => {
         currentIndex={assessmentIndex}
         onSaveAndNext={saveAssessmentAndProceed}
         track={track}
+        event={event}
         persistParticipants={persistParticipants}
         onNext={() => {
           if (assessmentIndex < participants.length - 1) {
@@ -4824,6 +4927,14 @@ const handleNext = () => {
         onScheduleToLast={handleScheduleToLast}
       />
 
+
+      {showSummary && (
+        <AssessmentSummary
+          participants={participants}
+          onClose={() => setShowSummary(false)}
+          event={event}
+        />
+      )}
 
       <div className="mt-6 flex justify-between items-center px-6 py-4 bg-white border-t shadow-sm">
   <button
@@ -4895,11 +5006,11 @@ function AppRoutes({ events, setEvents, refreshEvents }) {
   const email = sessionStorage.getItem("care_email");
 
   if (role === "sessionChair") {
-    setUser({ name: email.split("@")[0], role });
+    setUser({ name: email.split("@")[0], role, email });
   } else if (role === "studentCoordinator") {
-    setUser({ name: "Student Coordinator", role });
+    setUser({ name: "Student Coordinator", role, email });
   } else {
-    setUser({ name: "Admin", role: "admin" });
+    setUser({ name: "Admin", role: "admin", email });
   }
 }, [location]);
 
@@ -4940,6 +5051,7 @@ function ProtectedRoutes({ allowedRoles }) {
   {/* ENTRY */}
   <Route path="/" element={<Navigate to="/login" replace />} />
   <Route path="/login" element={<Login />} />
+  <Route path="/update-password" element={<UpdatePassword />} />
 
   
   {/* ADMIN */}

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+﻿import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
@@ -6,7 +6,6 @@ import autoTable from "jspdf-autotable";
 import { X, User, MapPin, Building2, BookOpen, GraduationCap, CheckCircle, Mail, Phone, ExternalLink, Link2, FileText, AlertCircle } from "lucide-react";
 import ikigaiLogo from "./assets/ikigai.png";
 import { ASSESSMENT_CRITERIA } from "./App";
-import SlideViewer from "./components/evaluator/SlideViewer";
 
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
@@ -17,7 +16,6 @@ export default function AdminEventParticipants() {
 
   const [participants, setParticipants] = useState([]);
   const [tracks, setTracks] = useState([]);
-  const [event, setEvent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [topNPerTrack, setTopNPerTrack] = useState(0);
 
@@ -28,7 +26,6 @@ export default function AdminEventParticipants() {
   const [sortKey, setSortKey] = useState("");
   const [selectedParticipant, setSelectedParticipant] = useState(null);
   const [selectedEvaluationReport, setSelectedEvaluationReport] = useState(null);
-  const [showPptModal, setShowPptModal] = useState(false);
   const [sortBy, setSortBy] = useState("");
   const [sortOrder, setSortOrder] = useState("asc");
 
@@ -41,7 +38,7 @@ export default function AdminEventParticipants() {
 
 
 
-  // 🔐 admin guard
+  // ≡ƒöÉ admin guard
   useEffect(() => {
     const role = sessionStorage.getItem("care_role");
     if (role !== "admin") {
@@ -68,19 +65,16 @@ export default function AdminEventParticipants() {
               branch: leader.domain || leader.specialization || "",
               trackId: p.trackId,
               trackName: p.trackName,
-              assessments: p.assessments || [],
-              assignedEvaluators: p.assignedEvaluators || [],
+              assessment: p.assessment,
+              assignedEvaluator: p.assignedEvaluatorId,
             };
           });
           setParticipants(mapped);
           setTracks(data.tracks || []);
-          setEvent(data.event || null);
         }
       })
       .finally(() => setLoading(false));
   }, [eventId]);
-
-  const criteriaList = event?.criteria?.length ? event.criteria : ASSESSMENT_CRITERIA.map(name => ({ name, maxMarks: 10, inputType: "number" }));
 
   const getTopNPerTrack = (list, n) => {
     if (!n || n <= 0) return list;
@@ -88,10 +82,8 @@ export default function AdminEventParticipants() {
     const trackMap = {};
 
     list.forEach((p) => {
-      const avgMarks = p.assessments?.length 
-        ? p.assessments.reduce((sum, a) => sum + (a.total || 0), 0) / p.assessments.length 
-        : undefined;
-      if (typeof avgMarks !== "number") return;
+      const marks = p.assessment?.total;
+      if (typeof marks !== "number") return;
 
       const key = p.trackId || p.trackName || "UNKNOWN";
 
@@ -103,11 +95,7 @@ export default function AdminEventParticipants() {
 
     Object.values(trackMap).forEach((trackParticipants) => {
       trackParticipants.sort(
-        (a, b) => {
-          const avgB = b.assessments?.length ? b.assessments.reduce((sum, a) => sum + (a.total || 0), 0) / b.assessments.length : 0;
-          const avgA = a.assessments?.length ? a.assessments.reduce((sum, a) => sum + (a.total || 0), 0) / a.assessments.length : 0;
-          return avgB - avgA;
-        }
+        (a, b) => b.assessment.total - a.assessment.total
       );
 
       result.push(...trackParticipants.slice(0, n));
@@ -120,23 +108,23 @@ export default function AdminEventParticipants() {
 
   const filteredParticipants = participants
     .filter((p) => {
-      // 🟢 Track filter
+      // ≡ƒƒó Track filter
       const trackMatch =
         filterTrack === "ALL" ||
         String(p.trackId) === String(filterTrack);
 
-      // 🟢 Institute filter
+      // ≡ƒƒó Institute filter
       const instituteMatch =
         !filterInstitute ||
         p.institute?.toLowerCase().includes(filterInstitute.toLowerCase());
 
-      // 🟢 Branch filter
+      // ≡ƒƒó Branch filter
       const branchMatch =
         !filterBranch ||
         p.branch?.toLowerCase().includes(filterBranch.toLowerCase());
 
-      // 🟢 Marks filter
-      const marks = p.assessments?.length ? p.assessments.reduce((sum, a) => sum + (a.total || 0), 0) / p.assessments.length : -1;
+      // ≡ƒƒó Marks filter
+      const marks = p.assessment?.total ?? -1;
       const marksMatch =
         marks === -1 ||
         (marks >= marksRange[0] && marks <= marksRange[1]);
@@ -158,8 +146,8 @@ export default function AdminEventParticipants() {
       }
 
       if (sortBy === "marks") {
-        valA = a.assessments?.length ? a.assessments.reduce((sum, a) => sum + (a.total || 0), 0) / a.assessments.length : -1;
-        valB = b.assessments?.length ? b.assessments.reduce((sum, a) => sum + (a.total || 0), 0) / b.assessments.length : -1;
+        valA = a.assessment?.total ?? -1;
+        valB = b.assessment?.total ?? -1;
       }
 
       return sortOrder === "asc"
@@ -203,7 +191,7 @@ export default function AdminEventParticipants() {
       "Presenter Name": p.presenterName,
       "Institute": p.institute || "",
       "Track Name": p.trackName,
-      "Marks": p.assessments?.length ? (p.assessments.reduce((sum, a) => sum + (a.total || 0), 0) / p.assessments.length).toFixed(1) : "",
+      "Marks": p.assessment?.total ?? "",
     }));
   const trackName = filteredParticipants[0]?.trackName || "Track";
 
@@ -238,8 +226,8 @@ export default function AdminEventParticipants() {
       p.phone ?? "",
       p.institute ?? "",
       p.branch ?? "",
-      p.assessments?.length > 0
-        ? (p.assessments.reduce((sum, a) => sum + (a.total || 0), 0) / p.assessments.length).toFixed(1)
+      typeof p.assessment?.total === "number"
+        ? p.assessment.total
         : "Pending",
     ]);
 
@@ -274,13 +262,14 @@ export default function AdminEventParticipants() {
       return;
     }
 
-    // ✅ SAME logic as PDF
+    // Γ£à SAME logic as PDF
     const trackName = finalParticipants[0]?.trackName || "All Tracks";
 
     const rows = participantsWithRank.map((p) => {
-      const avgMarks = p.assessments?.length > 0
-        ? (p.assessments.reduce((sum, a) => sum + (a.total || 0), 0) / p.assessments.length).toFixed(1)
-        : "Pending";
+      const marks =
+        typeof p.assessment?.total === "number"
+          ? p.assessment.total
+          : "Pending";
 
       return {
         "Track Rank": p.trackRank,
@@ -293,8 +282,8 @@ export default function AdminEventParticipants() {
         "Phone": p.phone || "",
         "Institute": p.institute || "",
         "Branch": p.branch || "",
-        "Marks": avgMarks,
-        "Remarks": p.assessments?.[0]?.remarks ?? "",
+        "Marks": marks,
+        "Remarks": p.assessment?.remarks ?? "",
         "Submission Link": p.submissionLink ?? "",
         "Co-Authors": p.coAuthors?.length
           ? p.coAuthors
@@ -306,7 +295,7 @@ export default function AdminEventParticipants() {
 
     const worksheet = XLSX.utils.json_to_sheet(rows);
 
-    // ✅ Auto column width (safe even if rows are empty)
+    // Γ£à Auto column width (safe even if rows are empty)
     const colWidths = Object.keys(rows[0]).map((key) => ({
       wch: Math.max(
         key.length,
@@ -323,7 +312,7 @@ export default function AdminEventParticipants() {
       "Participants"
     );
 
-    // ✅ SAME naming convention as PDF
+    // Γ£à SAME naming convention as PDF
     XLSX.writeFile(
       workbook,
       `IKIGAI_2026_Report_${selectedTrack}_${trackName}.xlsx`
@@ -366,7 +355,7 @@ export default function AdminEventParticipants() {
 
 
     doc.text(
-      `Track: ${selectedTrack === "ALL" ? "All" : selectedTrack} – ${trackName}`,
+      `Track: ${selectedTrack === "ALL" ? "All" : selectedTrack} ΓÇô ${trackName}`,
       14,
       y
     );
@@ -374,9 +363,10 @@ export default function AdminEventParticipants() {
 
     /* ================= TABLE ================= */
     const tableRows = participantsWithRank.map((p) => {
-      const avgMarks = p.assessments?.length > 0
-        ? (p.assessments.reduce((sum, a) => sum + (a.total || 0), 0) / p.assessments.length).toFixed(1)
-        : "Absent";
+      const marks =
+        typeof p.assessment?.total === "number"
+          ? p.assessment.total
+          : "Absent";
 
       const leaderName = p.members?.find(m => m.isLeader)?.name || p.members?.[0]?.name || p.presenterName || "";
 
@@ -389,7 +379,7 @@ export default function AdminEventParticipants() {
         leaderName,
         p.phone || "",
         p.email || "",
-        avgMarks,
+        marks,
       ];
     });
 
@@ -439,7 +429,7 @@ export default function AdminEventParticipants() {
       doc.setFontSize(9);
       doc.setTextColor(107, 114, 128);
       doc.text(
-        `Generated for Ikigai 2026 • Page ${i} of ${pageCount}`,
+        `Generated for Ikigai 2026 ΓÇó Page ${i} of ${pageCount}`,
         105,
         290,
         { align: "center" }
@@ -455,7 +445,7 @@ export default function AdminEventParticipants() {
 
 
   if (loading) {
-    return <div className="p-6">Loading participants…</div>;
+    return <div className="p-6">Loading participantsΓÇª</div>;
   }
 
   return (
@@ -470,7 +460,7 @@ export default function AdminEventParticipants() {
           onClick={() => navigate("/dashboard")}
           className="px-4 py-2 text-sm font-medium rounded-lg bg-green-600 text-white hover:bg-green-700 transition flex items-center justify-center gap-2"
         >
-          ← Back to Dashboard
+          ΓåÉ Back to Dashboard
         </button>
       </div>
 
@@ -490,7 +480,7 @@ export default function AdminEventParticipants() {
               onClick={() => setShowFilters((v) => !v)}
               className="text-sm font-medium text-green-700 hover:underline"
             >
-              {showFilters ? "Hide Filters ▲" : "Show Filters ▼"}
+              {showFilters ? "Hide Filters Γû▓" : "Show Filters Γû╝"}
             </button>
           </div>
 
@@ -584,7 +574,7 @@ export default function AdminEventParticipants() {
                   }
                 />
 
-                <span className="text-gray-400 text-sm">–</span>
+                <span className="text-gray-400 text-sm">ΓÇô</span>
 
                 <input
                   type="number"
@@ -670,7 +660,7 @@ export default function AdminEventParticipants() {
                 <span className="font-medium">{p.institute}</span>
                 {p.branch && (
                   <>
-                    {" · "}
+                    {" ┬╖ "}
                     <span className="text-gray-500">{p.branch}</span>
                   </>
                 )}
@@ -689,14 +679,14 @@ export default function AdminEventParticipants() {
                 w-full sm:w-auto">
 
               {/* MARKS */}
-              {p?.assessments?.length > 0 ? (
+              {typeof p.assessment?.total === "number" ? (
                 <div
                   className="w-10 h-10 flex items-center justify-center
                  rounded-full bg-green-600 text-white
                  text-sm font-bold"
-                  title="Average marks"
+                  title="Marks submitted"
                 >
-                  {(p.assessments.reduce((sum, a) => sum + (a.total || 0), 0) / p.assessments.length).toFixed(1)}
+                  {p.assessment.total}
                 </div>
               ) : (
                 <div
@@ -718,7 +708,7 @@ export default function AdminEventParticipants() {
                   Evaluation Report
                 </button>
                 <div className="text-sm text-green-700 font-medium whitespace-nowrap">
-                  View →
+                  View ΓåÆ
                 </div>
               </div>
             </div>
@@ -757,7 +747,7 @@ export default function AdminEventParticipants() {
               </span>
               {(selectedParticipant.status || selectedParticipant.regStatus) && (
                 <>
-                  <span className="text-gray-300">•</span>
+                  <span className="text-gray-300">ΓÇó</span>
                   <span className="uppercase tracking-wider text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
                     {selectedParticipant.status || selectedParticipant.regStatus}
                   </span>
@@ -784,7 +774,7 @@ export default function AdminEventParticipants() {
                   <div className="space-y-4 text-sm text-gray-700">
                     <div>
                       <span className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Problem Statement</span>
-                      <p className="font-medium text-gray-900 leading-relaxed">{selectedParticipant.problemStatement || "—"}</p>
+                      <p className="font-medium text-gray-900 leading-relaxed">{selectedParticipant.problemStatement || "ΓÇö"}</p>
                     </div>
                     
                     {selectedParticipant.description && (
@@ -797,89 +787,80 @@ export default function AdminEventParticipants() {
                     {(selectedParticipant.pptLink || selectedParticipant.submissionLink) && (
                       <div>
                         <span className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1.5">Presentation</span>
-                        <button 
-                          onClick={() => setShowPptModal(true)} 
-                          className="bg-purple-600 text-white px-5 py-2.5 rounded-xl font-medium hover:bg-purple-700 text-sm shadow-sm transition-all hover:shadow inline-flex items-center gap-2"
+                        <a 
+                          href={
+                            (selectedParticipant.pptLink || selectedParticipant.submissionLink).includes('drive.google.com') || (selectedParticipant.pptLink || selectedParticipant.submissionLink).includes('docs.google.com')
+                              ? (selectedParticipant.pptLink || selectedParticipant.submissionLink)
+                              : `https://docs.google.com/viewer?url=${encodeURIComponent(selectedParticipant.pptLink || selectedParticipant.submissionLink)}`
+                          } 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          className="inline-flex items-center gap-2 px-3 py-1.5 bg-violet-50 hover:bg-violet-100 text-violet-700 rounded-lg text-sm font-semibold transition-colors border border-violet-200"
                         >
-                          <Link2 size={15} /> Open Presentation Modal
-                        </button>
+                          <Link2 size={15} /> View PPT
+                        </a>
                       </div>
                     )}
                   </div>
                 </div>
               </div>
 
-              {/* Right Column (Evaluation Tables) */}
+              {/* Right Column (Evaluation Table) */}
               <div className="lg:col-span-2">
-                <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-5 h-full flex flex-col overflow-y-auto max-h-[600px] custom-scrollbar">
+                <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-5 h-full flex flex-col">
                   <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wider mb-4 flex items-center gap-2">
-                    <CheckCircle size={16} className="text-emerald-500" /> Evaluation Records
+                    <CheckCircle size={16} className="text-emerald-500" /> Evaluation
                   </h3>
                   
-                  <div className="flex-1 space-y-6">
-                    {selectedParticipant.assessments?.length > 0 ? (
-                      selectedParticipant.assessments.map((assessment, aIdx) => {
-                        // Find evaluator name
-                        const evaluator = selectedParticipant.assignedEvaluators?.find(e => String(e._id) === String(assessment.evaluatorId));
-                        const evaluatorName = evaluator ? evaluator.name : `Evaluator ${aIdx + 1}`;
-                        
-                        let parsedComments = [];
-                        if (assessment.comments) {
-                          parsedComments = assessment.comments;
-                        } else if (assessment.notes?.startsWith("JSON:")) {
-                          try {
-                            parsedComments = JSON.parse(assessment.notes.substring(5));
-                          } catch (e) {}
-                        }
+                  <div className="mt-2 flex-1">
+                    <div className="overflow-x-auto rounded-lg border border-gray-200">
+                      <table className="w-full text-sm text-left">
+                        <thead className="bg-gray-50 border-b border-gray-200">
+                          <tr>
+                            <th className="px-4 py-2.5 font-bold text-gray-700 whitespace-nowrap">Criteria</th>
+                            <th className="px-4 py-2.5 font-bold text-gray-700 text-center w-24">Marks</th>
+                            <th className="px-4 py-2.5 font-bold text-gray-700">Comments</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {Array.isArray(selectedParticipant.assessment?.criteria) && selectedParticipant.assessment.criteria.length > 0 ? (
+                            <>
+                              {ASSESSMENT_CRITERIA.map((label, idx) => (
+                                <tr key={idx} className="hover:bg-gray-50/50">
+                                  <td className="px-4 py-2.5 text-gray-600 font-medium whitespace-nowrap">{label}</td>
+                                  <td className="px-4 py-2.5 text-center">
+                                      <span className="font-bold text-gray-900">
+                                        {selectedParticipant.assessment.criteria[idx] ?? 0}
+                                      </span>
+                                  </td>
+                                  <td className="px-4 py-2.5">
+                                      <span className="text-gray-600 text-xs italic">
+                                        {selectedParticipant.assessment.comments?.[idx] || "No comment"}
+                                      </span>
+                                  </td>
+                                </tr>
+                              ))}
+                              <tr className="bg-gray-50 font-bold border-t-2 border-gray-200">
+                                <td className="px-4 py-3 text-gray-900 uppercase tracking-wider text-xs">Total</td>
+                                <td className="px-4 py-3 text-center text-lg text-violet-700">
+                                  {selectedParticipant.assessment.criteria.reduce((s, v) => s + Number(v || 0), 0)}
+                                </td>
+                                <td className="px-4 py-3 text-gray-400 text-xs text-center">ΓÇö</td>
+                              </tr>
+                            </>
+                          ) : (
+                            <tr className="bg-gray-50 font-bold">
+                              <td className="px-4 py-4 text-gray-900 uppercase tracking-wider text-xs">Total</td>
+                              <td className="px-4 py-4 text-center">
+                                  <span className="text-xl text-violet-700 font-extrabold">{typeof selectedParticipant.assessment?.total === "number" ? selectedParticipant.assessment.total : "Pending"}</span>
+                              </td>
+                              <td className="px-4 py-4 text-gray-400 text-xs text-center">N/A in Direct Total mode</td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
 
-                        return (
-                          <div key={aIdx} className="border border-violet-100 rounded-lg overflow-hidden shadow-sm">
-                            <div className="bg-violet-50 border-b border-violet-200 px-4 py-2.5 flex justify-between items-center">
-                              <div className="font-semibold text-violet-900 text-sm flex items-center gap-2">
-                                <span className="bg-violet-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">{aIdx + 1}</span>
-                                {evaluatorName}
-                              </div>
-                              <div className="text-xs font-bold bg-white text-violet-700 px-2 py-1 rounded shadow-sm border border-violet-200">
-                                Total: {assessment.criteria?.reduce((s, v, idx) => s + (criteriaList[idx]?.inputType !== "text" && criteriaList[idx]?.inputType !== "boolean" ? Number(v || 0) : 0), 0) || assessment.total || 0}
-                              </div>
-                            </div>
-                            <div className="overflow-x-auto">
-                              <table className="w-full text-sm text-left">
-                                <thead className="bg-gray-50 border-b border-gray-200">
-                                  <tr>
-                                    <th className="px-4 py-2 font-bold text-gray-700 whitespace-nowrap">Criteria</th>
-                                    <th className="px-4 py-2 font-bold text-gray-700 text-center w-20">Marks</th>
-                                    <th className="px-4 py-2 font-bold text-gray-700">Comments</th>
-                                  </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-100 bg-white">
-                                  {criteriaList.map((c, idx) => (
-                                    <tr key={idx} className="hover:bg-gray-50/50">
-                                      <td className="px-4 py-2.5 text-gray-600 font-medium whitespace-nowrap">{c.name}</td>
-                                      <td className="px-4 py-2.5 text-center font-bold text-gray-900">
-                                        {c.inputType === "boolean" 
-                                          ? ((assessment.criteria?.[idx] === true || assessment.criteria?.[idx] === "true") ? "Shortlisted / Yes" : "No")
-                                          : c.inputType === "text"
-                                            ? (assessment.criteria?.[idx] || "-")
-                                            : (assessment.criteria?.[idx] ?? 0)}
-                                      </td>
-                                      <td className="px-4 py-2.5 text-gray-600 text-xs italic">
-                                        {parsedComments[idx] || "No comment"}
-                                      </td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                          </div>
-                        );
-                      })
-                    ) : (
-                      <div className="flex flex-col items-center justify-center p-8 bg-gray-50 rounded-lg border border-dashed border-gray-300 h-full min-h-[200px]">
-                        <span className="text-gray-400 mb-2">No assessments completed yet</span>
-                        <span className="text-xl text-violet-700 font-extrabold">Pending</span>
-                      </div>
-                    )}
                   </div>
                 </div>
               </div>
@@ -956,14 +937,14 @@ export default function AdminEventParticipants() {
         onClick={() => setSelectedEvaluationReport(null)}
         className="absolute top-3 right-4 text-gray-400 hover:text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-full w-8 h-8 flex items-center justify-center transition-colors"
       >
-        ✕
+        Γ£ò
       </button>
 
       <h3 className="text-xl font-bold text-gray-800 mb-1">
         Evaluation Report
       </h3>
       <p className="text-sm text-gray-500 mb-6 border-b border-gray-100 pb-4">
-        {selectedEvaluationReport.teamName} • {selectedEvaluationReport.paperId}
+        {selectedEvaluationReport.teamName} ΓÇó {selectedEvaluationReport.paperId}
       </p>
 
       <div className="flex-1 overflow-y-auto pr-2">
@@ -1017,7 +998,7 @@ export default function AdminEventParticipants() {
                         <td className="px-6 py-3 font-medium text-gray-800">Slide {timing.slide}</td>
                         <td className="px-6 py-3 text-gray-600">
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-gray-100 text-gray-800 font-medium text-xs">
-                            ⏱️ {timing.duration} sec
+                            ΓÅ▒∩╕Å {timing.duration} sec
                           </span>
                         </td>
                       </tr>
@@ -1050,18 +1031,6 @@ export default function AdminEventParticipants() {
           </div>
         )}
       </div>
-    </div>
-  </div>
-)}
-
-{showPptModal && selectedParticipant && (
-  <div className="fixed inset-0 z-[70] bg-black/90 flex flex-col p-2 md:p-6 backdrop-blur-md">
-    <div className="flex justify-between items-center mb-4 text-white px-2">
-      <div className="font-bold text-lg truncate pr-4">{selectedParticipant.paperTitle || selectedParticipant.problemStatement || "Presentation"}</div>
-      <button onClick={() => setShowPptModal(false)} className="bg-white/20 hover:bg-white/40 p-2 rounded-lg font-bold px-4 transition-colors text-sm flex items-center gap-2">Close ✕</button>
-    </div>
-    <div className="flex-1 w-full bg-white rounded-xl overflow-hidden shadow-2xl relative border border-gray-800">
-      <SlideViewer fileUrl={selectedParticipant.pptLink || selectedParticipant.submissionLink} />
     </div>
   </div>
 )}

@@ -38,10 +38,146 @@ function ConfirmDeleteModal({ isOpen, onClose, onConfirm, itemName, itemType }) 
   );
 }
 
+function DefineCriteriaModal({ isOpen, onClose, event, refreshEvents }) {
+  const [criteria, setCriteria] = useState(event.criteria && event.criteria.length ? event.criteria : [{ name: "", maxMarks: 10, inputType: "number" }]);
+  const [allowComments, setAllowComments] = useState(event.allowComments ?? true);
+  const [requireComments, setRequireComments] = useState(event.requireComments ?? false);
+  const [allowDirectTotal, setAllowDirectTotal] = useState(event.allowDirectTotal ?? true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setCriteria(event.criteria && event.criteria.length ? event.criteria : [{ name: "", maxMarks: 10, inputType: "number" }]);
+      setAllowComments(event.allowComments ?? true);
+      setRequireComments(event.requireComments ?? false);
+      setAllowDirectTotal(event.allowDirectTotal ?? true);
+    }
+  }, [isOpen, event]);
+
+  if (!isOpen) return null;
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/events/${event._id}/criteria`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ criteria, allowComments, requireComments, allowDirectTotal })
+      });
+      if (res.ok) {
+        onClose();
+        refreshEvents();
+      } else {
+        alert("Failed to save criteria");
+      }
+    } catch (e) {
+      alert("Error saving criteria");
+    }
+    setSaving(false);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-xl font-bold text-gray-800">Define Assessment Criteria</h3>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-800">✕</button>
+        </div>
+        
+        <div className="flex justify-end mb-4">
+          <button onClick={() => setCriteria([...criteria, { name: "", maxMarks: 10, inputType: "number" }])} className="px-3 py-1 bg-blue-100 text-blue-700 font-semibold rounded hover:bg-blue-200 text-sm">
+            + Add Criteria
+          </button>
+        </div>
+
+        <div className="space-y-3 mb-6">
+          {criteria.map((c, idx) => (
+            <div key={idx} className="flex gap-3 items-center">
+              <input 
+                type="text" 
+                placeholder="Criteria Name" 
+                value={c.name} 
+                onChange={e => {
+                  const newC = [...criteria];
+                  newC[idx].name = e.target.value;
+                  setCriteria(newC);
+                }} 
+                className="flex-1 border px-3 py-2 rounded" 
+              />
+              <select
+                value={c.inputType || "number"}
+                onChange={e => {
+                  const newC = [...criteria];
+                  newC[idx].inputType = e.target.value;
+                  setCriteria(newC);
+                }}
+                className="border px-3 py-2 rounded"
+              >
+                <option value="number">Numerical</option>
+                <option value="text">Text</option>
+                <option value="boolean">Toggle (Yes/No)</option>
+              </select>
+              {c.inputType !== "text" && c.inputType !== "boolean" && (
+              <input 
+                type="number" 
+                placeholder="Max Marks" 
+                value={c.maxMarks} 
+                onChange={e => {
+                  const newC = [...criteria];
+                  newC[idx].maxMarks = Number(e.target.value);
+                  setCriteria(newC);
+                }} 
+                className="w-24 border px-3 py-2 rounded" 
+              />
+              )}
+              <button 
+                onClick={() => setCriteria(criteria.filter((_, i) => i !== idx))}
+                className="text-red-500 hover:bg-red-50 p-2 rounded"
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+          {criteria.length === 0 && <p className="text-gray-500 italic text-sm">No criteria defined. Add at least one.</p>}
+        </div>
+
+        <div className="mb-6 p-4 bg-gray-50 border rounded flex flex-col gap-2">
+          <label className="flex items-center gap-2 font-semibold text-gray-700">
+            <input type="checkbox" checked={allowComments} onChange={e => setAllowComments(e.target.checked)} />
+            Allow Reason / Justification Comments
+          </label>
+          {allowComments && (
+            <label className="flex items-center gap-2 font-semibold text-gray-700 ml-6">
+              <input type="checkbox" checked={requireComments} onChange={e => setRequireComments(e.target.checked)} />
+              Make comments required for each criteria
+            </label>
+          )}
+          <hr className="my-1 border-gray-200" />
+          <label className="flex items-center gap-2 font-semibold text-gray-700">
+            <input type="checkbox" checked={allowDirectTotal} onChange={e => setAllowDirectTotal(e.target.checked)} />
+            Allow evaluators to use "Direct Total" Assessment
+          </label>
+        </div>
+
+        <div className="flex justify-end gap-3 mt-4">
+          <button onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded font-semibold">Cancel</button>
+          <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-bold rounded">
+            {saving ? "Saving..." : "Save Criteria"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function EvaluatorList({ event, track, refreshEvents }) {
   const [evaluators, setEvaluators] = useState([]);
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({ title: "Mr.", firstName: "", lastName: "", email: "", phone: "" });
+  const [assignModal, setAssignModal] = useState(false);
+  const [selectedEvaluator, setSelectedEvaluator] = useState(null);
+  const [editEvaluatorId, setEditEvaluatorId] = useState(null);
+  const [editForm, setEditForm] = useState({ name: "", email: "", phone: "" });
 
   useEffect(() => {
     fetch(`${API_BASE}/api/admin/session-chairs/${event._id}`)
@@ -88,6 +224,23 @@ function EvaluatorList({ event, track, refreshEvents }) {
     }
   };
 
+  const handleUpdate = async (e, evId) => {
+    e.preventDefault();
+    const res = await fetch(`${API_BASE}/api/admin/evaluators/${evId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(editForm)
+    });
+    if (res.ok) {
+      setEditEvaluatorId(null);
+      const data = await res.json();
+      setEvaluators(evaluators.map(ev => ev._id === evId ? data.evaluator : ev));
+      refreshEvents();
+    } else {
+      alert("Failed to update evaluator");
+    }
+  };
+
   return (
     <div className="ml-6 mt-4 pl-4 border-l-2 border-green-200">
       <div className="flex justify-between items-center mb-3">
@@ -123,15 +276,51 @@ function EvaluatorList({ event, track, refreshEvents }) {
       
       <div className="space-y-2">
         {evaluators.map(ev => (
-          <div key={ev._id} className="flex justify-between items-center bg-white border border-gray-200 p-2 rounded shadow-sm text-sm">
-            <div>
-              <p className="font-semibold">{ev.name}</p>
-              <p className="text-gray-500 text-xs">{ev.email} • {ev.phone}</p>
-            </div>
-            <button onClick={() => handleDelete(ev._id)} className="text-red-500 hover:text-red-700 px-2 py-1">Delete</button>
+          <div key={ev._id} className="bg-white border border-gray-200 p-2 rounded shadow-sm text-sm">
+            {editEvaluatorId === ev._id ? (
+              <form onSubmit={(e) => handleUpdate(e, ev._id)} className="flex flex-col sm:flex-row gap-2 w-full">
+                <input required type="text" value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} className="flex-1 border px-2 py-1 rounded" placeholder="Full Name" />
+                <input required type="email" value={editForm.email} onChange={e => setEditForm({ ...editForm, email: e.target.value })} className="flex-1 border px-2 py-1 rounded" placeholder="Email" />
+                <input required type="text" value={editForm.phone} onChange={e => setEditForm({ ...editForm, phone: e.target.value })} className="flex-1 border px-2 py-1 rounded" placeholder="Phone" />
+                <div className="flex gap-2">
+                  <button type="submit" className="bg-blue-600 text-white px-3 py-1 rounded">Save</button>
+                  <button type="button" onClick={() => setEditEvaluatorId(null)} className="bg-gray-200 px-3 py-1 rounded">Cancel</button>
+                </div>
+              </form>
+            ) : (
+              <div className="flex justify-between items-center w-full">
+                <div>
+                  <p className="font-semibold">{ev.name}</p>
+                  <p className="text-gray-500 text-xs">{ev.email} • {ev.phone}</p>
+                </div>
+                <div>
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); setSelectedEvaluator(ev); setAssignModal(true); }}
+                    className="text-sm px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 transition font-medium mr-2"
+                  >
+                    Assign Teams
+                  </button>
+                  <button 
+                    onClick={() => { setEditEvaluatorId(ev._id); setEditForm({ name: ev.name, email: ev.email, phone: ev.phone }); }} 
+                    className="text-blue-600 hover:text-blue-800 px-2 py-1 mr-1"
+                  >
+                    Edit
+                  </button>
+                  <button onClick={() => handleDelete(ev._id)} className="text-red-500 hover:text-red-700 px-2 py-1">Delete</button>
+                </div>
+              </div>
+            )}
           </div>
         ))}
       </div>
+      
+      <AssignTeamsModal
+        isOpen={assignModal}
+        onClose={() => { setAssignModal(false); setSelectedEvaluator(null); }}
+        event={event}
+        track={track}
+        evaluator={selectedEvaluator}
+      />
     </div>
   );
 }
@@ -139,76 +328,97 @@ function EvaluatorList({ event, track, refreshEvents }) {
 function TrackItem({ event, track, refreshEvents }) {
   const [expanded, setExpanded] = useState(false);
   const [deleteModal, setDeleteModal] = useState(false);
-  const [assignModal, setAssignModal] = useState(false);
   const [assignStats, setAssignStats] = useState(null); // { total, assigned }
-  const [trackEvaluators, setTrackEvaluators] = useState([]);
+  const [isEditingTrack, setIsEditingTrack] = useState(false);
+  const [trackForm, setTrackForm] = useState({ title: track.title, description: track.description });
 
-  // Fetch assignment stats and evaluators for the badge whenever expanded or modal is open
+  // Fetch assignment stats and evaluators for the badge whenever expanded
   useEffect(() => {
-    if (!expanded && !assignModal) return;
+    if (!expanded) return;
     // Fetch all participants in this track to compute the badge
     fetch(`${API_BASE}/api/participants/by-track?eventId=${event._id}&trackId=${track.id}`)
       .then((r) => r.json())
       .then((data) => {
         if (data.success) {
           const total = data.participants.length;
-          const assigned = data.participants.filter((p) => p.assignedEvaluatorId).length;
+          const assigned = data.participants.filter((p) => p.assignedEvaluators && p.assignedEvaluators.length > 0).length;
           setAssignStats({ total, assigned });
         }
       })
       .catch(console.error);
-
-    // Fetch evaluators for this track (reuse existing session-chairs endpoint)
-    fetch(`${API_BASE}/api/admin/session-chairs/${event._id}`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.success && data.chairs) {
-          setTrackEvaluators(data.chairs.filter((c) => c.trackId === track.id));
-        }
-      })
-      .catch(console.error);
-  }, [expanded, assignModal, event._id, track.id]);
+  }, [expanded, event._id, track.id]);
 
   const handleDelete = async () => {
     const res = await fetch(`${API_BASE}/api/admin/events/${event._id}/tracks/${track.id}`, { method: "DELETE" });
     if (res.ok) refreshEvents();
   };
 
+  const handleEditTrack = async (e) => {
+    e.preventDefault();
+    const res = await fetch(`${API_BASE}/api/admin/events/${event._id}/tracks/${track.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(trackForm)
+    });
+    if (res.ok) {
+      setIsEditingTrack(false);
+      refreshEvents();
+    } else {
+      alert("Failed to update track");
+    }
+  };
+
   return (
     <div className="mb-3 bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
-      <div className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition" onClick={() => setExpanded(!expanded)}>
-        <div className="flex-1 min-w-0">
-          <h4 className="font-bold text-gray-800 text-lg flex items-center gap-2">
-            <span className={`text-green-600 transition-transform ${expanded ? 'rotate-90' : ''}`}>▶</span> {track.title}
-          </h4>
-          <p className="text-sm text-gray-600 mt-1">{track.description}</p>
+      {isEditingTrack ? (
+        <form onSubmit={handleEditTrack} className="p-4 bg-gray-50 border-b border-gray-200">
+          <div className="mb-3">
+            <label className="block text-sm font-semibold text-gray-700 mb-1">Track Name</label>
+            <input required type="text" value={trackForm.title} onChange={e => setTrackForm({ ...trackForm, title: e.target.value })} className="w-full border border-gray-300 rounded px-3 py-2" />
+          </div>
+          <div className="mb-3">
+            <label className="block text-sm font-semibold text-gray-700 mb-1">Track Description</label>
+            <textarea required value={trackForm.description} onChange={e => setTrackForm({ ...trackForm, description: e.target.value })} className="w-full border border-gray-300 rounded px-3 py-2 h-16" />
+          </div>
+          <div className="flex justify-end gap-2">
+            <button type="button" onClick={() => setIsEditingTrack(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded font-semibold">Cancel</button>
+            <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded font-semibold hover:bg-blue-700">Save Changes</button>
+          </div>
+        </form>
+      ) : (
+        <div className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition" onClick={() => setExpanded(!expanded)}>
+          <div className="flex-1 min-w-0">
+            <h4 className="font-bold text-gray-800 text-lg flex items-center gap-2">
+              <span className={`text-green-600 transition-transform ${expanded ? 'rotate-90' : ''}`}>▶</span> {track.title}
+            </h4>
+            <p className="text-sm text-gray-600 mt-1">{track.description}</p>
+          </div>
+          <div className="flex items-center gap-2 ml-4 flex-shrink-0">
+            {/* Assignment badge */}
+            {assignStats !== null && (
+              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${
+                assignStats.assigned === assignStats.total && assignStats.total > 0
+                  ? "bg-green-50 text-green-700 border-green-200"
+                  : "bg-amber-50 text-amber-700 border-amber-200"
+              }`}>
+                {assignStats.assigned}/{assignStats.total} assigned
+              </span>
+            )}
+            <button 
+              onClick={(e) => { e.stopPropagation(); setIsEditingTrack(true); }}
+              className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 px-3 py-1 rounded transition"
+            >
+              Edit
+            </button>
+            <button 
+              onClick={(e) => { e.stopPropagation(); setDeleteModal(true); }}
+              className="text-red-500 hover:text-red-700 hover:bg-red-50 px-3 py-1 rounded transition"
+            >
+              Delete Track
+            </button>
+          </div>
         </div>
-        <div className="flex items-center gap-2 ml-4 flex-shrink-0">
-          {/* Assignment badge */}
-          {assignStats !== null && (
-            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${
-              assignStats.assigned === assignStats.total && assignStats.total > 0
-                ? "bg-green-50 text-green-700 border-green-200"
-                : "bg-amber-50 text-amber-700 border-amber-200"
-            }`}>
-              {assignStats.assigned}/{assignStats.total} assigned
-            </span>
-          )}
-          {/* Assign Teams button */}
-          <button
-            onClick={(e) => { e.stopPropagation(); setAssignModal(true); }}
-            className="text-sm px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 transition font-medium"
-          >
-            Assign Teams
-          </button>
-          <button 
-            onClick={(e) => { e.stopPropagation(); setDeleteModal(true); }}
-            className="text-red-500 hover:text-red-700 hover:bg-red-50 px-3 py-1 rounded transition"
-          >
-            Delete Track
-          </button>
-        </div>
-      </div>
+      )}
       
       {expanded && (
         <div className="p-4 pt-0 border-t border-gray-100 bg-gray-50">
@@ -224,13 +434,6 @@ function TrackItem({ event, track, refreshEvents }) {
         itemType="Track" 
       />
 
-      <AssignTeamsModal
-        isOpen={assignModal}
-        onClose={() => { setAssignModal(false); setAssignStats(null); }}
-        event={event}
-        track={track}
-        evaluators={trackEvaluators}
-      />
     </div>
   );
 }
@@ -297,6 +500,7 @@ function TrackList({ event, refreshEvents }) {
 function EventCard({ event, refreshEvents }) {
   const [expanded, setExpanded] = useState(false);
   const [deleteModal, setDeleteModal] = useState(false);
+  const [criteriaModal, setCriteriaModal] = useState(false);
 
   const handleDelete = async () => {
     const res = await fetch(`${API_BASE}/api/admin/events/${event._id}`, { method: "DELETE" });
@@ -318,6 +522,9 @@ function EventCard({ event, refreshEvents }) {
           <Link to={`/admin/events/${event._id}/participants`} onClick={(e) => e.stopPropagation()} className="px-4 py-2 bg-green-700 hover:bg-green-800 text-white rounded-md text-sm font-semibold transition">
             View Participants
           </Link>
+          <Link to={`/edit/${event._id}`} onClick={(e) => e.stopPropagation()} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-semibold transition">
+            Edit Event
+          </Link>
           <button onClick={(e) => { e.stopPropagation(); setDeleteModal(true); }} className="px-4 py-2 border-2 border-red-500 text-red-500 hover:bg-red-500 hover:text-white rounded-md text-sm font-semibold transition">
             Delete Event
           </button>
@@ -326,6 +533,11 @@ function EventCard({ event, refreshEvents }) {
       
       {expanded && (
         <div className="p-6 pt-0 bg-white">
+          <div className="flex justify-end mb-4 border-t border-gray-200 pt-4">
+            <button onClick={() => setCriteriaModal(true)} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-semibold transition shadow-sm">
+              Define Criteria
+            </button>
+          </div>
           <TrackList event={event} refreshEvents={refreshEvents} />
         </div>
       )}
@@ -336,6 +548,12 @@ function EventCard({ event, refreshEvents }) {
         onConfirm={handleDelete} 
         itemName={event.title} 
         itemType="Event" 
+      />
+      <DefineCriteriaModal
+        isOpen={criteriaModal}
+        onClose={() => setCriteriaModal(false)}
+        event={event}
+        refreshEvents={refreshEvents}
       />
     </div>
   );
@@ -495,6 +713,75 @@ export function UsersView() {
     fetchData();
   }, []);
 
+  const [invitingId, setInvitingId] = useState(null);
+  const [isBulkInviting, setIsBulkInviting] = useState(false);
+  const [selectedEvaluators, setSelectedEvaluators] = useState([]);
+  const [showInviteMenu, setShowInviteMenu] = useState(false);
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+
+  const handleSendInvite = async (e, evId, isResend) => {
+    e.stopPropagation();
+    const msg = isResend ? "Resend the invitation email to this evaluator?" : "Send invitation email to this evaluator?";
+    if (!confirm(msg)) return;
+    setInvitingId(evId);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/evaluators/${evId}/send-invite`, { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        alert("Invitation sent successfully!");
+        fetchData();
+      } else {
+        alert(data.message || "Failed to send invitation.");
+      }
+    } catch (err) {
+      alert("Error sending invitation.");
+    }
+    setInvitingId(null);
+  };
+
+  const handleSendSelected = async () => {
+    if (selectedEvaluators.length === 0) return;
+    if (!confirm(`Send invitation emails to ${selectedEvaluators.length} selected evaluator(s)?`)) return;
+    setIsBulkInviting(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/evaluators/send-invites-selected`, { 
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ evaluatorIds: selectedEvaluators })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(data.message || "Invitations sent successfully!");
+        setSelectedEvaluators([]);
+        setIsSelectionMode(false);
+        fetchData();
+      } else {
+        alert(data.message || "Failed to send invitations.");
+      }
+    } catch (err) {
+      alert("Error sending invitations.");
+    }
+    setIsBulkInviting(false);
+  };
+
+  const handleBulkInvite = async () => {
+    if (!confirm("Send invitation emails to ALL evaluators?")) return;
+    setIsBulkInviting(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/evaluators/send-invites-bulk`, { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        alert(data.message || "Invitations sent successfully!");
+        fetchData();
+      } else {
+        alert(data.message || "Failed to send invitations.");
+      }
+    } catch (err) {
+      alert("Error sending invitations.");
+    }
+    setIsBulkInviting(false);
+  };
+
   const handleCreate = async (e) => {
     e.preventDefault();
     if (form.role === "Student Coordinator") {
@@ -512,6 +799,59 @@ export function UsersView() {
       } else {
         alert(data.message || "Failed to create Student Coordinator");
       }
+    }
+  };
+
+  const [editStudentId, setEditStudentId] = useState(null);
+  const [editStudentForm, setEditStudentForm] = useState({ name: "", email: "", phone: "" });
+
+  const handleUpdateStudent = async (e, id) => {
+    e.preventDefault();
+    const res = await fetch(`${API_BASE}/api/admin/student-coordinator`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, ...editStudentForm })
+    });
+    const data = await res.json();
+    if (data.success) {
+      setEditStudentId(null);
+      fetchData();
+    } else {
+      alert("Failed to update student coordinator");
+    }
+  };
+
+  const handleDeleteStudent = async (id) => {
+    if (!confirm("Are you sure you want to delete this student coordinator?")) return;
+    const res = await fetch(`${API_BASE}/api/admin/student-coordinators/${id}`, { method: "DELETE" });
+    if (res.ok) {
+      fetchData();
+    }
+  };
+
+  const [editEvaluatorId, setEditEvaluatorId] = useState(null);
+  const [editEvaluatorForm, setEditEvaluatorForm] = useState({ name: "", email: "", phone: "" });
+
+  const handleUpdateGlobalEvaluator = async (e, id) => {
+    e.preventDefault();
+    const res = await fetch(`${API_BASE}/api/admin/evaluators/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(editEvaluatorForm)
+    });
+    if (res.ok) {
+      setEditEvaluatorId(null);
+      fetchData();
+    } else {
+      alert("Failed to update evaluator");
+    }
+  };
+
+  const handleDeleteGlobalEvaluator = async (id) => {
+    if (!confirm("Are you sure you want to delete this evaluator?")) return;
+    const res = await fetch(`${API_BASE}/api/admin/evaluators/${id}`, { method: "DELETE" });
+    if (res.ok) {
+      fetchData();
     }
   };
 
@@ -576,17 +916,43 @@ export function UsersView() {
         ) : (
           <div className="divide-y divide-gray-100">
             {students.map(sc => (
-              <div key={sc._id} className="p-4 hover:bg-gray-50 transition cursor-pointer" onClick={() => setExpandedId(expandedId === sc._id ? null : sc._id)}>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-semibold text-gray-800 flex items-center gap-2">
-                      <span className={`text-green-600 transition-transform ${expandedId === sc._id ? 'rotate-90' : ''}`}>▶</span>
-                      {sc.name}
-                    </h4>
-                    <p className="text-sm text-gray-500 ml-5">{sc.email}</p>
+              <div key={sc._id} className="p-4 hover:bg-gray-50 transition cursor-pointer" onClick={(e) => { if (editStudentId !== sc._id) setExpandedId(expandedId === sc._id ? null : sc._id); }}>
+                {editStudentId === sc._id ? (
+                  <form onSubmit={(e) => handleUpdateStudent(e, sc._id)} className="flex flex-col sm:flex-row gap-2 w-full p-2" onClick={e => e.stopPropagation()}>
+                    <input required type="text" value={editStudentForm.name} onChange={e => setEditStudentForm({ ...editStudentForm, name: e.target.value })} className="flex-1 border px-2 py-1 rounded" placeholder="Full Name" />
+                    <input required type="email" value={editStudentForm.email} onChange={e => setEditStudentForm({ ...editStudentForm, email: e.target.value })} className="flex-1 border px-2 py-1 rounded" placeholder="Email" />
+                    <input required type="text" value={editStudentForm.phone} onChange={e => setEditStudentForm({ ...editStudentForm, phone: e.target.value })} className="flex-1 border px-2 py-1 rounded" placeholder="Phone" />
+                    <div className="flex gap-2">
+                      <button type="submit" className="bg-blue-600 text-white px-3 py-1 rounded">Save</button>
+                      <button type="button" onClick={() => setEditStudentId(null)} className="bg-gray-200 px-3 py-1 rounded">Cancel</button>
+                    </div>
+                  </form>
+                ) : (
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-semibold text-gray-800 flex items-center gap-2">
+                        <span className={`text-green-600 transition-transform ${expandedId === sc._id ? 'rotate-90' : ''}`}>▶</span>
+                        {sc.name}
+                      </h4>
+                      <p className="text-sm text-gray-500 ml-5">{sc.email}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); setEditStudentId(sc._id); setEditStudentForm({ name: sc.name, email: sc.email, phone: sc.phone || "" }); }}
+                        className="text-blue-600 hover:text-blue-800 px-2 py-1 text-sm font-medium"
+                      >
+                        Edit
+                      </button>
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); handleDeleteStudent(sc._id); }}
+                        className="text-red-500 hover:text-red-700 px-2 py-1 text-sm font-medium"
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </div>
-                </div>
-                {expandedId === sc._id && (
+                )}
+                {expandedId === sc._id && editStudentId !== sc._id && (
                   <div className="ml-5 mt-4 p-4 bg-gray-100 rounded-lg text-sm grid grid-cols-2 gap-2">
                     <div><span className="font-semibold text-gray-700">Phone:</span> {sc.phone || 'N/A'}</div>
                     <div><span className="font-semibold text-gray-700">Type:</span> Student Coordinator (Global)</div>
@@ -606,8 +972,71 @@ export function UsersView() {
 
       {/* Evaluators */}
       <div className="bg-white border border-green-200 rounded-2xl shadow-sm overflow-hidden mb-6">
-        <div className="bg-green-50 px-6 py-4 border-b border-green-100 font-bold text-green-800 text-lg">
-          Evaluators ({evaluators.length})
+        <div className="bg-green-50 px-6 py-4 border-b border-green-100 font-bold text-green-800 text-lg flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            {evaluators.length > 0 && isSelectionMode && (
+              <input 
+                type="checkbox"
+                checked={selectedEvaluators.length === evaluators.length && evaluators.length > 0}
+                onChange={(e) => {
+                  if (e.target.checked) setSelectedEvaluators(evaluators.map(ev => ev._id));
+                  else setSelectedEvaluators([]);
+                }}
+                className="w-4 h-4 cursor-pointer"
+              />
+            )}
+            <span>Evaluators ({evaluators.length})</span>
+          </div>
+          <div className="flex gap-2 relative">
+            {evaluators.length > 0 && (
+              isSelectionMode ? (
+                <>
+                  <button
+                    onClick={() => {
+                      setIsSelectionMode(false);
+                      setSelectedEvaluators([]);
+                    }}
+                    className="text-sm px-4 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded shadow transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSendSelected}
+                    disabled={isBulkInviting || selectedEvaluators.length === 0}
+                    className="text-sm px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded shadow transition disabled:opacity-50"
+                  >
+                    {isBulkInviting ? "Sending..." : `Confirm Send (${selectedEvaluators.length})`}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => setShowInviteMenu(!showInviteMenu)}
+                    disabled={isBulkInviting}
+                    className="text-sm px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded shadow transition flex items-center gap-1 disabled:opacity-50"
+                  >
+                    {isBulkInviting ? "Sending..." : "Send Invitations ▾"}
+                  </button>
+                  {showInviteMenu && !isBulkInviting && (
+                    <div className="absolute right-0 top-full mt-2 w-56 bg-white border border-gray-200 rounded-lg shadow-xl z-10 overflow-hidden">
+                      <button
+                        onClick={() => { setShowInviteMenu(false); handleBulkInvite(); }}
+                        className="w-full text-left px-4 py-3 hover:bg-gray-50 text-gray-700 font-semibold text-sm border-b border-gray-100 transition"
+                      >
+                        Send to All ({evaluators.length})
+                      </button>
+                      <button
+                        onClick={() => { setShowInviteMenu(false); setIsSelectionMode(true); }}
+                        className="w-full text-left px-4 py-3 font-semibold text-sm transition hover:bg-gray-50 text-indigo-700"
+                      >
+                        Send to Custom Users
+                      </button>
+                    </div>
+                  )}
+                </>
+              )
+            )}
+          </div>
         </div>
         {loading ? (
           <div className="p-6 text-gray-500">Loading users...</div>
@@ -616,17 +1045,64 @@ export function UsersView() {
         ) : (
           <div className="divide-y divide-gray-100">
             {evaluators.map(ev => (
-              <div key={ev._id} className="p-4 hover:bg-gray-50 transition cursor-pointer" onClick={() => setExpandedId(expandedId === ev._id ? null : ev._id)}>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-semibold text-gray-800 flex items-center gap-2">
-                      <span className={`text-green-600 transition-transform ${expandedId === ev._id ? 'rotate-90' : ''}`}>▶</span>
-                      {ev.name}
-                    </h4>
+              <div key={ev._id} className="p-4 hover:bg-gray-50 transition cursor-pointer" onClick={(e) => { if (editEvaluatorId !== ev._id) setExpandedId(expandedId === ev._id ? null : ev._id); }}>
+                {editEvaluatorId === ev._id ? (
+                  <form onSubmit={(e) => handleUpdateGlobalEvaluator(e, ev._id)} className="flex flex-col sm:flex-row gap-2 w-full p-2" onClick={e => e.stopPropagation()}>
+                    <input required type="text" value={editEvaluatorForm.name} onChange={e => setEditEvaluatorForm({ ...editEvaluatorForm, name: e.target.value })} className="flex-1 border px-2 py-1 rounded" placeholder="Full Name" />
+                    <input required type="email" value={editEvaluatorForm.email} onChange={e => setEditEvaluatorForm({ ...editEvaluatorForm, email: e.target.value })} className="flex-1 border px-2 py-1 rounded" placeholder="Email" />
+                    <input required type="text" value={editEvaluatorForm.phone} onChange={e => setEditEvaluatorForm({ ...editEvaluatorForm, phone: e.target.value })} className="flex-1 border px-2 py-1 rounded" placeholder="Phone" />
+                    <div className="flex gap-2">
+                      <button type="submit" className="bg-blue-600 text-white px-3 py-1 rounded">Save</button>
+                      <button type="button" onClick={() => setEditEvaluatorId(null)} className="bg-gray-200 px-3 py-1 rounded">Cancel</button>
+                    </div>
+                  </form>
+                ) : (
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      {isSelectionMode && (
+                        <input 
+                          type="checkbox"
+                          checked={selectedEvaluators.includes(ev._id)}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => {
+                            if (e.target.checked) setSelectedEvaluators([...selectedEvaluators, ev._id]);
+                            else setSelectedEvaluators(selectedEvaluators.filter(id => id !== ev._id));
+                          }}
+                          className="w-4 h-4 cursor-pointer"
+                        />
+                      )}
+                      <div>
+                        <h4 className="font-semibold text-gray-800 flex items-center gap-2">
+                          <span className={`text-green-600 transition-transform ${expandedId === ev._id ? 'rotate-90' : ''}`}>▶</span>
+                          {ev.name}
+                        </h4>
                     <p className="text-sm text-gray-500 ml-5">{ev.email}</p>
                   </div>
+                  </div>
+                  <div className="flex items-center gap-2 mr-4">
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); setEditEvaluatorId(ev._id); setEditEvaluatorForm({ name: ev.name, email: ev.email, phone: ev.phone || "" }); }}
+                      className="text-blue-600 hover:text-blue-800 px-2 py-1 text-sm font-medium"
+                    >
+                      Edit
+                    </button>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); handleDeleteGlobalEvaluator(ev._id); }}
+                      className="text-red-500 hover:text-red-700 px-2 py-1 text-sm font-medium"
+                    >
+                      Delete
+                    </button>
+                    <button 
+                      onClick={(e) => handleSendInvite(e, ev._id, ev.inviteSent)} 
+                      disabled={invitingId === ev._id}
+                      className={`text-xs font-semibold px-3 py-1 border rounded transition disabled:opacity-50 ${ev.inviteSent ? 'bg-orange-50 text-orange-600 border-orange-200 hover:bg-orange-100' : 'bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100'}`}
+                    >
+                      {invitingId === ev._id ? "Sending..." : ev.inviteSent ? "Resend Invite" : "Send Invite"}
+                    </button>
+                  </div>
                 </div>
-                {expandedId === ev._id && (
+                )}
+                {expandedId === ev._id && editEvaluatorId !== ev._id && (
                   <div className="ml-5 mt-4 p-4 bg-gray-100 rounded-lg text-sm grid grid-cols-2 gap-2">
                     <div><span className="font-semibold text-gray-700">Phone:</span> {ev.phone || 'N/A'}</div>
                     <div><span className="font-semibold text-gray-700">Type:</span> Evaluator</div>
@@ -635,7 +1111,11 @@ export function UsersView() {
                     <div className="col-span-2 mt-2 pt-2 border-t border-gray-200">
                       <span className="font-semibold text-gray-700">Temporary Password:</span> 
                       <span className="ml-2 font-mono bg-white px-2 py-1 rounded border border-gray-300">
-                        {ev.name.split(' ')[1]?.toLowerCase() || 'user'}123
+                        {(() => {
+                          const cleanName = ev.name.replace(/^(mr\.|mrs\.|ms\.|dr\.|prof\.)\s*/i, "").trim();
+                          const firstName = cleanName.split(" ")[0].toLowerCase().replace(/[^a-z0-9]/g, "") || "evaluator";
+                          return `${firstName}123`;
+                        })()}
                       </span>
                     </div>
                   </div>
