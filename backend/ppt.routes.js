@@ -101,8 +101,8 @@ router.post("/", upload.single("file"), async (req, res) => {
 
     // Build a human-readable public_id from teamId if available
     const publicId = teamId
-      ? `CARE/ppts/${eventId || "general"}/${teamId}${ext}`
-      : `CARE/ppts/${eventId || "general"}/${Date.now()}${ext}`;
+      ? `ikigai/ppts/${eventId || "general"}/${teamId}`
+      : `ikigai/ppts/${eventId || "general"}/${Date.now()}`;
 
     const base64 = `data:${mimeType};base64,${fileBuffer.toString("base64")}`;
 
