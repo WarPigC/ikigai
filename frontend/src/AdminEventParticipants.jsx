@@ -6,6 +6,8 @@ import autoTable from "jspdf-autotable";
 import { X, User, MapPin, Building2, BookOpen, GraduationCap, CheckCircle, Mail, Phone, ExternalLink, Link2, FileText, AlertCircle } from "lucide-react";
 import ikigaiLogo from "./assets/ikigai.png";
 import { ASSESSMENT_CRITERIA } from "./App";
+import ErrorBoundary from "./ErrorBoundary";
+import SlideViewer from "./components/evaluator/SlideViewer";
 
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
@@ -26,6 +28,7 @@ export default function AdminEventParticipants() {
   const [sortKey, setSortKey] = useState("");
   const [selectedParticipant, setSelectedParticipant] = useState(null);
   const [selectedEvaluationReport, setSelectedEvaluationReport] = useState(null);
+  const [showPptModal, setShowPptModal] = useState(false);
   const [sortBy, setSortBy] = useState("");
   const [sortOrder, setSortOrder] = useState("asc");
 
@@ -762,8 +765,9 @@ export default function AdminEventParticipants() {
 )}
 
 {selectedEvaluationReport && (
-  <div className="fixed inset-0 z-[60] bg-black/40 flex items-center justify-center p-4">
-    <div className="bg-white rounded-2xl w-full max-w-2xl p-6 relative shadow-2xl max-h-[90vh] flex flex-col">
+  <ErrorBoundary>
+    <div className="fixed inset-0 z-[60] bg-black/40 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl w-full max-w-2xl p-6 relative shadow-2xl max-h-[90vh] flex flex-col">
       <button
         onClick={() => setSelectedEvaluationReport(null)}
         className="absolute top-3 right-4 text-gray-400 hover:text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-full w-8 h-8 flex items-center justify-center transition-colors"
@@ -891,18 +895,12 @@ export default function AdminEventParticipants() {
                     {(selectedParticipant.pptLink || selectedParticipant.submissionLink) && (
                       <div>
                         <span className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1.5">Presentation</span>
-                        <a 
-                          href={
-                            (selectedParticipant.pptLink || selectedParticipant.submissionLink).includes('drive.google.com') || (selectedParticipant.pptLink || selectedParticipant.submissionLink).includes('docs.google.com')
-                              ? (selectedParticipant.pptLink || selectedParticipant.submissionLink)
-                              : `https://docs.google.com/viewer?url=${encodeURIComponent(selectedParticipant.pptLink || selectedParticipant.submissionLink)}`
-                          } 
-                          target="_blank" 
-                          rel="noopener noreferrer" 
-                          className="inline-flex items-center gap-2 px-3 py-1.5 bg-violet-50 hover:bg-violet-100 text-violet-700 rounded-lg text-sm font-semibold transition-colors border border-violet-200"
+                        <button 
+                          onClick={() => setShowPptModal(true)} 
+                          className="bg-purple-600 text-white px-5 py-2.5 rounded-xl font-medium hover:bg-purple-700 text-sm shadow-sm transition-all hover:shadow"
                         >
-                          <Link2 size={15} /> View PPT
-                        </a>
+                          Open Presentation Modal
+                        </button>
                       </div>
                     )}
                   </div>
@@ -1031,6 +1029,19 @@ export default function AdminEventParticipants() {
             
           </div>
         </div>
+    </div>
+  </div>
+  </ErrorBoundary>
+)}
+
+{showPptModal && selectedParticipant && (
+  <div className="fixed inset-0 z-[70] bg-black/90 flex flex-col p-2 md:p-6 backdrop-blur-md">
+    <div className="flex justify-between items-center mb-4 text-white px-2">
+      <div className="font-bold text-lg truncate pr-4">{selectedParticipant.paperTitle || selectedParticipant.problemStatement || "Presentation"}</div>
+      <button onClick={() => setShowPptModal(false)} className="bg-white/20 hover:bg-white/40 p-2 rounded-lg font-bold px-4 transition-colors text-sm flex items-center gap-2">Close ✕</button>
+    </div>
+    <div className="flex-1 w-full bg-white rounded-xl overflow-hidden shadow-2xl relative border border-gray-800">
+      <SlideViewer fileUrl={selectedParticipant.pptLink || selectedParticipant.submissionLink} />
     </div>
   </div>
 )}
