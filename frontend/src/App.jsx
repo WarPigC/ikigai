@@ -4771,7 +4771,7 @@ const handleNext = () => {
               sessionStorage.clear();
               navigate("/login");
             }}
-            className="px-4 py-2 border rounded"
+            className="px-4 py-2 text-sm font-medium rounded-lg bg-green-600 text-white hover:bg-green-700 transition flex items-center justify-center gap-2"
           >
             Back to Login
           </button>
