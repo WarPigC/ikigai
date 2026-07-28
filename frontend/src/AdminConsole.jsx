@@ -810,7 +810,11 @@ export function UsersView() {
                     <div className="col-span-2 mt-2 pt-2 border-t border-gray-200">
                       <span className="font-semibold text-gray-700">Temporary Password:</span> 
                       <span className="ml-2 font-mono bg-white px-2 py-1 rounded border border-gray-300">
-                        {ev.name.split(' ')[1]?.toLowerCase() || 'user'}123
+                        {(() => {
+                          const cleanName = ev.name.replace(/^(mr\.|mrs\.|ms\.|dr\.|prof\.)\s*/i, "").trim();
+                          const firstName = cleanName.split(" ")[0].toLowerCase().replace(/[^a-z0-9]/g, "") || "evaluator";
+                          return `${firstName}123`;
+                        })()}
                       </span>
                     </div>
                   </div>

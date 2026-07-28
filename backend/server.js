@@ -2440,6 +2440,13 @@ const PORT = process.env.PORT || 5000;
     }
   });
 
+  const generateTempPassword = (fullName) => {
+    if (!fullName) return "evaluator123";
+    const cleanName = fullName.replace(/^(mr\.|mrs\.|ms\.|dr\.|prof\.)\s*/i, "").trim();
+    const firstName = cleanName.split(" ")[0].toLowerCase().replace(/[^a-z0-9]/g, "") || "evaluator";
+    return `${firstName}123`;
+  };
+
   // Evaluator POST
   app.post("/api/admin/evaluators", async (req, res) => {
     try {
@@ -2447,7 +2454,7 @@ const PORT = process.env.PORT || 5000;
       const exists = await SessionChair.findOne({ email, eventId, trackId });
       if (exists) return res.status(400).json({ success: false, message: "Evaluator with this email already exists in this track." });
       
-      const tempPassword = (req.body.firstName || "evaluator").toLowerCase().replace(/[^a-z0-9]/g, "") + "123";
+      const tempPassword = generateTempPassword(name);
       const evaluator = await SessionChair.create({
         name,
         email: email.trim().toLowerCase(),
@@ -2512,8 +2519,7 @@ const PORT = process.env.PORT || 5000;
       const evaluator = await SessionChair.findById(req.params.id);
       if (!evaluator) return res.status(404).json({ success: false, message: "Evaluator not found" });
 
-      const firstName = evaluator.name.split(" ")[0].toLowerCase().replace(/[^a-z0-9]/g, "") || "evaluator";
-      const tempPassword = `${firstName}123`;
+      const tempPassword = generateTempPassword(evaluator.name);
       const updateToken = crypto.randomBytes(32).toString("hex");
       
       evaluator.passwordHash = hashPassword(tempPassword);
@@ -2542,8 +2548,7 @@ const PORT = process.env.PORT || 5000;
 
       for (let evaluator of evaluators) {
         try {
-          const firstName = evaluator.name.split(" ")[0].toLowerCase().replace(/[^a-z0-9]/g, "") || "evaluator";
-          const tempPassword = `${firstName}123`;
+          const tempPassword = generateTempPassword(evaluator.name);
           const updateToken = crypto.randomBytes(32).toString("hex");
           
           evaluator.passwordHash = hashPassword(tempPassword);
