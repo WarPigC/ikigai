@@ -238,7 +238,7 @@ const ParticipantSchema = new mongoose.Schema(
     // Workflow
     status: {
       type: String,
-      enum: ["DRAFT", "SUBMITTED", "EVALUATED"],
+      enum: ["DRAFT", "SUBMITTED", "EVALUATED", "EVALUATION_PENDING"],
       default: "DRAFT",
       index: true,
     },

@@ -37,4 +37,9 @@ temp/
 *.njsproj
 *.sln
 *.sw?
-participantData.csvbackend/mongo-data/
+participantData.csv
+backend/mongo-data/
+
+
+# misc files
+todo.txt
