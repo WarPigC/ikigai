@@ -19,7 +19,7 @@ export default function AdminLayout() {
   ];
 
   return (
-    <div className="flex min-h-screen bg-gray-50 w-full overflow-hidden">
+    <div className="flex flex-1 bg-gray-50 w-full overflow-hidden">
       
       {/* Sidebar - Collapsible */}
       <aside 
@@ -71,7 +71,7 @@ export default function AdminLayout() {
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 overflow-y-auto w-full min-w-0 flex flex-col h-screen">
+      <main className="flex-1 overflow-y-auto w-full min-w-0 flex flex-col">
         {/* We use h-screen and overflow-y-auto so nested pages that rely on full height (like EventDetails) work seamlessly */}
         <Outlet />
       </main>

@@ -2072,7 +2072,7 @@ const getProgressColor = (assessed, total) => {
 
 
   return (
-    <div className="flex-1 p-6 overflow-auto width-full">
+    <div className="flex-1 p-6 w-full">
       <div className="flex items-start justify-between mb-6">
         <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm w-full">
   <h2 className="text-2xl font-semibold text-gray-800">
