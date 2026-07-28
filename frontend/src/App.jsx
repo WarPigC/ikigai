@@ -1894,6 +1894,8 @@ useEffect(() => {
               }))
             : [],
           sessionChairs: [], // loaded separately if needed
+          criteria: ev.criteria || [],
+          allowDirectTotal: ev.allowDirectTotal ?? true,
         });
 
         return;
@@ -1932,6 +1934,8 @@ useEffect(() => {
             }))
           : [],
         sessionChairs: [],
+        criteria: data.event.criteria || [],
+        allowDirectTotal: data.event.allowDirectTotal ?? true,
       });
     } catch (err) {
       console.error("Fetching single event failed:", err);
@@ -2304,6 +2308,8 @@ function TrackDetails({
 
   const tracks = Array.isArray(local?.tracks) ? local.tracks : [];
   const track = tracks.find((t) => t.id === trackId);
+  const criteriaList = local?.criteria?.length ? local.criteria : ASSESSMENT_CRITERIA.map(name => ({ name, maxMarks: 10 }));
+  const maxTotalMarks = criteriaList.reduce((sum, c) => sum + (Number(c.maxMarks) || 10), 0);
   const [participants, setParticipants] = useState([]);
   const [loadingParticipants, setLoadingParticipants] = useState(true);
   const [selectedParticipant, setSelectedParticipant] = useState(null);
@@ -3248,17 +3254,19 @@ const submissionUrl =
                           Criteria-wise
                         </button>
 
-                        <button
-                          disabled={editingAssessment}
-                          onClick={() => setAssessmentMode("total")}
-                          className={`px-3 py-1.5 rounded-md text-sm font-semibold transition-colors ${
-                            assessmentMode === "total"
-                              ? "bg-violet-600 text-white shadow-sm"
-                              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                          } ${editingAssessment ? "opacity-50 cursor-not-allowed" : ""}`}
-                        >
-                          Direct Total
-                        </button>
+                        {local?.allowDirectTotal !== false && (
+                          <button
+                            disabled={editingAssessment}
+                            onClick={() => setAssessmentMode("total")}
+                            className={`px-3 py-1.5 rounded-md text-sm font-semibold transition-colors ${
+                              assessmentMode === "total"
+                                ? "bg-violet-600 text-white shadow-sm"
+                                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                            } ${editingAssessment ? "opacity-50 cursor-not-allowed" : ""}`}
+                          >
+                            Direct Total
+                          </button>
+                        )}
                       </div>
                     )}
 
@@ -3304,19 +3312,19 @@ const submissionUrl =
                           {/* ================= CRITERIA MODE ================= */}
                           {assessmentMode === "criteria" ? (
                             <>
-                              {ASSESSMENT_CRITERIA.map((label, idx) => (
+                              {criteriaList.map((c, idx) => (
                                 <tr key={idx} className="hover:bg-gray-50/50">
-                                  <td className="px-4 py-2.5 text-gray-600 font-medium whitespace-nowrap">{label}</td>
+                                  <td className="px-4 py-2.5 text-gray-600 font-medium whitespace-nowrap">{c.name}</td>
                                   <td className="px-4 py-2.5 text-center">
                                     {editingAssessment ? (
                                       <input
                                         type="number"
                                         min={0}
-                                        max={10}
+                                        max={c.maxMarks}
                                         value={adminAssessmentForm.criteria[idx] ?? 0}
                                         onChange={(e) => {
                                           let value = Number(e.target.value) || 0;
-                                          value = Math.max(0, Math.min(10, value)); // 🔒 max 10
+                                          value = Math.max(0, Math.min(c.maxMarks, value)); // 🔒 max marks
                                           setAdminAssessmentForm((f) => {
                                             const updated = [...f.criteria];
                                             updated[idx] = value;
@@ -3372,11 +3380,11 @@ const submissionUrl =
                                   <input
                                     type="number"
                                     min={0}
-                                    max={50}
+                                    max={maxTotalMarks}
                                     value={adminAssessmentForm.total}
                                     onChange={(e) => {
                                       let value = Number(e.target.value) || 0;
-                                      value = Math.max(0, Math.min(50, value)); // 🔒 max 50
+                                      value = Math.max(0, Math.min(maxTotalMarks, value)); // 🔒 max dynamic
                                       setAdminAssessmentForm((f) => ({
                                         ...f,
                                         total: value,
@@ -3837,6 +3845,7 @@ function AssessmentModal({
   currentIndex,
   onSaveAndNext,
   track,
+  event,
   isSaved,
   onNext,
   onPrev,
@@ -3863,10 +3872,13 @@ function AssessmentModal({
   const [openSection, setOpenSection] = React.useState(1);
   const [showPptModal, setShowPptModal] = React.useState(false);
 
+  const criteriaList = event?.criteria?.length ? event.criteria : ASSESSMENT_CRITERIA.map(name => ({ name, maxMarks: 10 }));
+  const maxTotalMarks = criteriaList.reduce((sum, c) => sum + (Number(c.maxMarks) || 10), 0);
+
   const DEFAULT_FORM = {
     present: true,
-    criteria: Array(ASSESSMENT_CRITERIA.length).fill(0),
-    justifications: Array(ASSESSMENT_CRITERIA.length).fill(""),
+    criteria: Array(criteriaList.length).fill(0),
+    justifications: Array(criteriaList.length).fill(""),
     total: 0,
     notes: "",
   };
@@ -3885,11 +3897,14 @@ function AssessmentModal({
     if (p.assessment) {
       mode = p.assessment.mode === "direct" ? "direct" : "criteria";
 
-      const criteria = Array.isArray(p.assessment.criteria) && p.assessment.criteria.length === ASSESSMENT_CRITERIA.length
-        ? p.assessment.criteria
-        : Array(ASSESSMENT_CRITERIA.length).fill(0);
+      const criteria = Array(criteriaList.length).fill(0);
+      if (Array.isArray(p.assessment.criteria)) {
+         p.assessment.criteria.forEach((val, idx) => {
+            if (idx < criteria.length) criteria[idx] = val;
+         });
+      }
       
-      let justifications = Array(ASSESSMENT_CRITERIA.length).fill("");
+      let justifications = Array(criteriaList.length).fill("");
       let notes = p.assessment.notes ?? "";
       
       if (notes.startsWith("JSON:")) {
@@ -4016,8 +4031,8 @@ function AssessmentModal({
     setIsDirty(true);
     setForm((f) => ({
       ...f,
-      total: Math.max(0, Math.min(50, Number(value) || 0)),
-      criteria: Array(ASSESSMENT_CRITERIA.length).fill(0),
+      total: Math.max(0, Math.min(maxTotalMarks, Number(value) || 0)),
+      criteria: Array(criteriaList.length).fill(0),
     }));
   };
 
@@ -4249,23 +4264,25 @@ function AssessmentModal({
                <div className="p-5 border-t border-green-100">
                   <div className="flex gap-4 mb-6 bg-gray-50 p-2 rounded-lg border border-gray-100 inline-flex">
                     <label className="text-sm font-medium text-gray-700 cursor-pointer flex items-center gap-2"><input type="radio" checked={assessmentMode === "criteria"} onChange={() => setAssessmentMode("criteria")} className="text-green-600 focus:ring-green-500" /> Criteria-wise</label>
-                    <label className="text-sm font-medium text-gray-700 cursor-pointer flex items-center gap-2"><input type="radio" checked={assessmentMode === "direct"} onChange={() => setAssessmentMode("direct")} className="text-green-600 focus:ring-green-500" /> Direct total</label>
+                    {event?.allowDirectTotal !== false && (
+                      <label className="text-sm font-medium text-gray-700 cursor-pointer flex items-center gap-2"><input type="radio" checked={assessmentMode === "direct"} onChange={() => setAssessmentMode("direct")} className="text-green-600 focus:ring-green-500" /> Direct total</label>
+                    )}
                   </div>
 
                   {assessmentMode === "criteria" && (
                     <div className="space-y-4 mb-6">
-                      {ASSESSMENT_CRITERIA.map((label, i) => (
+                      {criteriaList.map((c, i) => (
                         <div key={i} className="bg-white border border-gray-200 rounded-xl p-4 grid grid-cols-1 md:grid-cols-[1fr_90px_2fr] gap-4 items-start shadow-sm hover:border-green-300 transition-colors">
-                          <div className="text-sm font-semibold text-gray-800 mt-1 md:pr-4">{i + 1}. {label}</div>
+                          <div className="text-sm font-semibold text-gray-800 mt-1 md:pr-4">{i + 1}. {c.name}</div>
                           <div className="flex flex-col gap-1 relative">
                              <input
                                 type="number"
-                                min={0} max={10}
+                                min={0} max={c.maxMarks}
                                 value={form.criteria[i]}
                                 onChange={(e) => setCriteria(i, e.target.value)}
                                 onBlur={() => {
                                    const arr = [...form.criteria];
-                                   arr[i] = normalizeCriteriaValue(arr[i], 10);
+                                   arr[i] = normalizeCriteriaValue(arr[i], c.maxMarks);
                                    const total = arr.reduce((a, b) => a + Number(b || 0), 0);
                                    setForm((f) => ({ ...f, criteria: arr, total }));
                                 }}
@@ -4273,16 +4290,19 @@ function AssessmentModal({
                                 className={`${activeInput} w-full text-lg font-bold text-green-700`}
                                 placeholder="0"
                              />
-                             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest text-center">Max 10</span>
+                             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest text-center">Max {c.maxMarks}</span>
                           </div>
                           <div>
+                            {(event?.allowComments ?? true) && (
                              <textarea 
                                 rows="2" 
                                 placeholder="Justification / Reason for marks..." 
                                 value={form.justifications[i] || ""} 
                                 onChange={(e) => setJustification(i, e.target.value)} 
+                                required={event?.requireComments ?? false}
                                 className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-green-400 focus:border-transparent outline-none transition-shadow resize-none"
                              ></textarea>
+                            )}
                           </div>
                         </div>
                       ))}
@@ -4295,13 +4315,13 @@ function AssessmentModal({
                         <div className="flex items-baseline gap-2">
                           <input
                              type="number"
-                             min={0} max={50}
+                             min={0} max={maxTotalMarks}
                              value={form.total}
                              disabled={assessmentMode === "criteria"}
                              onChange={(e) => setDirectTotal(e.target.value)}
                              className={`${assessmentMode === "direct" ? "border-green-400 bg-white shadow-inner focus:ring-2 focus:ring-green-400" : "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"} border-2 rounded-lg px-3 py-2 w-[100px] text-center font-bold text-2xl outline-none`}
                           />
-                          <span className="text-green-700 font-bold text-lg">/ 50</span>
+                          <span className="text-green-700 font-bold text-lg">/ {maxTotalMarks}</span>
                         </div>
                      </div>
 
@@ -4358,7 +4378,8 @@ function AssessmentModal({
     </div>
   );
 }
-function AssessmentSummary({ participants, onClose }) {
+function AssessmentSummary({ participants, onClose, event }) {
+  const criteriaList = event?.criteria?.length ? event.criteria : ASSESSMENT_CRITERIA.map(name => ({ name, maxMarks: 10 }));
   // sort by total marks (descending)
   const sorted = [...participants].sort((a, b) => {
     const ta = a.assessment?.total ?? 0;
@@ -4391,9 +4412,9 @@ function AssessmentSummary({ participants, onClose }) {
               <th className="border px-2 py-1">Presenter Name</th>
               <th className="border px-2 py-1">Team ID</th>
               <th className="border px-2 py-1">Title</th>
-              {ASSESSMENT_CRITERIA.map((c, i) => (
+              {criteriaList.map((c, i) => (
   <th key={i} className="border px-2 py-1 text-xs">
-    {c}
+    {c.name}
   </th>
 ))}
 
@@ -4405,11 +4426,12 @@ function AssessmentSummary({ participants, onClose }) {
             {sorted.map((p, idx) => {
               const assessment = p.assessment || {};
               const mode = assessment.mode || "criteria";
-             const criteria =
-  Array.isArray(assessment.criteria) &&
-  assessment.criteria.length === ASSESSMENT_CRITERIA.length
-    ? assessment.criteria
-    : Array(ASSESSMENT_CRITERIA.length).fill(0);
+              const criteria = Array(criteriaList.length).fill(0);
+              if (Array.isArray(assessment.criteria)) {
+                 assessment.criteria.forEach((val, idx) => {
+                    if (idx < criteria.length) criteria[idx] = val;
+                 });
+              }
 
 
               return (
@@ -4468,6 +4490,7 @@ function SessionChairConsole() {
   const [loading, setLoading] = useState(true);
   const [chair, setChair] = useState(null);
   const [track, setTrack] = useState(null);
+  const [event, setEvent] = useState(null);
   const [participants, setParticipants] = useState([]);
   const [collapsed, setCollapsed] = useState(false);
   const [sidebarVisible, setSidebarVisible] = useState(false);
@@ -4525,6 +4548,7 @@ function SessionChairConsole() {
 
         setChair(data.chair || {});
         setTrack(data.track || {});
+        setEvent(data.event || {});
 
         const pRes = await fetch(
           `${API_BASE}/api/participants/by-track?eventId=${data.chair.eventId}&trackId=${data.chair.trackId}&evaluatorId=${data.chair._id}`
@@ -4812,6 +4836,7 @@ const handleNext = () => {
         currentIndex={assessmentIndex}
         onSaveAndNext={saveAssessmentAndProceed}
         track={track}
+        event={event}
         persistParticipants={persistParticipants}
         onNext={() => {
           if (assessmentIndex < participants.length - 1) {
@@ -4824,6 +4849,14 @@ const handleNext = () => {
         onScheduleToLast={handleScheduleToLast}
       />
 
+
+      {showSummary && (
+        <AssessmentSummary
+          participants={participants}
+          onClose={() => setShowSummary(false)}
+          event={event}
+        />
+      )}
 
       <div className="mt-6 flex justify-between items-center px-6 py-4 bg-white border-t shadow-sm">
   <button

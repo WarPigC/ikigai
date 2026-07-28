@@ -38,6 +38,123 @@ function ConfirmDeleteModal({ isOpen, onClose, onConfirm, itemName, itemType }) 
   );
 }
 
+function DefineCriteriaModal({ isOpen, onClose, event, refreshEvents }) {
+  const [criteria, setCriteria] = useState(event.criteria && event.criteria.length ? event.criteria : [{ name: "", maxMarks: 10 }]);
+  const [allowComments, setAllowComments] = useState(event.allowComments ?? true);
+  const [requireComments, setRequireComments] = useState(event.requireComments ?? false);
+  const [allowDirectTotal, setAllowDirectTotal] = useState(event.allowDirectTotal ?? true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setCriteria(event.criteria && event.criteria.length ? event.criteria : [{ name: "", maxMarks: 10 }]);
+      setAllowComments(event.allowComments ?? true);
+      setRequireComments(event.requireComments ?? false);
+      setAllowDirectTotal(event.allowDirectTotal ?? true);
+    }
+  }, [isOpen, event]);
+
+  if (!isOpen) return null;
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/events/${event._id}/criteria`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ criteria, allowComments, requireComments, allowDirectTotal })
+      });
+      if (res.ok) {
+        onClose();
+        refreshEvents();
+      } else {
+        alert("Failed to save criteria");
+      }
+    } catch (e) {
+      alert("Error saving criteria");
+    }
+    setSaving(false);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-xl font-bold text-gray-800">Define Assessment Criteria</h3>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-800">✕</button>
+        </div>
+        
+        <div className="flex justify-end mb-4">
+          <button onClick={() => setCriteria([...criteria, { name: "", maxMarks: 10 }])} className="px-3 py-1 bg-blue-100 text-blue-700 font-semibold rounded hover:bg-blue-200 text-sm">
+            + Add Criteria
+          </button>
+        </div>
+
+        <div className="space-y-3 mb-6">
+          {criteria.map((c, idx) => (
+            <div key={idx} className="flex gap-3 items-center">
+              <input 
+                type="text" 
+                placeholder="Criteria Name" 
+                value={c.name} 
+                onChange={e => {
+                  const newC = [...criteria];
+                  newC[idx].name = e.target.value;
+                  setCriteria(newC);
+                }} 
+                className="flex-1 border px-3 py-2 rounded" 
+              />
+              <input 
+                type="number" 
+                placeholder="Max Marks" 
+                value={c.maxMarks} 
+                onChange={e => {
+                  const newC = [...criteria];
+                  newC[idx].maxMarks = Number(e.target.value);
+                  setCriteria(newC);
+                }} 
+                className="w-24 border px-3 py-2 rounded" 
+              />
+              <button 
+                onClick={() => setCriteria(criteria.filter((_, i) => i !== idx))}
+                className="text-red-500 hover:bg-red-50 p-2 rounded"
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+          {criteria.length === 0 && <p className="text-gray-500 italic text-sm">No criteria defined. Add at least one.</p>}
+        </div>
+
+        <div className="mb-6 p-4 bg-gray-50 border rounded flex flex-col gap-2">
+          <label className="flex items-center gap-2 font-semibold text-gray-700">
+            <input type="checkbox" checked={allowComments} onChange={e => setAllowComments(e.target.checked)} />
+            Allow Reason / Justification Comments
+          </label>
+          {allowComments && (
+            <label className="flex items-center gap-2 font-semibold text-gray-700 ml-6">
+              <input type="checkbox" checked={requireComments} onChange={e => setRequireComments(e.target.checked)} />
+              Make comments required for each criteria
+            </label>
+          )}
+          <hr className="my-1 border-gray-200" />
+          <label className="flex items-center gap-2 font-semibold text-gray-700">
+            <input type="checkbox" checked={allowDirectTotal} onChange={e => setAllowDirectTotal(e.target.checked)} />
+            Allow evaluators to use "Direct Total" Assessment
+          </label>
+        </div>
+
+        <div className="flex justify-end gap-3 mt-4">
+          <button onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded font-semibold">Cancel</button>
+          <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-bold rounded">
+            {saving ? "Saving..." : "Save Criteria"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function EvaluatorList({ event, track, refreshEvents }) {
   const [evaluators, setEvaluators] = useState([]);
   const [showCreate, setShowCreate] = useState(false);
@@ -297,6 +414,7 @@ function TrackList({ event, refreshEvents }) {
 function EventCard({ event, refreshEvents }) {
   const [expanded, setExpanded] = useState(false);
   const [deleteModal, setDeleteModal] = useState(false);
+  const [criteriaModal, setCriteriaModal] = useState(false);
 
   const handleDelete = async () => {
     const res = await fetch(`${API_BASE}/api/admin/events/${event._id}`, { method: "DELETE" });
@@ -326,6 +444,11 @@ function EventCard({ event, refreshEvents }) {
       
       {expanded && (
         <div className="p-6 pt-0 bg-white">
+          <div className="flex justify-end mb-4 border-t border-gray-200 pt-4">
+            <button onClick={() => setCriteriaModal(true)} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-semibold transition shadow-sm">
+              Define Criteria
+            </button>
+          </div>
           <TrackList event={event} refreshEvents={refreshEvents} />
         </div>
       )}
@@ -336,6 +459,12 @@ function EventCard({ event, refreshEvents }) {
         onConfirm={handleDelete} 
         itemName={event.title} 
         itemType="Event" 
+      />
+      <DefineCriteriaModal
+        isOpen={criteriaModal}
+        onClose={() => setCriteriaModal(false)}
+        event={event}
+        refreshEvents={refreshEvents}
       />
     </div>
   );

@@ -17,6 +17,7 @@ export default function AdminEventParticipants() {
 
   const [participants, setParticipants] = useState([]);
   const [tracks, setTracks] = useState([]);
+  const [event, setEvent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [topNPerTrack, setTopNPerTrack] = useState(0);
 
@@ -73,10 +74,13 @@ export default function AdminEventParticipants() {
           });
           setParticipants(mapped);
           setTracks(data.tracks || []);
+          setEvent(data.event || null);
         }
       })
       .finally(() => setLoading(false));
   }, [eventId]);
+
+  const criteriaList = event?.criteria?.length ? event.criteria : ASSESSMENT_CRITERIA.map(name => ({ name, maxMarks: 10 }));
 
   const getTopNPerTrack = (list, n) => {
     if (!n || n <= 0) return list;
@@ -820,10 +824,20 @@ export default function AdminEventParticipants() {
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                           {Array.isArray(selectedParticipant.assessment?.criteria) && selectedParticipant.assessment.criteria.length > 0 ? (
-                            <>
-                              {ASSESSMENT_CRITERIA.map((label, idx) => (
+                            (() => {
+                              let parsedComments = [];
+                              if (selectedParticipant.assessment.comments) {
+                                parsedComments = selectedParticipant.assessment.comments;
+                              } else if (selectedParticipant.assessment.notes?.startsWith("JSON:")) {
+                                try {
+                                  parsedComments = JSON.parse(selectedParticipant.assessment.notes.substring(5));
+                                } catch (e) {}
+                              }
+                              return (
+                                <>
+                                  {criteriaList.map((c, idx) => (
                                 <tr key={idx} className="hover:bg-gray-50/50">
-                                  <td className="px-4 py-2.5 text-gray-600 font-medium whitespace-nowrap">{label}</td>
+                                  <td className="px-4 py-2.5 text-gray-600 font-medium whitespace-nowrap">{c.name}</td>
                                   <td className="px-4 py-2.5 text-center">
                                       <span className="font-bold text-gray-900">
                                         {selectedParticipant.assessment.criteria[idx] ?? 0}
@@ -831,7 +845,7 @@ export default function AdminEventParticipants() {
                                   </td>
                                   <td className="px-4 py-2.5">
                                       <span className="text-gray-600 text-xs italic">
-                                        {selectedParticipant.assessment.comments?.[idx] || "No comment"}
+                                        {parsedComments[idx] || "No comment"}
                                       </span>
                                   </td>
                                 </tr>
@@ -844,6 +858,8 @@ export default function AdminEventParticipants() {
                                 <td className="px-4 py-3 text-gray-400 text-xs text-center">—</td>
                               </tr>
                             </>
+                          );
+                          })()
                           ) : (
                             <tr className="bg-gray-50 font-bold">
                               <td className="px-4 py-4 text-gray-900 uppercase tracking-wider text-xs">Total</td>

@@ -156,6 +156,22 @@ const EventSchema = new mongoose.Schema(
     tracks: [TrackSchema],
     sessionChairs: Array,
     participants: Object,
+    criteria: {
+      type: [{
+        name: String,
+        maxMarks: Number
+      }],
+      default: [
+        { name: "Innovation & Originality", maxMarks: 10 },
+        { name: "Technical Complexity", maxMarks: 10 },
+        { name: "Business & Market Viability", maxMarks: 10 },
+        { name: "User Experience & Design", maxMarks: 10 },
+        { name: "Presentation & Q&A", maxMarks: 10 }
+      ]
+    },
+    allowComments: { type: Boolean, default: true },
+    requireComments: { type: Boolean, default: false },
+    allowDirectTotal: { type: Boolean, default: true }
   },
   { timestamps: true }
 );
@@ -428,6 +444,26 @@ app.post("/api/admin/events", async (req, res) => {
       success: false,
       message: error.message,
     });
+  }
+});
+
+// Update event criteria
+app.put("/api/admin/events/:id/criteria", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { criteria, allowComments, requireComments, allowDirectTotal } = req.body;
+    const event = await Event.findByIdAndUpdate(
+      id,
+      { $set: { criteria, allowComments, requireComments, allowDirectTotal } },
+      { new: true }
+    );
+    if (!event) {
+      return res.status(404).json({ success: false, message: "Event not found" });
+    }
+    res.json({ success: true, event });
+  } catch (err) {
+    console.error("UPDATE CRITERIA ERROR:", err);
+    res.status(500).json({ success: false, message: "Update failed" });
   }
 });
 
@@ -1608,6 +1644,7 @@ app.get("/api/session/:email", async (req, res) => {
     res.json({
       success: true,
       chair,
+      event,
       track,
       participants,
     });
@@ -1906,6 +1943,7 @@ app.get("/api/admin/events/:eventId/participants", async (req, res) => {
       success: true,
       participants: enriched,
       tracks: event.tracks,
+      event: event,
     });
   } catch (err) {
     console.error("ADMIN PARTICIPANTS ERROR:", err);
@@ -2467,3 +2505,5 @@ if (process.env.NODE_ENV !== "test") {
 }
 
 /* ------------------------------- Server Start --------------------------- */
+
+
