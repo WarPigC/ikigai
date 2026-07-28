@@ -2643,19 +2643,34 @@ const PORT = process.env.PORT || 5000;
       res.status(500).json({ success: false, message: error.message });
     }
   });
-
-  app.post("/api/auth/change-password", async (req, res) => {
+  // Direct change password (for logged in users)
+  app.post("/api/auth/change-password-direct", async (req, res) => {
     try {
-      const { email, newPassword } = req.body;
-      if (!email || !newPassword) return res.status(400).json({ success: false, message: "Email and new password required" });
+      const { email, role, newPassword } = req.body;
+      if (!email || !role || !newPassword) {
+        return res.status(400).json({ success: false, message: "Missing required fields" });
+      }
 
-      const evaluator = await SessionChair.findOne({ email: email.toLowerCase().trim() });
-      if (!evaluator) return res.status(404).json({ success: false, message: "Evaluator not found" });
+      const normalizedEmail = email.trim().toLowerCase();
+      const hashed = hashPassword(newPassword);
 
-      evaluator.passwordHash = hashPassword(newPassword);
-      await evaluator.save();
-
-      res.json({ success: true, message: "Password updated successfully" });
+      if (role === "studentCoordinator") {
+        const student = await StudentCoordinator.findOne({ email: normalizedEmail });
+        if (!student) return res.status(404).json({ success: false, message: "User not found" });
+        student.passwordHash = hashed;
+        await student.save();
+        return res.json({ success: true, message: "Password updated successfully" });
+      } 
+      else if (role === "sessionChair") {
+        const chair = await SessionChair.findOne({ email: normalizedEmail });
+        if (!chair) return res.status(404).json({ success: false, message: "User not found" });
+        chair.passwordHash = hashed;
+        await chair.save();
+        return res.json({ success: true, message: "Password updated successfully" });
+      } 
+      else {
+        return res.status(400).json({ success: false, message: "Invalid role or operation not supported for this role" });
+      }
     } catch (error) {
       console.error(error);
       res.status(500).json({ success: false, message: error.message });

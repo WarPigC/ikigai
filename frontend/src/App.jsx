@@ -1,5 +1,6 @@
 // src/App.jsx
 import React, { useEffect, useState, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import ErrorBoundary from "./ErrorBoundary";
 import UpdatePassword from "./UpdatePassword";
 import SlideViewer from "./components/evaluator/SlideViewer";
@@ -36,57 +37,113 @@ export const ASSESSMENT_CRITERIA = [
 ];
 
 
+function ChangePasswordModal({ user, onClose }) {
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (newPassword !== confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/change-password-direct`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: user.email,
+          role: user.role,
+          newPassword
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSuccess(true);
+        setTimeout(() => onClose(), 2000);
+      } else {
+        setError(data.message || "Failed to update password");
+      }
+    } catch (err) {
+      setError("An error occurred. Please try again.");
+    }
+    setLoading(false);
+  };
+
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4">
+      <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl">
+        <h2 className="text-2xl font-bold text-gray-800 mb-2">Change Password</h2>
+        <p className="text-gray-500 mb-6 text-sm">Securely update your password.</p>
+        
+        {success ? (
+          <div className="bg-green-100 text-green-700 p-4 rounded-xl text-center font-semibold">
+            Password updated successfully!
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">New Password</label>
+              <input
+                type="password"
+                required
+                className="w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-green-500 outline-none"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Confirm New Password</label>
+              <input
+                type="password"
+                required
+                className="w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-green-500 outline-none"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+              />
+            </div>
+            {error && <div className="text-red-500 text-sm">{error}</div>}
+            
+            <div className="flex gap-3 pt-4">
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold rounded-xl transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex-1 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-xl transition disabled:opacity-50"
+              >
+                {loading ? "Updating..." : "Update Password"}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 /* ----------------------------- Shared Header ----------------------------- */
 function Header({ user, onLogout }) {
   const [open, setOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [passwordError, setPasswordError] = useState("");
-  const [passwordLoading, setPasswordLoading] = useState(false);
-  const [passwordSuccess, setPasswordSuccess] = useState(false);
-
-  const handleChangePassword = async (e) => {
-    e.preventDefault();
-    if (password !== confirmPassword) {
-      setPasswordError("Passwords do not match.");
-      return;
-    }
-    if (password.length < 6) {
-      setPasswordError("Password must be at least 6 characters.");
-      return;
-    }
-    setPasswordLoading(true);
-    setPasswordError("");
-    try {
-      const email = sessionStorage.getItem("care_email");
-      const res = await fetch(`${API_BASE}/api/auth/change-password`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, newPassword: password }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setPasswordSuccess(true);
-        setTimeout(() => {
-          setShowPasswordModal(false);
-          setPasswordSuccess(false);
-          setPassword("");
-          setConfirmPassword("");
-        }, 2000);
-      } else {
-        setPasswordError(data.message || "Failed to update password.");
-      }
-    } catch (err) {
-      setPasswordError("An error occurred.");
-    }
-    setPasswordLoading(false);
-  };
+  
+  const displayRole = user.role === "sessionChair" ? "Evaluator" : user.role === "studentCoordinator" ? "Student Coordinator" : "Admin";
 
   return (
     <>
-    <header className="w-full bg-white/70 backdrop-blur-md border-b border-green-200 shadow-sm relative z-40">
+    <header className="w-full bg-white/70 backdrop-blur-md border-b border-green-200 shadow-sm relative z-50">
       <div className="flex items-center justify-between px-4 md:px-6 py-3 md:h-20">
 
         <div className="flex items-center min-w-0 w-1/2">
@@ -100,7 +157,7 @@ function Header({ user, onLogout }) {
 
 
         <div className="flex items-center gap-2 relative">
-          {user.role === "sessionChair" && (
+          {user.role !== "admin" && (
             <div className="relative">
               <button 
                 onClick={() => setNotifOpen((v) => !v)}
@@ -133,87 +190,45 @@ function Header({ user, onLogout }) {
             </div>
             <div className="hidden sm:flex flex-col text-left">
               <span className="text-sm font-semibold">{user.name}</span>
-              <span className="text-xs text-green-700">{user.role}</span>
+              <span className="text-xs text-green-700 capitalize">{displayRole}</span>
             </div>
           </button>
 
           {open && (
-            <div className="absolute right-0 top-14 w-36 bg-white border border-gray-100 rounded-lg shadow-xl z-50 overflow-hidden">
-              <button
-                onClick={() => {
-                  setOpen(false);
-                  onLogout();
-                }}
-                className="w-full text-left px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 transition-colors"
-              >
-                Logout
-              </button>
+            <div className="absolute right-0 top-full mt-2 w-64 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden">
+              <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
+                <p className="text-sm font-bold text-gray-800 truncate">{user.name}</p>
+                <p className="text-xs text-gray-500 truncate">{user.email || "No email"}</p>
+                <p className="text-xs font-semibold text-green-600 mt-1 capitalize">{displayRole}</p>
+              </div>
+              <div className="py-1">
+                {user.role !== "admin" && (
+                  <button
+                    onClick={() => {
+                      setOpen(false);
+                      setShowPasswordModal(true);
+                    }}
+                    className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100 font-medium"
+                  >
+                    Change Password
+                  </button>
+                )}
+                <button
+                  onClick={() => {
+                    setOpen(false);
+                    onLogout();
+                  }}
+                  className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 font-medium"
+                >
+                  Logout
+                </button>
+              </div>
             </div>
           )}
         </div>
       </div>
     </header>
-
-      {/* Change Password Modal */}
-      {showPasswordModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white p-6 rounded-xl shadow-2xl max-w-sm w-full">
-            <h3 className="text-lg font-bold text-gray-800 mb-2">Change Password</h3>
-            <p className="text-xs text-gray-500 mb-4">Set a new password for your evaluator account.</p>
-            {passwordSuccess ? (
-              <div className="bg-green-50 text-green-700 p-3 rounded-lg text-sm font-medium mb-4">
-                Password changed successfully!
-              </div>
-            ) : (
-              <form onSubmit={handleChangePassword} className="space-y-4">
-                {passwordError && (
-                  <div className="bg-red-50 text-red-600 p-2 rounded text-xs font-medium">
-                    {passwordError}
-                  </div>
-                )}
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">New Password</label>
-                  <input
-                    type="password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
-                    placeholder="••••••••"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Confirm Password</label>
-                  <input
-                    type="password"
-                    required
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
-                    placeholder="••••••••"
-                  />
-                </div>
-                <div className="flex gap-2 justify-end mt-4">
-                  <button
-                    type="button"
-                    onClick={() => setShowPasswordModal(false)}
-                    className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={passwordLoading}
-                    className="px-4 py-2 text-sm bg-green-600 text-white rounded hover:bg-green-700 font-semibold disabled:opacity-50"
-                  >
-                    {passwordLoading ? "Saving..." : "Save Password"}
-                  </button>
-                </div>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
+    {showPasswordModal && <ChangePasswordModal user={user} onClose={() => setShowPasswordModal(false)} />}
     </>
   );
 }
@@ -4870,11 +4885,12 @@ const handleNext = () => {
   return (
     <div className="min-h-screen bg-linear-to-br from-green-50 via-green-100 to-green-200 text-gray-800">
       <Header
-  user={{
-    name: chair?.name || "Session Chair",
-    role: "sessionChair",
-  }}
-  onLogout={handleLogout}
+        user={{
+          name: chair?.name || "Session Chair",
+          role: "sessionChair",
+          email: chair?.email
+        }}
+        onLogout={handleLogout}
         onProfileClick={() => setShowProfile((v) => !v)} // ✅ FIXED
       />
       <TrackCard
@@ -4990,11 +5006,11 @@ function AppRoutes({ events, setEvents, refreshEvents }) {
   const email = sessionStorage.getItem("care_email");
 
   if (role === "sessionChair") {
-    setUser({ name: email.split("@")[0], role });
+    setUser({ name: email.split("@")[0], role, email });
   } else if (role === "studentCoordinator") {
-    setUser({ name: "Student Coordinator", role });
+    setUser({ name: "Student Coordinator", role, email });
   } else {
-    setUser({ name: "Admin", role: "admin" });
+    setUser({ name: "Admin", role: "admin", email });
   }
 }, [location]);
 
