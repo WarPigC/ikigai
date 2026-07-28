@@ -70,6 +70,7 @@ export default function ParticipantList({
                   key={participant._id} 
                   participant={participant} 
                   index={index}
+                  total={participants.length}
                   onEdit={setEditingParticipant}
                   onDelete={handleDelete}
                 />

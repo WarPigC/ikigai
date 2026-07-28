@@ -44,19 +44,22 @@ const MemberCard = ({ m }) => {
   );
 };
 
-export default function ParticipantRow({ participant, index, onEdit, onDelete }) {
+export default function ParticipantRow({ participant, index, total, onEdit, onDelete }) {
   const [expanded, setExpanded] = useState(false);
   
   // Try to find a leader, otherwise fallback to first member
   const leader = participant.members?.find(m => m.isLeader) || participant.members?.[0];
   const members = participant.members || [];
 
+  // Expand upwards for the last 3 rows (up to 9 items), but ensure there's at least one row above (index >= 3)
+  const isBottomCard = total > 3 && index >= total - 9 && index >= 3;
+
   return (
     <div className="relative w-full h-full min-h-[260px]">
       <div 
         className={`bg-white rounded-2xl shadow-sm border overflow-hidden transition-all duration-300 flex flex-col ${
           expanded 
-            ? 'absolute top-0 left-[-2%] sm:left-[-5%] w-[104%] sm:w-[110%] shadow-2xl shadow-purple-500/20 border-purple-300 z-50' 
+            ? `absolute ${isBottomCard ? 'bottom-0' : 'top-0'} left-[-2%] sm:left-[-5%] w-[104%] sm:w-[110%] shadow-2xl shadow-purple-500/20 border-purple-300 z-50` 
             : 'relative w-full h-full border-gray-200 hover:shadow-md z-10'
         }`}
       >
