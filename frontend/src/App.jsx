@@ -24,7 +24,7 @@ import autoTable from "jspdf-autotable";
 import AdminEventParticipants from "./AdminEventParticipants";
 import StudentDashboard from "./pages/StudentDashboard";
 import ikigaiLogo from "./assets/ikigai.png";
-import { FileText, CheckCircle, Link2, User, Mail, Phone, Building2, BookOpen, GraduationCap, MapPin, X } from "lucide-react";
+import { FileText, CheckCircle, Link2, User, Mail, Phone, Building2, BookOpen, GraduationCap, MapPin, X, Bell } from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
 export const ASSESSMENT_CRITERIA = [
@@ -53,7 +53,13 @@ function Header({ user, onLogout }) {
 </div>
 
 
-        <div className="relative">
+        <div className="flex items-center gap-2 relative">
+          {user.role === "sessionChair" && (
+            <button className="relative p-2 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-full transition-colors mr-2">
+              <Bell size={22} />
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border border-white"></span>
+            </button>
+          )}
           <button
             onClick={() => setOpen((v) => !v)}
             className="flex items-center gap-2 rounded-full px-3 py-2 hover:bg-green-50"
@@ -61,7 +67,7 @@ function Header({ user, onLogout }) {
             aria-expanded={open}
           >
             <div className="w-10 h-10 bg-green-600 text-white flex items-center justify-center rounded-full font-semibold">
-              {user.name[0].toUpperCase()}
+              {user.name[0]?.toUpperCase() || "U"}
             </div>
             <div className="hidden sm:flex flex-col text-left">
               <span className="text-sm font-semibold">{user.name}</span>
@@ -70,13 +76,13 @@ function Header({ user, onLogout }) {
           </button>
 
           {open && (
-            <div className="absolute right-0 mt-2 w-36 bg-white border border-green-100 rounded-lg shadow-md">
+            <div className="absolute right-0 top-14 w-36 bg-white border border-gray-100 rounded-lg shadow-xl z-50 overflow-hidden">
               <button
                 onClick={() => {
                   setOpen(false);
                   onLogout();
                 }}
-                className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-green-50"
+                className="w-full text-left px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 transition-colors"
               >
                 Logout
               </button>
@@ -3264,7 +3270,7 @@ const submissionUrl =
                                 {evaluatorName}
                               </div>
                               <div className="text-xs font-bold bg-white text-violet-700 px-2 py-1 rounded shadow-sm border border-violet-200">
-                                Total: {assessment.criteria?.reduce((s, v) => s + Number(v || 0), 0) || assessment.total || 0}
+                                Total: {assessment.criteria?.reduce((s, v, idx) => s + (criteriaList[idx]?.inputType !== "text" && criteriaList[idx]?.inputType !== "boolean" ? Number(v || 0) : 0), 0) || assessment.total || 0}
                               </div>
                             </div>
                             <div className="overflow-x-auto">
@@ -3281,7 +3287,11 @@ const submissionUrl =
                                     <tr key={idx} className="hover:bg-gray-50/50">
                                       <td className="px-4 py-2.5 text-gray-600 font-medium whitespace-nowrap">{c.name}</td>
                                       <td className="px-4 py-2.5 text-center font-bold text-gray-900">
-                                        {assessment.criteria?.[idx] ?? 0}
+                                        {c.inputType === "boolean" 
+                                          ? ((assessment.criteria?.[idx] === true || assessment.criteria?.[idx] === "true") ? "Shortlisted / Yes" : "No")
+                                          : c.inputType === "text"
+                                            ? (assessment.criteria?.[idx] || "-")
+                                            : (assessment.criteria?.[idx] ?? 0)}
                                       </td>
                                       <td className="px-4 py-2.5 text-gray-600 text-xs italic">
                                         {parsedComments[idx] || "No comment"}
@@ -3757,8 +3767,8 @@ function AssessmentModal({
   const [openSection, setOpenSection] = React.useState(1);
   const [showPptModal, setShowPptModal] = React.useState(false);
 
-  const criteriaList = event?.criteria?.length ? event.criteria : ASSESSMENT_CRITERIA.map(name => ({ name, maxMarks: 10 }));
-  const maxTotalMarks = criteriaList.reduce((sum, c) => sum + (Number(c.maxMarks) || 10), 0);
+  const criteriaList = event?.criteria?.length ? event.criteria : ASSESSMENT_CRITERIA.map(name => ({ name, maxMarks: 10, inputType: "number" }));
+  const maxTotalMarks = criteriaList.reduce((sum, c) => sum + (c.inputType !== "text" && c.inputType !== "boolean" ? (Number(c.maxMarks) || 10) : 0), 0);
 
   const DEFAULT_FORM = {
     present: true,
@@ -3803,7 +3813,7 @@ function AssessmentModal({
 
       const total = mode === "direct"
         ? p.assessment.total ?? 0
-        : criteria.reduce((a, b) => a + Number(b || 0), 0);
+        : criteria.reduce((a, b, idx) => a + (criteriaList[idx]?.inputType !== "text" && criteriaList[idx]?.inputType !== "boolean" ? Number(b || 0) : 0), 0);
 
       nextForm = {
         present: p.present ?? true,
@@ -3892,7 +3902,10 @@ function AssessmentModal({
     }
 
     const assessmentPayload = {
-      criteria: assessmentMode === "criteria" ? form.criteria.map(Number) : [],
+      criteria: assessmentMode === "criteria" ? form.criteria.map((val, idx) => {
+        if (criteriaList[idx]?.inputType === "text" || criteriaList[idx]?.inputType === "boolean") return val;
+        return Number(val);
+      }) : [],
       total: Number(form.total),
       notes: assessmentMode === "criteria" ? "JSON:" + JSON.stringify(form.justifications) : form.notes,
       mode: assessmentMode,
@@ -4160,22 +4173,48 @@ function AssessmentModal({
                         <div key={i} className="bg-white border border-gray-200 rounded-xl p-4 grid grid-cols-1 md:grid-cols-[1fr_90px_2fr] gap-4 items-start shadow-sm hover:border-green-300 transition-colors">
                           <div className="text-sm font-semibold text-gray-800 mt-1 md:pr-4">{i + 1}. {c.name}</div>
                           <div className="flex flex-col gap-1 relative">
-                             <input
-                                type="number"
-                                min={0} max={c.maxMarks}
-                                value={form.criteria[i]}
-                                onChange={(e) => setCriteria(i, e.target.value)}
-                                onBlur={() => {
-                                   const arr = [...form.criteria];
-                                   arr[i] = normalizeCriteriaValue(arr[i], c.maxMarks);
-                                   const total = arr.reduce((a, b) => a + Number(b || 0), 0);
-                                   setForm((f) => ({ ...f, criteria: arr, total }));
-                                }}
-                                onFocus={(e) => e.target.select()}
-                                className={`${activeInput} w-full text-lg font-bold text-green-700`}
-                                placeholder="0"
-                             />
-                             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest text-center">Max {c.maxMarks}</span>
+                             {(!c.inputType || c.inputType === "number") && (
+                               <>
+                                 <input
+                                    type="number"
+                                    min={0} max={c.maxMarks}
+                                    value={form.criteria[i] ?? ""}
+                                    onChange={(e) => setCriteria(i, e.target.value)}
+                                    onBlur={() => {
+                                       const arr = [...form.criteria];
+                                       arr[i] = normalizeCriteriaValue(arr[i], c.maxMarks);
+                                       const total = arr.reduce((a, b, idx) => a + (criteriaList[idx]?.inputType !== "text" && criteriaList[idx]?.inputType !== "boolean" ? Number(b || 0) : 0), 0);
+                                       setForm((f) => ({ ...f, criteria: arr, total }));
+                                    }}
+                                    onFocus={(e) => e.target.select()}
+                                    className={`${activeInput} w-full text-lg font-bold text-green-700`}
+                                    placeholder="0"
+                                 />
+                                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest text-center">Max {c.maxMarks}</span>
+                               </>
+                             )}
+                             {c.inputType === "text" && (
+                                <input
+                                   type="text"
+                                   value={form.criteria[i] || ""}
+                                   onChange={(e) => setCriteria(i, e.target.value)}
+                                   className={`${activeInput} w-full text-sm font-medium text-gray-800`}
+                                   placeholder="Enter text..."
+                                />
+                             )}
+                             {c.inputType === "boolean" && (
+                                <label className="flex items-center justify-center gap-2 cursor-pointer h-full border border-gray-300 rounded bg-white hover:bg-gray-50 transition-colors">
+                                  <input
+                                    type="checkbox"
+                                    checked={form.criteria[i] === true || form.criteria[i] === "true"}
+                                    onChange={(e) => {
+                                      setCriteria(i, e.target.checked);
+                                    }}
+                                    className="w-5 h-5 text-green-600 focus:ring-green-500 border-gray-300 rounded cursor-pointer"
+                                  />
+                                  <span className="text-sm font-bold text-gray-700">Selected</span>
+                                </label>
+                             )}
                           </div>
                           <div>
                             {(event?.allowComments ?? true) && (
@@ -4344,14 +4383,20 @@ function AssessmentSummary({ participants, onClose, event }) {
                       Direct marking
                     </td>
                   ) : (
-                    criteria.map((c, i) => (
-                      <td
-                        key={i}
-                        className="border px-2 py-1 text-center"
-                      >
-                        {c}
-                      </td>
-                    ))
+                    criteria.map((val, i) => {
+                      const cType = criteriaList[i]?.inputType;
+                      const displayVal = cType === "boolean"
+                        ? ((val === true || val === "true") ? "Yes" : "No")
+                        : (cType === "text" ? (val || "-") : val);
+                      return (
+                        <td
+                          key={i}
+                          className="border px-2 py-1 text-center"
+                        >
+                          {displayVal}
+                        </td>
+                      );
+                    })
                   )}
 
                   <td className="border px-2 py-1 text-center font-semibold">

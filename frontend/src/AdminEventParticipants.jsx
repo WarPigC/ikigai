@@ -80,7 +80,7 @@ export default function AdminEventParticipants() {
       .finally(() => setLoading(false));
   }, [eventId]);
 
-  const criteriaList = event?.criteria?.length ? event.criteria : ASSESSMENT_CRITERIA.map(name => ({ name, maxMarks: 10 }));
+  const criteriaList = event?.criteria?.length ? event.criteria : ASSESSMENT_CRITERIA.map(name => ({ name, maxMarks: 10, inputType: "number" }));
 
   const getTopNPerTrack = (list, n) => {
     if (!n || n <= 0) return list;
@@ -840,7 +840,7 @@ export default function AdminEventParticipants() {
                                 {evaluatorName}
                               </div>
                               <div className="text-xs font-bold bg-white text-violet-700 px-2 py-1 rounded shadow-sm border border-violet-200">
-                                Total: {assessment.criteria?.reduce((s, v) => s + Number(v || 0), 0) || assessment.total || 0}
+                                Total: {assessment.criteria?.reduce((s, v, idx) => s + (criteriaList[idx]?.inputType !== "text" && criteriaList[idx]?.inputType !== "boolean" ? Number(v || 0) : 0), 0) || assessment.total || 0}
                               </div>
                             </div>
                             <div className="overflow-x-auto">
@@ -857,7 +857,11 @@ export default function AdminEventParticipants() {
                                     <tr key={idx} className="hover:bg-gray-50/50">
                                       <td className="px-4 py-2.5 text-gray-600 font-medium whitespace-nowrap">{c.name}</td>
                                       <td className="px-4 py-2.5 text-center font-bold text-gray-900">
-                                        {assessment.criteria?.[idx] ?? 0}
+                                        {c.inputType === "boolean" 
+                                          ? ((assessment.criteria?.[idx] === true || assessment.criteria?.[idx] === "true") ? "Shortlisted / Yes" : "No")
+                                          : c.inputType === "text"
+                                            ? (assessment.criteria?.[idx] || "-")
+                                            : (assessment.criteria?.[idx] ?? 0)}
                                       </td>
                                       <td className="px-4 py-2.5 text-gray-600 text-xs italic">
                                         {parsedComments[idx] || "No comment"}

@@ -39,7 +39,7 @@ function ConfirmDeleteModal({ isOpen, onClose, onConfirm, itemName, itemType }) 
 }
 
 function DefineCriteriaModal({ isOpen, onClose, event, refreshEvents }) {
-  const [criteria, setCriteria] = useState(event.criteria && event.criteria.length ? event.criteria : [{ name: "", maxMarks: 10 }]);
+  const [criteria, setCriteria] = useState(event.criteria && event.criteria.length ? event.criteria : [{ name: "", maxMarks: 10, inputType: "number" }]);
   const [allowComments, setAllowComments] = useState(event.allowComments ?? true);
   const [requireComments, setRequireComments] = useState(event.requireComments ?? false);
   const [allowDirectTotal, setAllowDirectTotal] = useState(event.allowDirectTotal ?? true);
@@ -47,7 +47,7 @@ function DefineCriteriaModal({ isOpen, onClose, event, refreshEvents }) {
 
   useEffect(() => {
     if (isOpen) {
-      setCriteria(event.criteria && event.criteria.length ? event.criteria : [{ name: "", maxMarks: 10 }]);
+      setCriteria(event.criteria && event.criteria.length ? event.criteria : [{ name: "", maxMarks: 10, inputType: "number" }]);
       setAllowComments(event.allowComments ?? true);
       setRequireComments(event.requireComments ?? false);
       setAllowDirectTotal(event.allowDirectTotal ?? true);
@@ -85,7 +85,7 @@ function DefineCriteriaModal({ isOpen, onClose, event, refreshEvents }) {
         </div>
         
         <div className="flex justify-end mb-4">
-          <button onClick={() => setCriteria([...criteria, { name: "", maxMarks: 10 }])} className="px-3 py-1 bg-blue-100 text-blue-700 font-semibold rounded hover:bg-blue-200 text-sm">
+          <button onClick={() => setCriteria([...criteria, { name: "", maxMarks: 10, inputType: "number" }])} className="px-3 py-1 bg-blue-100 text-blue-700 font-semibold rounded hover:bg-blue-200 text-sm">
             + Add Criteria
           </button>
         </div>
@@ -104,6 +104,20 @@ function DefineCriteriaModal({ isOpen, onClose, event, refreshEvents }) {
                 }} 
                 className="flex-1 border px-3 py-2 rounded" 
               />
+              <select
+                value={c.inputType || "number"}
+                onChange={e => {
+                  const newC = [...criteria];
+                  newC[idx].inputType = e.target.value;
+                  setCriteria(newC);
+                }}
+                className="border px-3 py-2 rounded"
+              >
+                <option value="number">Numerical</option>
+                <option value="text">Text</option>
+                <option value="boolean">Toggle (Yes/No)</option>
+              </select>
+              {c.inputType !== "text" && c.inputType !== "boolean" && (
               <input 
                 type="number" 
                 placeholder="Max Marks" 
@@ -115,6 +129,7 @@ function DefineCriteriaModal({ isOpen, onClose, event, refreshEvents }) {
                 }} 
                 className="w-24 border px-3 py-2 rounded" 
               />
+              )}
               <button 
                 onClick={() => setCriteria(criteria.filter((_, i) => i !== idx))}
                 className="text-red-500 hover:bg-red-50 p-2 rounded"
