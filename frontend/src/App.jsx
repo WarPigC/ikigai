@@ -3754,6 +3754,16 @@ const normalizedMeetingLink =
     </div>
   );
 }
+const MemberInfoField = ({ label, value, fullWidth }) => {
+  if (!value) return null;
+  return (
+    <div className={`flex flex-col gap-0.5 ${fullWidth ? 'col-span-1 sm:col-span-2' : ''} min-w-0`}>
+      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{label}</span>
+      <span className="text-xs font-semibold text-gray-800 truncate" title={value}>{value}</span>
+    </div>
+  );
+};
+
 /* ------------------------ Member Assessment Card ------------------------ */
 const MemberAssessmentCard = ({ m, index, total }) => {
   const [open, setOpen] = React.useState(false);
@@ -3769,28 +3779,28 @@ const MemberAssessmentCard = ({ m, index, total }) => {
         onClick={() => setOpen(!open)}
         className="w-full flex items-center justify-between font-semibold text-gray-800 text-sm border-b border-gray-100 pb-2 focus:outline-none"
       >
-         <span className="flex items-center gap-2">
-           {m.name} 
-           {m.isLeader && <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded uppercase tracking-wider">Leader</span>}
+         <span className="flex items-center gap-2 truncate pr-2">
+           <span className="truncate">{m.name}</span>
+           {m.isLeader && <span className="text-[9px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0">Leader</span>}
          </span>
-         <span className="text-gray-400 text-[10px] font-bold uppercase tracking-wider">{open ? "▲ Hide" : "▼ Show"}</span>
+         <span className="text-gray-400 text-[10px] font-bold uppercase tracking-wider shrink-0">{open ? "▲ Hide" : "▼ Show"}</span>
       </button>
       {open && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-2 gap-x-2 text-xs text-gray-600 mt-3">
-           {(m.organisation || m.institute) && <div className="col-span-1 sm:col-span-2"><span className="font-semibold text-gray-500 block text-[10px] uppercase mb-0.5">Org/Institute</span> <span className="break-words font-medium">{m.organisation || m.institute}</span></div>}
-           {m.email && <div className="col-span-1 sm:col-span-2 truncate" title={m.email}><span className="font-semibold text-gray-500 mr-1">Email:</span> {m.email}</div>}
-           {(m.mobile || m.phone) && <div><span className="font-semibold text-gray-500 mr-1">Phone:</span> {m.mobile || m.phone}</div>}
-           {m.location && <div className="truncate" title={m.location}><span className="font-semibold text-gray-500 mr-1">Location:</span> {m.location}</div>}
-           {m.userType && <div className="truncate" title={m.userType}><span className="font-semibold text-gray-500 mr-1">Type:</span> {m.userType}</div>}
-           {(m.domain || m.category) && <div className="truncate" title={m.domain || m.category}><span className="font-semibold text-gray-500 mr-1">Domain:</span> {m.domain || m.category}</div>}
-           {(m.course || m.degree) && <div className="truncate" title={m.course || m.degree}><span className="font-semibold text-gray-500 mr-1">Course:</span> {m.course || m.degree}</div>}
-           {(m.specialization || m.branch) && <div className="truncate" title={m.specialization || m.branch}><span className="font-semibold text-gray-500 mr-1">Specialization:</span> {m.specialization || m.branch}</div>}
-           {m.courseType && <div className="truncate" title={m.courseType}><span className="font-semibold text-gray-500 mr-1">Course Type:</span> {m.courseType}</div>}
-           {m.courseDuration && <div className="truncate" title={m.courseDuration}><span className="font-semibold text-gray-500 mr-1">Duration:</span> {m.courseDuration} {m.courseDuration && !isNaN(m.courseDuration) ? 'yrs' : ''}</div>}
-           {m.gradYear && <div><span className="font-semibold text-gray-500 mr-1">Grad Year:</span> {m.gradYear}</div>}
-           {m.designation && <div className="truncate" title={m.designation}><span className="font-semibold text-gray-500 mr-1">Designation:</span> {m.designation}</div>}
-           {m.workExperience && <div className="truncate" title={m.workExperience}><span className="font-semibold text-gray-500 mr-1">Experience:</span> {m.workExperience}</div>}
-           {m.differentlyAbled !== undefined && m.differentlyAbled !== "" && <div><span className="font-semibold text-gray-500 mr-1">Diff. Abled:</span> {String(m.differentlyAbled) === "true" ? "Yes" : "No"}</div>}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-4 gap-x-4 mt-3 pt-3 border-t border-gray-50 bg-gray-50/30 rounded-b-lg px-1 pb-1">
+           <MemberInfoField label="Org / Institute" value={m.organisation || m.institute} fullWidth />
+           <MemberInfoField label="Email" value={m.email} fullWidth />
+           <MemberInfoField label="Phone" value={m.mobile || m.phone} />
+           <MemberInfoField label="Location" value={m.location} />
+           <MemberInfoField label="Type" value={m.userType} />
+           <MemberInfoField label="Domain" value={m.domain || m.category} />
+           <MemberInfoField label="Course" value={m.course || m.degree} />
+           <MemberInfoField label="Specialization" value={m.specialization || m.branch} />
+           <MemberInfoField label="Course Type" value={m.courseType} />
+           <MemberInfoField label="Duration" value={m.courseDuration ? `${m.courseDuration} ${!isNaN(m.courseDuration) ? 'yrs' : ''}` : null} />
+           <MemberInfoField label="Grad Year" value={m.gradYear} />
+           <MemberInfoField label="Designation" value={m.designation} />
+           <MemberInfoField label="Experience" value={m.workExperience} />
+           <MemberInfoField label="Diff. Abled" value={m.differentlyAbled !== undefined && m.differentlyAbled !== "" ? (String(m.differentlyAbled) === "true" ? "Yes" : "No") : null} />
         </div>
       )}
     </div>
