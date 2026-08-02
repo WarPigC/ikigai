@@ -24,7 +24,11 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import AdminEventParticipants from "./AdminEventParticipants";
 import AdminShortlist from "./AdminShortlist";
+import AdminRound2 from "./AdminRound2";
 import StudentDashboard from "./pages/StudentDashboard";
+import TeamLayout from "./pages/TeamLayout";
+import TeamHome from "./pages/TeamHome";
+import TeamMyTeam from "./pages/TeamMyTeam";
 import ikigaiLogo from "./assets/ikigai.png";
 import { FileText, CheckCircle, Link2, User, Mail, Phone, Building2, BookOpen, GraduationCap, MapPin, X, Bell } from "lucide-react";
 
@@ -5011,6 +5015,8 @@ function AppRoutes({ events, setEvents, refreshEvents }) {
     setUser({ name: email.split("@")[0], role, email });
   } else if (role === "studentCoordinator") {
     setUser({ name: "Student Coordinator", role, email });
+  } else if (role === "teamLeader") {
+    setUser({ name: "Team Leader", role, email });
   } else {
     setUser({ name: "Admin", role: "admin", email });
   }
@@ -5064,6 +5070,7 @@ function ProtectedRoutes({ allowedRoles }) {
       <Route path="/progress" element={<ProgressView events={events} />} />
       <Route path="/shortlist" element={<AdminShortlist events={events} />} />
       <Route path="/users" element={<UsersView />} />
+      <Route path="/round2" element={<AdminRound2 />} />
       <Route path="/event/:id" element={<EventDetails events={events} setEvents={setEvents} />} />
     </Route>
 
@@ -5081,6 +5088,14 @@ function ProtectedRoutes({ allowedRoles }) {
   {/* STUDENT */}
   <Route element={<ProtectedRoutes allowedRoles={["studentCoordinator"]} />}>
     <Route path="/student" element={<StudentDashboard />} />
+  </Route>
+
+  {/* TEAM LEADER */}
+  <Route element={<ProtectedRoutes allowedRoles={["teamLeader"]} />}>
+    <Route path="/team" element={<TeamLayout />}>
+      <Route index element={<TeamHome />} />
+      <Route path="myteam" element={<TeamMyTeam />} />
+    </Route>
   </Route>
 
   {/* FALLBACK */}

@@ -92,6 +92,7 @@ const handleLogin = async (e) => {
     if (data.role === "admin") navigate("/dashboard", { replace: true });
     else if (data.role === "sessionChair") navigate("/session", { replace: true });
     else if (data.role === "studentCoordinator") navigate("/student", { replace: true });
+    else if (data.role === "teamLeader") navigate("/team", { replace: true });
 
   } catch (err) {
     console.error("LOGIN FETCH ERROR:", err);
@@ -138,6 +139,8 @@ body: JSON.stringify({
         navigate("/session");
       } else if (data.role === "studentCoordinator") {
         navigate("/student");
+      } else if (data.role === "teamLeader") {
+        navigate("/team");
       }
     }, 700);
 

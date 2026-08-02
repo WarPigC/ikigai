@@ -7,6 +7,7 @@ import crypto from "crypto";
 import proofRoutes from "./proof.routes.js";
 import pptRoutes from "./ppt.routes.js";
 import aiRoutes from "./ai.routes.js";
+import round2Routes, { TeamModel } from "./round2.routes.js";
 import { sendMail } from "./mailer.js";
 
 
@@ -38,6 +39,7 @@ app.use(express.json({ limit: "25mb" }));
 app.use("/api/proof", proofRoutes);
 app.use("/api/upload-ppt", pptRoutes);
 app.use("/api/ai", aiRoutes);
+app.use("/api/round2", round2Routes);
 
 app.use(express.urlencoded({ extended: true }));
 
@@ -336,7 +338,7 @@ const ParticipantSchema = new mongoose.Schema(
 const Participant = mongoose.model("Participant", ParticipantSchema);
 
 const ShortlistedSchema = new mongoose.Schema({}, { strict: false, timestamps: true });
-const Shortlisted = mongoose.model("Shortlisted", ShortlistedSchema);
+const Shortlisted = mongoose.models.Shortlisted || mongoose.model("Shortlisted", ShortlistedSchema);
 
 const SessionChair = mongoose.model("SessionChair", SessionChairSchema);
 const Event = mongoose.model("Event", EventSchema);
@@ -2000,21 +2002,43 @@ app.get("/api/admin/events/:eventId/participants", async (req, res) => {
       return res.json({ success: false, message: "Event not found" });
     }
 
-    const participants = await Participant.find({
-      eventId: new mongoose.Types.ObjectId(eventId),
-    })
-      .populate("assignedEvaluators", "name email phone")
-      .populate("assessments.evaluatorId", "name email phone");
+    let enriched = [];
+    if (event.title && (event.title.toLowerCase().includes("round-2") || event.title.toLowerCase().includes("round 2"))) {
+      const round2Teams = await TeamModel.find({ eventId: String(eventId), status: "Approved" });
+      enriched = round2Teams.map(p => {
+        return {
+          _id: p._id,
+          participantId: p.participantId,
+          teamId: p.participantId, // map to paperId
+          teamName: p.teamName,
+          members: p.members,
+          trackName: p.trackPreferences && p.trackPreferences.length > 0 ? p.trackPreferences[0] : "Pending",
+          trackPreferences: p.trackPreferences || [],
+          transactionId: p.transactionId,
+          receiptUrl: p.receiptUrl,
+          leaderEmail: p.leaderEmail,
+          assessments: [],
+          assignedEvaluators: [],
+          isRound2: true
+        };
+      });
+    } else {
+      const participants = await Participant.find({
+        eventId: new mongoose.Types.ObjectId(eventId),
+      })
+        .populate("assignedEvaluators", "name email phone")
+        .populate("assessments.evaluatorId", "name email phone");
 
-    const trackMap = {};
-    event.tracks.forEach((t) => {
-      trackMap[t.id] = t.title;
-    });
+      const trackMap = {};
+      event.tracks.forEach((t) => {
+        trackMap[t.id] = t.title;
+      });
 
-    const enriched = participants.map((p) => ({
-      ...p.toObject(),
-      trackName: trackMap[p.trackId] || "—",
-    }));
+      enriched = participants.map((p) => ({
+        ...p.toObject(),
+        trackName: trackMap[p.trackId] || "—",
+      }));
+    }
 
     res.json({
       success: true,
@@ -2841,15 +2865,50 @@ app.post("/api/admin/team-leaders/send-mail", async (req, res) => {
         html: `
           <p>Hello <b>${tl.name}</b>,</p>
           <p>Congratulations! Your team <b>${tl.teamName}</b> has been shortlisted for Round 2.</p>
-          <p>You can now login as a Team Leader to access your dashboard.</p>
+          <p>Kindly complete the steps for registration in round 2.</p>
+          <p>To continue, you are required to pay the registration fees and select your preferred track for Round 2.</p>
+          <p>Please login as a Team Leader to your dashboard to complete your registration:</p>
+          <p><b>Application Link:</b> <a href="https://ikigai-csit.up.railway.app/">https://ikigai-csit.up.railway.app/</a></p>
           <p><b>Login Email:</b> ${tl.email}</p>
           <p><b>Temporary Password:</b> ${tempPass}</p>
-          <p>Please login and change your password.</p>
+          <p>We recommend changing your password after your first login.</p>
+          <p>Please keep checking the application for the latest updates.</p>
         `
       });
       successCount++;
     }
     res.json({ success: true, count: successCount });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get("/api/team/my-details", async (req, res) => {
+  try {
+    const email = req.query.email;
+    if (!email) return res.status(400).json({ success: false, message: "Email required" });
+
+    const tl = await TeamLeader.findOne({ email });
+    if (!tl || !tl.participantId) {
+      return res.status(404).json({ success: false, message: "Team not found" });
+    }
+
+    const shortlistedTeam = await Shortlisted.findOne({ 
+      $or: [
+        { participantId: tl.participantId },
+        { participantId: String(tl.participantId) },
+        { participantId: new mongoose.Types.ObjectId(tl.participantId) }
+      ]
+    });
+    if (!shortlistedTeam) {
+      return res.status(404).json({ success: false, message: "Team is not shortlisted" });
+    }
+
+    const teamObj = shortlistedTeam.toObject();
+    delete teamObj.assessment;
+    delete teamObj.pptLink;
+
+    res.json({ success: true, team: teamObj });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }

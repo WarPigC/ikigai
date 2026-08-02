@@ -720,6 +720,7 @@ export function UsersView() {
 
   const [invitingId, setInvitingId] = useState(null);
   const [isBulkInviting, setIsBulkInviting] = useState(false);
+  const [isBulkInvitingTeams, setIsBulkInvitingTeams] = useState(false);
   const [selectedEvaluators, setSelectedEvaluators] = useState([]);
   const [selectedTeamLeaders, setSelectedTeamLeaders] = useState([]);
   const [showInviteMenu, setShowInviteMenu] = useState(false);
@@ -792,14 +793,15 @@ export function UsersView() {
       }
     } catch (err) {
       alert("Error sending invitations.");
+    } finally {
+      setIsBulkInviting(false);
     }
-    setIsBulkInviting(false);
   };
 
   const handleSendSelectedTeams = async () => {
     if (selectedTeamLeaders.length === 0) return;
     if (!confirm(`Send invitation emails to ${selectedTeamLeaders.length} selected team leader(s)?`)) return;
-    setIsBulkInviting(true);
+    setIsBulkInvitingTeams(true);
     try {
       const res = await fetch(`${API_BASE}/api/admin/team-leaders/send-mail`, { 
         method: "POST",
@@ -817,8 +819,9 @@ export function UsersView() {
       }
     } catch (err) {
       alert("Error sending invitations.");
+    } finally {
+      setIsBulkInvitingTeams(false);
     }
-    setIsBulkInviting(false);
   };
 
   const handleBulkInvite = async () => {
@@ -835,13 +838,14 @@ export function UsersView() {
       }
     } catch (err) {
       alert("Error sending invitations.");
+    } finally {
+      setIsBulkInviting(false);
     }
-    setIsBulkInviting(false);
   };
 
   const handleBulkTeamInvite = async () => {
     if (!confirm("Send invitation emails to ALL shortlisted team leaders?")) return;
-    setIsBulkInviting(true);
+    setIsBulkInvitingTeams(true);
     try {
       const allTeamLeaderIds = filteredTeams.map(tl => tl._id);
       const res = await fetch(`${API_BASE}/api/admin/team-leaders/send-mail`, { 
@@ -858,8 +862,9 @@ export function UsersView() {
       }
     } catch (err) {
       alert("Error sending invitations.");
+    } finally {
+      setIsBulkInvitingTeams(false);
     }
-    setIsBulkInviting(false);
   };
 
   const handleCreate = async (e) => {
@@ -1316,10 +1321,10 @@ export function UsersView() {
                   </button>
                   <button
                     onClick={(e) => { e.stopPropagation(); handleSendSelectedTeams(); }}
-                    disabled={selectedTeamLeaders.length === 0 || isBulkInviting}
+                    disabled={selectedTeamLeaders.length === 0 || isBulkInvitingTeams}
                     className="text-sm px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded shadow transition disabled:opacity-50"
                   >
-                    {isBulkInviting ? "Sending..." : `Confirm Send (${selectedTeamLeaders.length})`}
+                    {isBulkInvitingTeams ? "Sending..." : `Confirm Send (${selectedTeamLeaders.length})`}
                   </button>
                 </>
               ) : (
@@ -1330,12 +1335,12 @@ export function UsersView() {
                       setShowTeamInviteMenu(!showTeamInviteMenu);
                       if (activeRoleSection !== 'teams') setActiveRoleSection('teams');
                     }}
-                    disabled={isBulkInviting}
+                    disabled={isBulkInvitingTeams}
                     className="text-sm px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded shadow transition flex items-center gap-1 disabled:opacity-50"
                   >
-                    {isBulkInviting ? "Sending..." : "Send Invitations ▾"}
+                    {isBulkInvitingTeams ? "Sending..." : "Send Invitations ▾"}
                   </button>
-                  {showTeamInviteMenu && !isBulkInviting && (
+                  {showTeamInviteMenu && !isBulkInvitingTeams && (
                     <div className="absolute right-0 top-full mt-2 w-56 bg-white border border-gray-200 rounded-lg shadow-xl z-10 overflow-hidden">
                       <button
                         onClick={(e) => { e.stopPropagation(); setShowTeamInviteMenu(false); handleBulkTeamInvite(); }}

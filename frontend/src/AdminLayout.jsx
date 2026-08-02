@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link, useLocation, Outlet } from "react-router-dom";
-import { Menu, CalendarDays, TrendingUp, Users } from "lucide-react";
+import { Menu, CalendarDays, TrendingUp, Users, UserCheck, Rocket } from "lucide-react";
 
 export default function AdminLayout() {
   const location = useLocation();
@@ -12,11 +12,13 @@ export default function AdminLayout() {
   if (path.includes("/progress") || path.includes("/event/")) activeTab = "progress";
   if (path.includes("/shortlist")) activeTab = "shortlist";
   if (path.includes("/users")) activeTab = "users";
+  if (path.includes("/round2")) activeTab = "round2";
 
   const navItems = [
     { id: "events", label: "Events", icon: CalendarDays, path: "/dashboard" },
     { id: "progress", label: "Progress", icon: TrendingUp, path: "/progress" },
-    { id: "shortlist", label: "Shortlist", icon: Users, path: "/shortlist" },
+    { id: "shortlist", label: "Shortlist", icon: UserCheck, path: "/shortlist" },
+    { id: "round2", label: "Round 2", icon: Rocket, path: "/round2" },
     { id: "users", label: "Users", icon: Users, path: "/users" },
   ];
 

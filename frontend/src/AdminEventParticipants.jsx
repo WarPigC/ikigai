@@ -58,11 +58,11 @@ export default function AdminEventParticipants() {
             const leader = p.members?.find((m) => m.isLeader) || p.members?.[0] || {};
             return {
               ...p,
-              paperId: p.teamId || p._id,
+              paperId: p.teamId || p.participantId || p._id,
               teamName: p.teamName || "",
               paperTitle: p.problemStatement || "",
               presenterName: leader.name || "Unknown",
-              email: leader.email || "",
+              email: leader.email || p.leaderEmail || "",
               phone: leader.mobile || "",
               institute: leader.organisation || "",
               branch: leader.domain || leader.specialization || "",
@@ -794,6 +794,22 @@ export default function AdminEventParticipants() {
                       </div>
                     )}
 
+                    {selectedParticipant.isRound2 && selectedParticipant.trackPreferences && selectedParticipant.trackPreferences.length > 0 && (
+                      <div className="pt-2 border-t border-gray-100">
+                        <span className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Choice Filling (Track Preferences)</span>
+                        <div className="flex flex-col gap-2">
+                          {selectedParticipant.trackPreferences.map((track, idx) => (
+                            <div key={idx} className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-lg p-2.5">
+                              <span className="flex items-center justify-center w-6 h-6 rounded-full bg-violet-100 text-violet-700 font-bold text-xs shrink-0">
+                                {idx + 1}
+                              </span>
+                              <span className="font-semibold text-gray-800 text-sm">{track}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     {(selectedParticipant.pptLink || selectedParticipant.submissionLink) && (
                       <div>
                         <span className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1.5">Presentation</span>
@@ -803,6 +819,28 @@ export default function AdminEventParticipants() {
                         >
                           <Link2 size={15} /> Open Presentation Modal
                         </button>
+                      </div>
+                    )}
+                    
+                    {selectedParticipant.isRound2 && (
+                      <div className="mt-4 pt-4 border-t border-gray-100 space-y-4">
+                        <div>
+                          <span className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Transaction ID</span>
+                          <p className="font-medium text-gray-900 font-mono bg-gray-50 p-2 rounded border border-gray-200">{selectedParticipant.transactionId || "—"}</p>
+                        </div>
+                        {selectedParticipant.receiptUrl && (
+                          <div>
+                            <span className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1.5">Payment Receipt</span>
+                            <a 
+                              href={selectedParticipant.receiptUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="w-full flex items-center justify-center gap-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold py-2.5 px-4 rounded-lg transition-colors border border-emerald-200"
+                            >
+                              <ExternalLink size={18} /> View Receipt
+                            </a>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
