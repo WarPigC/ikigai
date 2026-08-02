@@ -13,8 +13,61 @@ export default function SlideViewer({ fileUrl, onTimingUpdate, onAiQuery }) {
   const [numPages, setNumPages] = useState(null);
   const [pageNumber, setPageNumber] = useState(1);
   const [isPdf, setIsPdf] = useState(true);
+  const [isCheckingType, setIsCheckingType] = useState(true);
   const [error, setError] = useState(null);
   const [scale, setScale] = useState(1);
+
+  useEffect(() => {
+    async function checkFileType() {
+      if (!fileUrl) {
+        setIsCheckingType(false);
+        return;
+      }
+      const lower = fileUrl.toLowerCase();
+      if (lower.includes('.ppt') || lower.includes('.pptx')) {
+        setIsPdf(false);
+        setIsCheckingType(false);
+        return;
+      }
+      if (lower.includes('.pdf')) {
+        setIsPdf(true);
+        setIsCheckingType(false);
+        return;
+      }
+      
+      try {
+        // Fetch just the first 4 bytes to check the file signature (magic bytes)
+        const res = await fetch(fileUrl, { 
+          headers: { 'Range': 'bytes=0-4' }
+        });
+        
+        if (res.ok || res.status === 206) {
+          const buffer = await res.arrayBuffer();
+          const bytes = new Uint8Array(buffer);
+          
+          if (bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46) {
+            // %PDF-
+            setIsPdf(true);
+          } else if (bytes[0] === 0x50 && bytes[1] === 0x4b && bytes[2] === 0x03 && bytes[3] === 0x04) {
+            // PK (ZIP / PPTX)
+            setIsPdf(false);
+          } else if (bytes[0] === 0xd0 && bytes[1] === 0xcf && bytes[2] === 0x11 && bytes[3] === 0xe0) {
+            // Old PPT
+            setIsPdf(false);
+          } else {
+            // Default if unknown
+            setIsPdf(true);
+          }
+        } else {
+          setIsPdf(true);
+        }
+      } catch (err) {
+        setIsPdf(true);
+      }
+      setIsCheckingType(false);
+    }
+    checkFileType();
+  }, [fileUrl]);
   
   // AI Assistant State
   const [showAiPanel, setShowAiPanel] = useState(false);
@@ -261,6 +314,17 @@ export default function SlideViewer({ fileUrl, onTimingUpdate, onAiQuery }) {
     </>
   );
 
+  if (isCheckingType) {
+    return (
+      <div className="w-full h-full flex flex-col bg-slate-50 text-slate-800 items-center justify-center font-sans">
+        <div className="flex flex-col items-center text-blue-600">
+          <div className="w-10 h-10 border-4 border-t-blue-600 border-blue-200 rounded-full animate-spin mb-4 shadow-sm"></div>
+          <p className="font-medium animate-pulse text-sm">Analyzing Presentation Format...</p>
+        </div>
+      </div>
+    );
+  }
+
   // Ensure legacy Cloudinary URLs without extension get .pptx for proper fallback
   let documentUrl = fileUrl || "";
   
@@ -269,12 +333,16 @@ export default function SlideViewer({ fileUrl, onTimingUpdate, onAiQuery }) {
     documentUrl = documentUrl.replace("http://", "https://");
   }
 
-  const isDefinitelyPpt = documentUrl && (documentUrl.split("?")[0].toLowerCase().endsWith('.pptx') || documentUrl.split("?")[0].toLowerCase().endsWith('.ppt'));
+  const isDefinitelyPpt = documentUrl && (documentUrl.split("?")[0].toLowerCase().includes('.ppt'));
   
   if (!isPdf || isDefinitelyPpt) {
     // Use Microsoft Office Viewer for PPT/PPTX as it natively supports slide-by-slide presentation mode
-    // Append wdSlideId so that when pageNumber state changes, the iframe reloads to that slide!
-    const officeViewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(documentUrl)}&wdSlideId=${pageNumber}`;
+    // Office Viewer requires a valid extension, so append .pptx to Cloudinary URLs if missing
+    let officeUrl = documentUrl;
+    if (officeUrl.includes('cloudinary.com') && !officeUrl.match(/\.[a-z]{3,4}(\?.*)?$/i)) {
+      officeUrl += '.pptx';
+    }
+    const officeViewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(officeUrl)}&wdSlideId=${pageNumber}`;
     
     return (
       <div className="w-full h-full flex flex-col bg-slate-50 text-slate-800 select-none relative overflow-hidden font-sans">

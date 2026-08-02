@@ -10,11 +10,13 @@ export default function AdminLayout() {
   // Determine active tab based on URL path
   let activeTab = "events";
   if (path.includes("/progress") || path.includes("/event/")) activeTab = "progress";
+  if (path.includes("/shortlist")) activeTab = "shortlist";
   if (path.includes("/users")) activeTab = "users";
 
   const navItems = [
     { id: "events", label: "Events", icon: CalendarDays, path: "/dashboard" },
     { id: "progress", label: "Progress", icon: TrendingUp, path: "/progress" },
+    { id: "shortlist", label: "Shortlist", icon: Users, path: "/shortlist" },
     { id: "users", label: "Users", icon: Users, path: "/users" },
   ];
 

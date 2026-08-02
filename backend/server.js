@@ -102,6 +102,21 @@ const SessionChairSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+const TeamLeaderSchema = new mongoose.Schema(
+  {
+    name: String,
+    email: { type: String, lowercase: true, trim: true },
+    phone: String,
+    teamName: String,
+    passwordHash: String,
+    eventId: String,
+    participantId: { type: mongoose.Schema.Types.ObjectId, ref: "Participant" },
+    inviteSent: { type: Boolean, default: false }
+  },
+  { timestamps: true }
+);
+const TeamLeader = mongoose.model("TeamLeader", TeamLeaderSchema);
+
 const StudentCoordinatorSchema = new mongoose.Schema(
   {
     name: String,
@@ -319,6 +334,9 @@ const ParticipantSchema = new mongoose.Schema(
 // Unpaid teams may have empty/null teamIds — handled gracefully via the sparse index.
 
 const Participant = mongoose.model("Participant", ParticipantSchema);
+
+const ShortlistedSchema = new mongoose.Schema({}, { strict: false, timestamps: true });
+const Shortlisted = mongoose.model("Shortlisted", ShortlistedSchema);
 
 const SessionChair = mongoose.model("SessionChair", SessionChairSchema);
 const Event = mongoose.model("Event", EventSchema);
@@ -586,6 +604,17 @@ app.post("/api/login", async (req, res) => {
         success: true,
         role: "sessionChair",
         email: normalizedEmail,
+      });
+    }
+
+    const teamLeader = await TeamLeader.findOne({ email: normalizedEmail });
+    if (teamLeader && teamLeader.passwordHash === hashed) {
+      return res.json({
+        success: true,
+        role: "teamLeader",
+        email: normalizedEmail,
+        name: teamLeader.name,
+        teamName: teamLeader.teamName
       });
     }
 
@@ -1893,6 +1922,75 @@ app.get("/api/admin/participants/stats", async (req, res) => {
     });
   }
 });
+
+app.get("/api/admin/events/:eventId/shortlisted", async (req, res) => {
+  try {
+    const { eventId } = req.params;
+    const shortlisted = await Shortlisted.find({ eventId });
+    res.json({ success: true, shortlisted });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post("/api/admin/events/:eventId/shortlisted", async (req, res) => {
+  try {
+    const { eventId } = req.params;
+    const { participants } = req.body;
+    
+    await Shortlisted.deleteMany({ eventId });
+    
+    const docs = participants.map(p => {
+      const doc = { ...p };
+      delete doc._id; // avoid duplicate _id issues
+      return {
+        eventId,
+        participantId: p._id,
+        ...doc
+      };
+    });
+    
+    if (docs.length > 0) {
+      await Shortlisted.insertMany(docs);
+    }
+    
+    // Create/update TeamLeader docs for shortlisted
+    const teamLeaderOps = [];
+    for (const p of participants) {
+       const leader = p.members?.find((m) => m.isLeader || m.candidateRole === "Team Leader") || p.members?.[0];
+       if (!leader || !leader.email) continue;
+       teamLeaderOps.push({
+         updateOne: {
+           filter: { eventId, participantId: p._id },
+           update: {
+             $set: {
+               name: leader.name,
+               email: leader.email.trim().toLowerCase(),
+               phone: leader.mobile,
+               teamName: p.teamName
+             },
+             $setOnInsert: {
+                inviteSent: false
+             }
+           },
+           upsert: true
+         }
+       });
+    }
+    
+    const currentParticipantIds = participants.map(p => p._id);
+    await TeamLeader.deleteMany({ eventId, participantId: { $nin: currentParticipantIds } });
+
+    if (teamLeaderOps.length > 0) {
+      await TeamLeader.bulkWrite(teamLeaderOps);
+    }
+    
+    res.json({ success: true, message: "Shortlist updated" });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 app.get("/api/admin/events/:eventId/participants", async (req, res) => {
   try {
     const { eventId } = req.params;
@@ -1904,7 +2002,9 @@ app.get("/api/admin/events/:eventId/participants", async (req, res) => {
 
     const participants = await Participant.find({
       eventId: new mongoose.Types.ObjectId(eventId),
-    }).populate("assignedEvaluators", "name email");
+    })
+      .populate("assignedEvaluators", "name email phone")
+      .populate("assessments.evaluatorId", "name email phone");
 
     const trackMap = {};
     event.tracks.forEach((t) => {
@@ -2694,6 +2794,64 @@ app.delete("/api/admin/student-coordinators/:id", async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
+  }
+});
+// ✅ Admin: Team Leaders endpoints
+const UNIVERSE_WORDS = ["Milkyway", "Pluto", "Galaxy", "Nebula", "Orion", "Cosmos", "Nova", "Apollo", "Saturn", "Jupiter", "Starlight", "Meteor"];
+
+app.get("/api/admin/team-leaders/all", async (req, res) => {
+  try {
+    const leaders = await TeamLeader.find().populate('participantId');
+    res.json({ success: true, leaders });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get("/api/admin/team-leaders/:eventId", async (req, res) => {
+  try {
+    const leaders = await TeamLeader.find({ eventId: req.params.eventId }).populate('participantId');
+    res.json({ success: true, leaders });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post("/api/admin/team-leaders/send-mail", async (req, res) => {
+  try {
+    const { eventId, leaderIds } = req.body;
+    const leaders = await TeamLeader.find({ _id: { $in: leaderIds } }).populate('participantId');
+
+    let successCount = 0;
+    for (const tl of leaders) {
+      const p = tl.participantId;
+      if (!p) continue;
+      
+      const randomWord = UNIVERSE_WORDS[Math.floor(Math.random() * UNIVERSE_WORDS.length)];
+      const tempPass = `${randomWord}123`;
+      const hashed = hashPassword(tempPass);
+      
+      tl.passwordHash = hashed;
+      tl.inviteSent = true;
+      await tl.save();
+      
+      await sendMail({
+        to: tl.email,
+        subject: "Congratulations! You are shortlisted for Round 2",
+        html: `
+          <p>Hello <b>${tl.name}</b>,</p>
+          <p>Congratulations! Your team <b>${tl.teamName}</b> has been shortlisted for Round 2.</p>
+          <p>You can now login as a Team Leader to access your dashboard.</p>
+          <p><b>Login Email:</b> ${tl.email}</p>
+          <p><b>Temporary Password:</b> ${tempPass}</p>
+          <p>Please login and change your password.</p>
+        `
+      });
+      successCount++;
+    }
+    res.json({ success: true, count: successCount });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 

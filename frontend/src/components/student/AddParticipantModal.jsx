@@ -146,7 +146,10 @@ export default function AddParticipantModal({ isOpen, onClose, eventId, trackId,
     setLoading(true);
     setError(null);
     try {
-      await studentApi.addParticipant(finalEventId, finalTrackId, {
+      await studentApi.createParticipant({
+        eventId: finalEventId,
+        trackId: finalTrackId,
+        submittedBy: sessionStorage.getItem("care_email") || "student-coordinator",
         ...teamDetails,
         members
       });

@@ -687,6 +687,7 @@ export function ProgressView({ events }) {
 export function UsersView() {
   const [evaluators, setEvaluators] = useState([]);
   const [students, setStudents] = useState([]);
+  const [teamLeaders, setTeamLeaders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState(null);
 
@@ -703,6 +704,10 @@ export function UsersView() {
       const resSc = await fetch(`${API_BASE}/api/admin/student-coordinators/global`);
       const dataSc = await resSc.json();
       if (dataSc.success) setStudents(dataSc.students || []);
+
+      const resTl = await fetch(`${API_BASE}/api/admin/team-leaders/all`);
+      const dataTl = await resTl.json();
+      if (dataTl.success) setTeamLeaders(dataTl.leaders || []);
     } catch (e) {
       console.error(e);
     }
@@ -716,8 +721,11 @@ export function UsersView() {
   const [invitingId, setInvitingId] = useState(null);
   const [isBulkInviting, setIsBulkInviting] = useState(false);
   const [selectedEvaluators, setSelectedEvaluators] = useState([]);
+  const [selectedTeamLeaders, setSelectedTeamLeaders] = useState([]);
   const [showInviteMenu, setShowInviteMenu] = useState(false);
+  const [showTeamInviteMenu, setShowTeamInviteMenu] = useState(false);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [isTeamSelectionMode, setIsTeamSelectionMode] = useState(false);
 
   const handleSendInvite = async (e, evId, isResend) => {
     e.stopPropagation();
@@ -726,6 +734,30 @@ export function UsersView() {
     setInvitingId(evId);
     try {
       const res = await fetch(`${API_BASE}/api/admin/evaluators/${evId}/send-invite`, { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        alert("Invitation sent successfully!");
+        fetchData();
+      } else {
+        alert(data.message || "Failed to send invitation.");
+      }
+    } catch (err) {
+      alert("Error sending invitation.");
+    }
+    setInvitingId(null);
+  };
+
+  const handleSendTeamInvite = async (e, evId, isResend) => {
+    e.stopPropagation();
+    const msg = isResend ? "Resend the invitation email to this team leader?" : "Send invitation email to this team leader?";
+    if (!confirm(msg)) return;
+    setInvitingId(evId);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/team-leaders/send-mail`, { 
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leaderIds: [evId] })
+      });
       const data = await res.json();
       if (data.success) {
         alert("Invitation sent successfully!");
@@ -764,11 +796,59 @@ export function UsersView() {
     setIsBulkInviting(false);
   };
 
+  const handleSendSelectedTeams = async () => {
+    if (selectedTeamLeaders.length === 0) return;
+    if (!confirm(`Send invitation emails to ${selectedTeamLeaders.length} selected team leader(s)?`)) return;
+    setIsBulkInviting(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/team-leaders/send-mail`, { 
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leaderIds: selectedTeamLeaders })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(data.message || "Invitations sent successfully!");
+        setSelectedTeamLeaders([]);
+        setIsTeamSelectionMode(false);
+        fetchData();
+      } else {
+        alert(data.message || "Failed to send invitations.");
+      }
+    } catch (err) {
+      alert("Error sending invitations.");
+    }
+    setIsBulkInviting(false);
+  };
+
   const handleBulkInvite = async () => {
     if (!confirm("Send invitation emails to ALL evaluators?")) return;
     setIsBulkInviting(true);
     try {
       const res = await fetch(`${API_BASE}/api/admin/evaluators/send-invites-bulk`, { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        alert(data.message || "Invitations sent successfully!");
+        fetchData();
+      } else {
+        alert(data.message || "Failed to send invitations.");
+      }
+    } catch (err) {
+      alert("Error sending invitations.");
+    }
+    setIsBulkInviting(false);
+  };
+
+  const handleBulkTeamInvite = async () => {
+    if (!confirm("Send invitation emails to ALL shortlisted team leaders?")) return;
+    setIsBulkInviting(true);
+    try {
+      const allTeamLeaderIds = filteredTeams.map(tl => tl._id);
+      const res = await fetch(`${API_BASE}/api/admin/team-leaders/send-mail`, { 
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leaderIds: allTeamLeaderIds })
+      });
       const data = await res.json();
       if (data.success) {
         alert(data.message || "Invitations sent successfully!");
@@ -855,6 +935,54 @@ export function UsersView() {
     }
   };
 
+  const [filterInstitute, setFilterInstitute] = useState("");
+  const [filterBranch, setFilterBranch] = useState("");
+  const [filterCity, setFilterCity] = useState("");
+  const [filterState, setFilterState] = useState("");
+  const [filterCountry, setFilterCountry] = useState("");
+  const [searchTeam, setSearchTeam] = useState("");
+  const [activeRoleSection, setActiveRoleSection] = useState(null);
+  const isTeamsCollapsed = activeRoleSection !== 'teams';
+  const isEvaluatorsCollapsed = activeRoleSection !== 'evaluators';
+  const isStudentsCollapsed = activeRoleSection !== 'students';
+
+  const getTeamLeader = (p) => p?.members?.find(m => m.isLeader) || p?.members?.[0];
+  const getTeamLocation = (p) => {
+    const loc = getTeamLeader(p)?.location || "";
+    const parts = loc.split(',').map(s => s.trim());
+    return { city: parts[0] || "", state: parts[1] || "", country: parts[2] || "" };
+  };
+  const getTeamInstitute = (p) => getTeamLeader(p)?.organisation || "";
+  const getTeamBranch = (p) => getTeamLeader(p)?.specialization || "";
+
+  let filteredTeams = teamLeaders.filter(tl => {
+    const p = tl.participantId;
+    if (!p) return false;
+    
+    const searchLower = searchTeam.toLowerCase();
+    const matchesSearch = !searchTeam || 
+      tl.teamName.toLowerCase().includes(searchLower) || 
+      tl.name.toLowerCase().includes(searchLower);
+      
+    const inst = getTeamInstitute(p);
+    const branch = getTeamBranch(p);
+    const loc = getTeamLocation(p);
+
+    const matchesInst = !filterInstitute || inst === filterInstitute;
+    const matchesBranch = !filterBranch || branch === filterBranch;
+    const matchesCity = !filterCity || loc.city === filterCity;
+    const matchesState = !filterState || loc.state === filterState;
+    const matchesCountry = !filterCountry || loc.country === filterCountry;
+
+    return matchesSearch && matchesInst && matchesBranch && matchesCity && matchesState && matchesCountry;
+  });
+
+  const uniqueInstitutes = [...new Set(teamLeaders.map(tl => getTeamInstitute(tl.participantId)).filter(Boolean))].sort();
+  const uniqueBranches = [...new Set(teamLeaders.map(tl => getTeamBranch(tl.participantId)).filter(Boolean))].sort();
+  const uniqueCities = [...new Set(teamLeaders.map(tl => getTeamLocation(tl.participantId).city).filter(Boolean))].sort();
+  const uniqueStates = [...new Set(teamLeaders.map(tl => getTeamLocation(tl.participantId).state).filter(Boolean))].sort();
+  const uniqueCountries = [...new Set(teamLeaders.map(tl => getTeamLocation(tl.participantId).country).filter(Boolean))].sort();
+
   return (
     <div className="animate-fade-in w-full max-w-7xl mx-auto px-6 py-8 md:px-10">
       <div className="flex items-center justify-between mb-8">
@@ -906,11 +1034,18 @@ export function UsersView() {
 
       {/* Student Coordinators */}
       <div className="bg-white border border-green-200 rounded-2xl shadow-sm overflow-hidden mb-6">
-        <div className="bg-green-50 px-6 py-4 border-b border-green-100 font-bold text-green-800 text-lg">
-          Student Coordinators ({students.length})
+        <div 
+          className="bg-green-50 px-6 py-4 border-b border-green-100 font-bold text-green-800 text-lg flex justify-between items-center cursor-pointer"
+          onClick={() => setActiveRoleSection(activeRoleSection === 'students' ? null : 'students')}
+        >
+          <div className="flex items-center gap-3">
+            <span className="text-sm">{isStudentsCollapsed ? '▶' : '▼'}</span>
+            <span>Student Coordinators ({students.length})</span>
+          </div>
         </div>
-        {loading ? (
-          <div className="p-6 text-gray-500">Loading users...</div>
+        {!isStudentsCollapsed && (
+          loading ? (
+            <div className="p-6 text-gray-500">Loading users...</div>
         ) : students.length === 0 ? (
           <div className="p-6 text-gray-500">No student coordinators have been created yet.</div>
         ) : (
@@ -967,13 +1102,22 @@ export function UsersView() {
               </div>
             ))}
           </div>
+          )
         )}
       </div>
 
       {/* Evaluators */}
       <div className="bg-white border border-green-200 rounded-2xl shadow-sm overflow-hidden mb-6">
-        <div className="bg-green-50 px-6 py-4 border-b border-green-100 font-bold text-green-800 text-lg flex justify-between items-center">
+        <div 
+          className="bg-green-50 px-6 py-4 border-b border-green-100 font-bold text-green-800 text-lg flex justify-between items-center cursor-pointer"
+          onClick={(e) => {
+            if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON') {
+              setActiveRoleSection(activeRoleSection === 'evaluators' ? null : 'evaluators');
+            }
+          }}
+        >
           <div className="flex items-center gap-3">
+            <span className="text-sm">{isEvaluatorsCollapsed ? '▶' : '▼'}</span>
             {evaluators.length > 0 && isSelectionMode && (
               <input 
                 type="checkbox"
@@ -1011,7 +1155,11 @@ export function UsersView() {
               ) : (
                 <>
                   <button
-                    onClick={() => setShowInviteMenu(!showInviteMenu)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowInviteMenu(!showInviteMenu);
+                      if (activeRoleSection !== 'evaluators') setActiveRoleSection('evaluators');
+                    }}
                     disabled={isBulkInviting}
                     className="text-sm px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded shadow transition flex items-center gap-1 disabled:opacity-50"
                   >
@@ -1038,8 +1186,9 @@ export function UsersView() {
             )}
           </div>
         </div>
-        {loading ? (
-          <div className="p-6 text-gray-500">Loading users...</div>
+        {!isEvaluatorsCollapsed && (
+          loading ? (
+            <div className="p-6 text-gray-500">Loading users...</div>
         ) : evaluators.length === 0 ? (
           <div className="p-6 text-gray-500">No evaluators have been created yet.</div>
         ) : (
@@ -1123,6 +1272,200 @@ export function UsersView() {
               </div>
             ))}
           </div>
+          )
+        )}
+      </div>
+      {/* Teams (Shortlisted) */}
+      <div className="bg-white border border-green-200 rounded-2xl shadow-sm overflow-hidden mb-6">
+        <div 
+          className="bg-green-50 px-6 py-4 border-b border-green-100 font-bold text-green-800 text-lg flex justify-between items-center cursor-pointer"
+          onClick={(e) => {
+            if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON' && e.target.tagName !== 'SELECT') {
+              setActiveRoleSection(activeRoleSection === 'teams' ? null : 'teams');
+            }
+          }}
+        >
+          <div className="flex items-center gap-3">
+            <span className="text-sm">{isTeamsCollapsed ? '▶' : '▼'}</span>
+            {filteredTeams.length > 0 && isTeamSelectionMode && (
+              <input 
+                type="checkbox"
+                checked={selectedTeamLeaders.length === filteredTeams.length && filteredTeams.length > 0}
+                onChange={(e) => {
+                  if (e.target.checked) setSelectedTeamLeaders(filteredTeams.map(tl => tl._id));
+                  else setSelectedTeamLeaders([]);
+                }}
+                className="w-4 h-4 cursor-pointer"
+              />
+            )}
+            <span>Teams ({filteredTeams.length})</span>
+          </div>
+          <div className="flex gap-2 relative">
+            {filteredTeams.length > 0 && (
+              isTeamSelectionMode ? (
+                <>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsTeamSelectionMode(false);
+                      setSelectedTeamLeaders([]);
+                    }}
+                    className="text-sm px-4 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded shadow transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleSendSelectedTeams(); }}
+                    disabled={selectedTeamLeaders.length === 0 || isBulkInviting}
+                    className="text-sm px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded shadow transition disabled:opacity-50"
+                  >
+                    {isBulkInviting ? "Sending..." : `Confirm Send (${selectedTeamLeaders.length})`}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowTeamInviteMenu(!showTeamInviteMenu);
+                      if (activeRoleSection !== 'teams') setActiveRoleSection('teams');
+                    }}
+                    disabled={isBulkInviting}
+                    className="text-sm px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded shadow transition flex items-center gap-1 disabled:opacity-50"
+                  >
+                    {isBulkInviting ? "Sending..." : "Send Invitations ▾"}
+                  </button>
+                  {showTeamInviteMenu && !isBulkInviting && (
+                    <div className="absolute right-0 top-full mt-2 w-56 bg-white border border-gray-200 rounded-lg shadow-xl z-10 overflow-hidden">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setShowTeamInviteMenu(false); handleBulkTeamInvite(); }}
+                        className="w-full text-left px-4 py-3 hover:bg-gray-50 text-gray-700 font-semibold text-sm border-b border-gray-100 transition"
+                      >
+                        Send to All ({filteredTeams.length})
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setShowTeamInviteMenu(false); setIsTeamSelectionMode(true); }}
+                        className="w-full text-left px-4 py-3 font-semibold text-sm transition hover:bg-gray-50 text-indigo-700"
+                      >
+                        Send to Custom Users
+                      </button>
+                    </div>
+                  )}
+                </>
+              )
+            )}
+          </div>
+        </div>
+        {!isTeamsCollapsed && (
+          loading ? (
+            <div className="p-6 text-gray-500">Loading users...</div>
+          ) : teamLeaders.length === 0 ? (
+            <div className="p-6 text-gray-500">No teams have been shortlisted yet.</div>
+          ) : (
+            <div className="p-4 border-b border-gray-200 bg-gray-50">
+              <div className="flex flex-wrap gap-2 mb-3">
+                <input 
+                  type="text" 
+                  placeholder="Search team or leader..." 
+                  className="border border-gray-300 rounded px-3 py-1.5 text-sm"
+                  value={searchTeam}
+                  onChange={(e) => setSearchTeam(e.target.value)}
+                />
+                <select value={filterInstitute} onChange={e => setFilterInstitute(e.target.value)} className="border border-gray-300 rounded px-2 py-1.5 text-sm max-w-[200px] truncate">
+                  <option value="">All Institutes</option>
+                  {uniqueInstitutes.map(inst => <option key={inst} value={inst}>{inst}</option>)}
+                </select>
+                <select value={filterBranch} onChange={e => setFilterBranch(e.target.value)} className="border border-gray-300 rounded px-2 py-1.5 text-sm max-w-[150px] truncate">
+                  <option value="">All Branches</option>
+                  {uniqueBranches.map(branch => <option key={branch} value={branch}>{branch}</option>)}
+                </select>
+                <select value={filterCity} onChange={e => setFilterCity(e.target.value)} className="border border-gray-300 rounded px-2 py-1.5 text-sm max-w-[120px] truncate">
+                  <option value="">All Cities</option>
+                  {uniqueCities.map(city => <option key={city} value={city}>{city}</option>)}
+                </select>
+                <select value={filterState} onChange={e => setFilterState(e.target.value)} className="border border-gray-300 rounded px-2 py-1.5 text-sm max-w-[120px] truncate">
+                  <option value="">All States</option>
+                  {uniqueStates.map(state => <option key={state} value={state}>{state}</option>)}
+                </select>
+                <select value={filterCountry} onChange={e => setFilterCountry(e.target.value)} className="border border-gray-300 rounded px-2 py-1.5 text-sm max-w-[120px] truncate">
+                  <option value="">All Countries</option>
+                  {uniqueCountries.map(country => <option key={country} value={country}>{country}</option>)}
+                </select>
+                <button onClick={() => { setFilterInstitute(""); setFilterBranch(""); setFilterCity(""); setFilterState(""); setFilterCountry(""); setSearchTeam(""); }} className="text-sm text-blue-600 hover:underline px-2 py-1.5">
+                  Clear
+                </button>
+              </div>
+              <div className="divide-y divide-gray-100 border rounded-lg bg-white">
+                {filteredTeams.map(tl => (
+                  <div key={tl._id} className="p-4 hover:bg-gray-50 transition flex flex-col cursor-pointer" onClick={(e) => { if (!isTeamSelectionMode) setExpandedId(expandedId === tl._id ? null : tl._id); }}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        {isTeamSelectionMode && (
+                          <input 
+                            type="checkbox"
+                            checked={selectedTeamLeaders.includes(tl._id)}
+                            onClick={(e) => e.stopPropagation()}
+                            onChange={(e) => {
+                              if (e.target.checked) setSelectedTeamLeaders([...selectedTeamLeaders, tl._id]);
+                              else setSelectedTeamLeaders(selectedTeamLeaders.filter(id => id !== tl._id));
+                            }}
+                            className="w-4 h-4 cursor-pointer"
+                          />
+                        )}
+                        <div>
+                          <h4 className="font-semibold text-gray-800 flex items-center gap-2">
+                            <span className={`text-green-600 transition-transform ${expandedId === tl._id ? 'rotate-90' : ''}`}>▶</span>
+                            {tl.teamName}
+                          </h4>
+                          <p className="text-sm text-gray-500 ml-5">{tl.name} ({tl.email})</p>
+                          <p className="text-xs text-gray-400 ml-5 mt-0.5">
+                            {getTeamInstitute(tl.participantId) || 'N/A'} • {[getTeamLocation(tl.participantId).city, getTeamLocation(tl.participantId).state].filter(Boolean).join(', ') || 'N/A'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 mr-4">
+                        <button 
+                          onClick={(e) => handleSendTeamInvite(e, tl._id, tl.inviteSent)} 
+                          disabled={invitingId === tl._id}
+                          className={`text-xs font-semibold px-3 py-1 border rounded transition disabled:opacity-50 ${tl.inviteSent ? 'bg-orange-50 text-orange-600 border-orange-200 hover:bg-orange-100' : 'bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100'}`}
+                        >
+                          {invitingId === tl._id ? "Sending..." : tl.inviteSent ? "Resend Invite" : "Send Invite"}
+                        </button>
+                      </div>
+                    </div>
+                    {expandedId === tl._id && (
+                      <div className="ml-5 mt-4 p-4 bg-gray-100 rounded-lg text-sm">
+                        <div className="grid grid-cols-2 gap-4 mb-4">
+                          <div><span className="font-semibold text-gray-700">Institute:</span> {getTeamInstitute(tl.participantId) || 'N/A'}</div>
+                          <div><span className="font-semibold text-gray-700">Branch:</span> {getTeamBranch(tl.participantId) || 'N/A'}</div>
+                          <div><span className="font-semibold text-gray-700">Location:</span> {[getTeamLocation(tl.participantId).city, getTeamLocation(tl.participantId).state, getTeamLocation(tl.participantId).country].filter(Boolean).join(', ') || 'N/A'}</div>
+                          <div><span className="font-semibold text-gray-700">Phone:</span> {tl.phone || 'N/A'}</div>
+                          <div><span className="font-semibold text-gray-700">Type:</span> Team Leader</div>
+                          <div><span className="font-semibold text-gray-700">Event ID:</span> {tl.eventId}</div>
+                        </div>
+                        
+                        {tl.participantId?.members && tl.participantId.members.length > 0 && (
+                          <div className="mt-4 pt-4 border-t border-gray-200">
+                            <h5 className="font-bold text-gray-700 mb-3">Team Members ({tl.participantId.members.length})</h5>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              {tl.participantId.members.map((m, idx) => (
+                                <div key={idx} className="bg-white p-3 rounded shadow-sm border border-gray-200">
+                                  <p className="font-semibold text-gray-800">{m.name || m.firstName + ' ' + m.lastName} {m.isLeader ? '(Leader)' : ''}</p>
+                                  <p className="text-xs text-gray-500 mt-1">{m.email}</p>
+                                  <p className="text-xs text-gray-500">{m.phone}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {filteredTeams.length === 0 && <div className="p-4 text-gray-500">No teams match the current filters.</div>}
+              </div>
+            </div>
+          )
         )}
       </div>
     </div>

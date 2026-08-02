@@ -820,8 +820,9 @@ export default function AdminEventParticipants() {
                     {selectedParticipant.assessments?.length > 0 ? (
                       selectedParticipant.assessments.map((assessment, aIdx) => {
                         // Find evaluator name
-                        const evaluator = selectedParticipant.assignedEvaluators?.find(e => String(e._id) === String(assessment.evaluatorId));
-                        const evaluatorName = evaluator ? evaluator.name : `Evaluator ${aIdx + 1}`;
+                        const evalIdToMatch = typeof assessment.evaluatorId === 'object' && assessment.evaluatorId ? assessment.evaluatorId._id : assessment.evaluatorId;
+                        const evaluator = selectedParticipant.assignedEvaluators?.find(e => String(e._id) === String(evalIdToMatch));
+                        const evaluatorName = assessment.evaluatorId?.name || evaluator?.name || assessment.evaluatedBy || `Evaluator ${aIdx + 1}`;
                         
                         let parsedComments = [];
                         if (assessment.comments) {

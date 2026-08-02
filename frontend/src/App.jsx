@@ -23,6 +23,7 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import AdminEventParticipants from "./AdminEventParticipants";
+import AdminShortlist from "./AdminShortlist";
 import StudentDashboard from "./pages/StudentDashboard";
 import ikigaiLogo from "./assets/ikigai.png";
 import { FileText, CheckCircle, Link2, User, Mail, Phone, Building2, BookOpen, GraduationCap, MapPin, X, Bell } from "lucide-react";
@@ -3389,8 +3390,9 @@ const submissionUrl =
                     {selectedParticipant.assessments?.length > 0 ? (
                       selectedParticipant.assessments.map((assessment, aIdx) => {
                         // Find evaluator name
-                        const evaluator = selectedParticipant.assignedEvaluators?.find(e => String(e._id) === String(assessment.evaluatorId));
-                        const evaluatorName = evaluator ? evaluator.name : `Evaluator ${aIdx + 1}`;
+                        const evalIdToMatch = typeof assessment.evaluatorId === 'object' && assessment.evaluatorId ? assessment.evaluatorId._id : assessment.evaluatorId;
+                        const evaluator = selectedParticipant.assignedEvaluators?.find(e => String(e._id) === String(evalIdToMatch));
+                        const evaluatorName = assessment.evaluatorId?.name || evaluator?.name || assessment.evaluatedBy || `Evaluator ${aIdx + 1}`;
                         
                         let parsedComments = [];
                         if (assessment.comments) {
@@ -5060,6 +5062,7 @@ function ProtectedRoutes({ allowedRoles }) {
     <Route element={<AdminLayout />}>
       <Route path="/dashboard" element={<EventsView events={events} refreshEvents={refreshEvents} />} />
       <Route path="/progress" element={<ProgressView events={events} />} />
+      <Route path="/shortlist" element={<AdminShortlist events={events} />} />
       <Route path="/users" element={<UsersView />} />
       <Route path="/event/:id" element={<EventDetails events={events} setEvents={setEvents} />} />
     </Route>
