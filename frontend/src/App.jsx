@@ -3257,7 +3257,7 @@ const submissionUrl =
               {sortBy === "marks" && sortOrder === "desc" && index === 0 && "🥇"}
               {sortBy === "marks" && sortOrder === "desc" && index === 1 && "🥈"}
               {sortBy === "marks" && sortOrder === "desc" && index === 2 && "🥉"}
-              {p.assessment.total}
+              {p.assessment?.total ?? "N/A"}
             </span>
           ) : (
             <span className="text-xs italic text-gray-500">Pending</span>
@@ -4949,20 +4949,6 @@ const handleNext = () => {
   >
     View Summary
   </button>
-
-<button
-  onClick={handleFinalSubmit}
-  disabled={track.assessmentLocked}
-  className={`px-4 py-2 rounded font-semibold ${
-    track.assessmentLocked
-      ? "bg-gray-400 cursor-not-allowed"
-      : "bg-red-600 hover:bg-red-700 text-white"
-  }`}
->
-  {track.assessmentLocked ? "Assessment Locked" : "Final Submit"}
-</button>
-
-
 </div>
 
     {showSummary && (
