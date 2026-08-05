@@ -355,7 +355,17 @@ export default function AdminRound2() {
   const allTracks = Object.keys(tracksCount);
 
   return (
-    <div className="animate-fade-in w-full max-w-7xl mx-auto px-6 py-8 md:px-10">
+    <>
+      <style>{`
+        @keyframes fadeInUp {
+          from { opacity: 0; transform: translateY(8px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in-up {
+          animation: fadeInUp 0.4s ease-out forwards;
+        }
+      `}</style>
+      <div className="animate-fade-in w-full max-w-7xl mx-auto px-6 py-8 md:px-10">
       <div className="flex items-center justify-between mb-8">
         <div>
           <h2 className="text-3xl font-extrabold text-gray-800 tracking-tight">Round 2 Candidates</h2>
@@ -433,7 +443,10 @@ export default function AdminRound2() {
           <p className="text-gray-500">Teams will appear here once they complete the Round 2 registration from their Team Console.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div 
+          key={`${activeTrack}-${filterCollege}-${filterLocation}-${filterStatus}`}
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-in-up"
+        >
           {filtered.map(team => (
             <TeamCard 
               key={team._id} 
@@ -449,5 +462,6 @@ export default function AdminRound2() {
         </div>
       )}
     </div>
+    </>
   );
 }
