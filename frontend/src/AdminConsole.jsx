@@ -967,7 +967,8 @@ export function UsersView() {
     const searchLower = searchTeam.toLowerCase();
     const matchesSearch = !searchTeam || 
       tl.teamName.toLowerCase().includes(searchLower) || 
-      tl.name.toLowerCase().includes(searchLower);
+      tl.name.toLowerCase().includes(searchLower) ||
+      (tl.email && tl.email.toLowerCase().includes(searchLower));
       
     const inst = getTeamInstitute(p);
     const branch = getTeamBranch(p);
