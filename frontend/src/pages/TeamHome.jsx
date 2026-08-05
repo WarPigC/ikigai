@@ -304,14 +304,16 @@ export default function TeamHome() {
             {regStatus === 'Approved' ? <Upload size={40} /> : <Upload size={40} />}
           </div>
           <h2 className="text-2xl font-bold text-gray-800 mb-2">
-            {regStatus === 'Approved' ? 'Registration Verified!' : (regStatus === 'Contact' ? 'Action Required' : 'Registration Verification Pending')}
+            {regStatus === 'Approved' && teamInfo?.allottedTrack ? 'Track & Problem Statement Available!' : (regStatus === 'Approved' ? 'Registration Verified!' : (regStatus === 'Contact' ? 'Action Required' : 'Registration Verification Pending'))}
           </h2>
           <p className="text-gray-600">
-            {regStatus === 'Approved' 
-              ? 'Your Round 2 registration is complete and verified. Get ready for the 36-hour hackathon!' 
-              : (regStatus === 'Contact' 
-                ? 'There is an issue with your registration. Please contact the organizers immediately.'
-                : 'Your Round 2 preferences and payment receipt have been received and are pending verification.')}
+            {regStatus === 'Approved' && teamInfo?.allottedTrack
+              ? 'Your final track has been allotted. Check your problem statement above and get ready for the 36-hour hackathon!' 
+              : (regStatus === 'Approved'
+                ? 'Your registration has been approved. The Admin is currently reviewing your preferences to allot your final track and problem statement. Please check back soon.'
+                : (regStatus === 'Contact' 
+                  ? 'There is an issue with your registration. Please contact the organizers immediately.'
+                  : 'Your Round 2 preferences and payment receipt have been received and are pending verification.'))}
           </p>
         </div>
       ) : (
