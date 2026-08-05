@@ -28,6 +28,7 @@ const TeamSchema = new mongoose.Schema(
     receiptUrl: { type: String, default: "" },
     status: { type: String, default: "Pending" }, // Pending, Approved, Contact
     reopenAccess: {
+      open: { type: Boolean, default: false },
       fields: { type: [String], default: [] },
       expiresAt: { type: Date }
     }
@@ -78,7 +79,7 @@ router.post(
       const existing = await TeamModel.findOne({ participantId });
 
       // Check reopen mode if already exists
-      const isReopen = existing && existing.reopenAccess && existing.reopenAccess.expiresAt > new Date();
+      const isReopen = existing && existing.reopenAccess && existing.reopenAccess.open;
 
       if (!req.file && (!existing || !existing.receiptUrl)) {
         return res.status(400).json({ success: false, message: "No receipt provided" });
@@ -138,7 +139,7 @@ router.post(
 
       // If this was a reopen submission, we can clear the reopenAccess
       if (isReopen) {
-        updateData.reopenAccess = { fields: [], expiresAt: null };
+        updateData.reopenAccess = { open: false };
       }
 
       const registration = await TeamModel.findOneAndUpdate(
@@ -194,22 +195,21 @@ router.put("/admin/:id/status", async (req, res) => {
 // Admin re-open specific fields
 router.put("/admin/:id/reopen", async (req, res) => {
   try {
-    const { fields, durationMinutes } = req.body; // array of fields, duration
-    const expiresAt = new Date(Date.now() + durationMinutes * 60000);
+    const { open } = req.body; 
 
     const registration = await TeamModel.findByIdAndUpdate(
       req.params.id,
       {
-        status: "Contact", // Keeps them in Contact status until resubmission
-        reopenAccess: { fields, expiresAt }
+        status: open ? "Contact" : "Pending", // Keeps them in Contact status until resubmission
+        reopenAccess: { open }
       },
       { new: true }
     );
 
-    if (registration) {
+    if (registration && open) {
       await NotificationModel.create({
         recipientEmail: registration.leaderEmail,
-        title: "Registration Requires Changes",
+        title: "Registration Re-opened",
         message: "Your registration requires modifications. Please review the comments and resubmit.",
         type: "Rejection"
       });
@@ -245,7 +245,9 @@ router.get("/my-status", async (req, res) => {
       status: registration.status,
       reopenAccess: registration.reopenAccess,
       trackPreferences: registration.trackPreferences,
-      tshirtSizes: registration.tshirtSizes
+      tshirtSizes: registration.tshirtSizes,
+      transactionId: registration.transactionId,
+      receiptUrl: registration.receiptUrl
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -320,4 +322,78 @@ router.post("/save-tshirts", async (req, res) => {
 });
 
 export { TeamModel };
+router.post("/upload-photo", upload.single("photo"), async (req, res) => {
+  try {
+    const { participantId, memberEmail, eventId } = req.body;
+    if (!req.file || !participantId || !memberEmail) {
+      return res.status(400).json({ success: false, message: "Missing file or required fields" });
+    }
+
+    if (!getCloudinaryConfig()) {
+      return res.status(500).json({ success: false, message: "Cloudinary is not configured" });
+    }
+
+    const Shortlisted = mongoose.model("Shortlisted");
+    const team = await Shortlisted.findOne({ participantId });
+    if (!team) {
+      return res.status(404).json({ success: false, message: "Team not found" });
+    }
+
+    const memberIndex = team.members.findIndex(m => m.email === memberEmail);
+    if (memberIndex === -1) {
+      return res.status(404).json({ success: false, message: "Member not found" });
+    }
+
+    const member = team.members[memberIndex];
+    const memberName = member.name || `${member.firstName || ''} ${member.lastName || ''}`.trim();
+    const sanitizedName = memberName.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase();
+    
+    const sameNameMembers = team.members.filter(m => {
+      const n = m.name || `${m.firstName || ''} ${m.lastName || ''}`.trim();
+      return n.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase() === sanitizedName;
+    });
+    
+    let suffix = "";
+    if (sameNameMembers.length > 1) {
+      const index = sameNameMembers.findIndex(m => m.email === memberEmail);
+      if (index > 0) suffix = `-${index + 1}`;
+    }
+
+    const publicId = `${team.teamId}_${sanitizedName}${suffix}`;
+    const base64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}`;
+    const result = await cloudinary.v2.uploader.upload(base64, {
+      folder: `IKIGAI_Members/${eventId || team.eventId}`,
+      public_id: publicId,
+      overwrite: true,
+    });
+
+    const photoUrl = result.secure_url;
+    
+    await Shortlisted.updateOne(
+      { participantId },
+      { $set: { [`members.${memberIndex}.photoUrl`]: photoUrl } }
+    );
+    
+    try {
+      const Participant = mongoose.model("Participant");
+      await Participant.updateOne(
+        { _id: participantId },
+        { $set: { [`members.${memberIndex}.photoUrl`]: photoUrl } }
+      );
+    } catch(e) {}
+
+    try {
+      await TeamModel.updateOne(
+        { participantId },
+        { $set: { [`members.${memberIndex}.photoUrl`]: photoUrl } }
+      );
+    } catch(e) {}
+
+    res.json({ success: true, photoUrl });
+  } catch (err) {
+    console.error("Error uploading photo:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 export default router;

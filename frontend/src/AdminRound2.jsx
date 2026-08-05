@@ -17,14 +17,32 @@ export default function AdminRound2() {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  // Reopen Modal State
-  const [reopenModal, setReopenModal] = useState(null);
-  const [reopenFields, setReopenFields] = useState({
-    choiceFilling: false,
-    transactionId: false,
-    uploadReceipt: false
-  });
-  const [reopenDuration, setReopenDuration] = useState(30);
+  // Reopen Form Logic
+  const handleToggleReopen = async (team) => {
+    const isCurrentlyOpen = team.reopenAccess?.open;
+    const confirmMessage = isCurrentlyOpen 
+      ? "Are you sure you want to CLOSE the registration form for this team?" 
+      : "Are you sure you want to RE-OPEN the entire registration form for this team?";
+      
+    if (!window.confirm(confirmMessage)) return;
+
+    try {
+      const res = await fetch(`${API_BASE}/api/round2/admin/${team._id}/reopen`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ open: !isCurrentlyOpen })
+      });
+      if (res.ok) {
+        fetchRegistrations();
+      } else {
+        const data = await res.json();
+        alert(data.message || "Failed to update form access");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Network Error");
+    }
+  };
 
   const fetchRegistrations = async () => {
     try {
@@ -73,50 +91,7 @@ export default function AdminRound2() {
     }
   };
 
-  const handleReopenSubmit = async () => {
-    if (!reopenModal) return;
-    const fields = [];
-    if (reopenFields.choiceFilling) fields.push("choiceFilling");
-    if (reopenFields.transactionId) fields.push("transactionId");
-    if (reopenFields.uploadReceipt) fields.push("uploadReceipt");
 
-    if (fields.length === 0) {
-      alert("Please select at least one field to reopen.");
-      return;
-    }
-    
-    if (reopenDuration < 1 || reopenDuration > 60) {
-      alert("Duration must be between 1 and 60 minutes.");
-      return;
-    }
-
-    try {
-      const res = await fetch(`${API_BASE}/api/round2/admin/${reopenModal._id}/reopen`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fields, durationMinutes: parseInt(reopenDuration) })
-      });
-      if (res.ok) {
-        setReopenModal(null);
-        setReopenFields({ choiceFilling: false, transactionId: false, uploadReceipt: false });
-        fetchRegistrations();
-      } else {
-        const data = await res.json();
-        alert(data.message || "Failed to reopen");
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Network Error");
-    }
-  };
-
-  const toggleAllReopenFields = (checked) => {
-    setReopenFields({
-      choiceFilling: checked,
-      transactionId: checked,
-      uploadReceipt: checked
-    });
-  };
 
   const filtered = activeTrack === "All" ? registrations : registrations.filter(r => r.trackPreferences?.[0] === activeTrack);
   const allTracks = Object.keys(tracksCount);
@@ -220,11 +195,15 @@ export default function AdminRound2() {
                 )}
                 {team.status === "Contact" && (
                   <button 
-                    onClick={() => setReopenModal(team)}
-                    className="flex items-center gap-1.5 text-sm font-bold bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg hover:bg-blue-200 transition"
-                    title="Re-open Registration Form"
+                    onClick={() => handleToggleReopen(team)}
+                    className={`flex items-center gap-1.5 text-sm font-bold px-3 py-1.5 rounded-lg transition ${
+                      team.reopenAccess?.open 
+                        ? 'bg-red-100 text-red-700 hover:bg-red-200' 
+                        : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                    }`}
+                    title={team.reopenAccess?.open ? "Close Registration Form" : "Re-open Registration Form"}
                   >
-                    <Unlock size={16} /> Re-open Form
+                    <Unlock size={16} /> {team.reopenAccess?.open ? "Close Form" : "Re-open Form"}
                   </button>
                 )}
               </div>
@@ -233,92 +212,7 @@ export default function AdminRound2() {
         </div>
       )}
 
-      {/* Reopen Form Modal */}
-      {reopenModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden flex flex-col">
-            <div className="p-6 border-b border-gray-100 flex items-center justify-between">
-              <div>
-                <h3 className="text-xl font-extrabold text-gray-900">Re-open Registration</h3>
-                <p className="text-sm text-gray-500 mt-1">Select fields to allow <b>{reopenModal.teamName}</b> to edit.</p>
-              </div>
-              <button onClick={() => setReopenModal(null)} className="text-gray-400 hover:bg-gray-100 p-2 rounded-lg transition">
-                <X size={20} />
-              </button>
-            </div>
-            
-            <div className="p-6 space-y-5 flex-1 overflow-y-auto">
-              <label className="flex items-center gap-3 p-3 bg-gray-50 border rounded-xl cursor-pointer hover:bg-gray-100 transition">
-                <input 
-                  type="checkbox" 
-                  className="w-5 h-5 text-purple-600 rounded focus:ring-purple-500 border-gray-300"
-                  checked={reopenFields.choiceFilling && reopenFields.transactionId && reopenFields.uploadReceipt}
-                  onChange={(e) => toggleAllReopenFields(e.target.checked)}
-                />
-                <span className="font-bold text-gray-800">Select All Fields</span>
-              </label>
 
-              <div className="space-y-3 pl-2 border-l-2 border-gray-100 ml-3">
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input 
-                    type="checkbox" 
-                    className="w-4 h-4 text-purple-600 rounded focus:ring-purple-500 border-gray-300"
-                    checked={reopenFields.choiceFilling}
-                    onChange={(e) => setReopenFields(p => ({ ...p, choiceFilling: e.target.checked }))}
-                  />
-                  <span className="text-sm font-semibold text-gray-700">Choice Filling (Track Preference)</span>
-                </label>
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input 
-                    type="checkbox" 
-                    className="w-4 h-4 text-purple-600 rounded focus:ring-purple-500 border-gray-300"
-                    checked={reopenFields.transactionId}
-                    onChange={(e) => setReopenFields(p => ({ ...p, transactionId: e.target.checked }))}
-                  />
-                  <span className="text-sm font-semibold text-gray-700">Transaction ID</span>
-                </label>
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input 
-                    type="checkbox" 
-                    className="w-4 h-4 text-purple-600 rounded focus:ring-purple-500 border-gray-300"
-                    checked={reopenFields.uploadReceipt}
-                    onChange={(e) => setReopenFields(p => ({ ...p, uploadReceipt: e.target.checked }))}
-                  />
-                  <span className="text-sm font-semibold text-gray-700">Upload Receipt</span>
-                </label>
-              </div>
-
-              <div className="pt-2">
-                <label className="block text-sm font-bold text-gray-700 mb-2">Duration to Keep Open (Minutes)</label>
-                <input 
-                  type="number" 
-                  min="1" 
-                  max="60"
-                  value={reopenDuration}
-                  onChange={(e) => setReopenDuration(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent font-medium"
-                />
-                <p className="text-xs text-gray-400 mt-1">Maximum 60 minutes.</p>
-              </div>
-            </div>
-
-            <div className="p-4 border-t border-gray-100 bg-gray-50 flex gap-3 justify-end">
-              <button 
-                onClick={() => setReopenModal(null)}
-                className="px-5 py-2.5 text-sm font-bold text-gray-600 hover:bg-gray-200 rounded-xl transition"
-              >
-                Cancel
-              </button>
-              <button 
-                onClick={handleReopenSubmit}
-                className="px-5 py-2.5 text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-sm transition flex items-center gap-2"
-              >
-                <Unlock size={16} /> Open Access
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
