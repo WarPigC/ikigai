@@ -235,7 +235,7 @@ export default function TeamHome() {
           <div className="hidden md:block absolute top-[28px] left-[10%] right-[10%] h-1.5 bg-gray-200 z-0 rounded-full overflow-hidden">
             <div 
               className="h-full bg-green-500 transition-all duration-500 ease-in-out" 
-              style={{ width: regStatus === 'Approved' ? '50%' : (submitted && !isReopened ? '25%' : '0%') }}
+              style={{ width: regStatus === 'Approved' && teamInfo?.allottedTrack ? '75%' : (regStatus === 'Approved' ? '50%' : (submitted && !isReopened ? '25%' : '0%')) }}
             ></div>
           </div>
           
@@ -279,13 +279,13 @@ export default function TeamHome() {
           {/* Step 4: Problem Statement */}
           <div className="flex flex-col items-center flex-1 text-center z-10 px-2 relative">
             <div className={`w-14 h-14 rounded-full flex items-center justify-center font-bold text-lg mb-3 ring-4 ring-white transition-all ${
-              regStatus === 'Approved' 
+              regStatus === 'Approved' && teamInfo?.allottedTrack
                 ? 'bg-purple-600 text-white shadow-[0_0_15px_rgba(147,51,234,0.6)] scale-110' 
                 : 'bg-gray-100 text-gray-400 border-2 border-gray-200'
             }`}>4</div>
             <p className="text-sm font-extrabold text-gray-900">Problem Statement</p>
-            <p className={`text-xs font-bold mt-1 ${regStatus === 'Approved' ? 'text-purple-600' : 'text-gray-400'}`}>
-              {regStatus === 'Approved' ? 'Available' : 'Awaiting Release'}
+            <p className={`text-xs font-bold mt-1 ${regStatus === 'Approved' && teamInfo?.allottedTrack ? 'text-purple-600' : 'text-gray-400'}`}>
+              {regStatus === 'Approved' && teamInfo?.allottedTrack ? 'Available' : 'Awaiting Release'}
             </p>
           </div>
 
