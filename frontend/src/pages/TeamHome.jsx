@@ -52,6 +52,10 @@ export default function TeamHome() {
   const [rulesScrolled, setRulesScrolled] = useState(false);
   const [rulesChecked, setRulesChecked] = useState(false);
   const [consentDownloaded, setConsentDownloaded] = useState(false);
+  
+  const [tshirtSizes, setTshirtSizes] = useState({});
+  const [savingTshirts, setSavingTshirts] = useState(false);
+  const [tshirtsSaved, setTshirtsSaved] = useState(false);
 
   const handleSaveSequence = async () => {
     if (!teamInfo) {
@@ -137,6 +141,9 @@ export default function TeamHome() {
           if (myRes.ok && myData.registered) {
             setRegStatus(myData.status);
             setReopenAccess(myData.reopenAccess);
+            if (myData.tshirtSizes) {
+              setTshirtSizes(myData.tshirtSizes);
+            }
             setSubmitted(true);
           }
         }
@@ -476,7 +483,73 @@ export default function TeamHome() {
             
             {(!isReopened) && (
               <div className="mt-8 pt-6 border-t border-gray-100">
-                <h2 className="text-lg font-bold text-gray-800 mb-4 pb-2 border-b">3. Consent and Rules & Regulations</h2>
+                <h2 className="text-lg font-bold text-gray-800 mb-4 pb-2 border-b">3. T-Shirt Sizes</h2>
+                <div className="bg-gray-50 border border-gray-200 rounded-xl p-5 mb-4">
+                  <p className="text-sm text-gray-700 mb-4">Please select the T-Shirt sizes for each team member. This information is required for the hackathon goodies.</p>
+                  
+                  {teamInfo?.members?.map((member, idx) => (
+                    <div key={idx} className="flex flex-col md:flex-row md:items-center justify-between mb-4 pb-3 border-b border-gray-200 last:border-0 last:mb-0 last:pb-0">
+                      <div className="mb-2 md:mb-0">
+                        <p className="font-semibold text-gray-800">{member.name}</p>
+                        <p className="text-xs text-gray-500">{member.email}</p>
+                      </div>
+                      <select 
+                        className="px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-green-500 bg-white min-w-[120px]"
+                        value={tshirtSizes[member.email] || ""}
+                        onChange={(e) => {
+                          setTshirtSizes(prev => ({...prev, [member.email]: e.target.value}));
+                          setTshirtsSaved(false);
+                        }}
+                      >
+                        <option value="" disabled>Select Size</option>
+                        <option value="S">Small (S)</option>
+                        <option value="M">Medium (M)</option>
+                        <option value="L">Large (L)</option>
+                        <option value="XL">Extra Large (XL)</option>
+                        <option value="XXL">Double XL (XXL)</option>
+                      </select>
+                    </div>
+                  ))}
+                  
+                  <div className="mt-4 flex items-center justify-between">
+                    <button 
+                      onClick={async () => {
+                        setSavingTshirts(true);
+                        try {
+                          const res = await fetch(`${API_BASE}/api/round2/save-tshirts`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              participantId: teamInfo.participantId,
+                              leaderEmail: sessionStorage.getItem("care_email"),
+                              tshirtSizes
+                            })
+                          });
+                          const data = await res.json();
+                          if (data.success) {
+                            setTshirtsSaved(true);
+                          } else {
+                            alert(data.message || "Failed to save T-shirt sizes.");
+                          }
+                        } catch (err) {
+                          alert("Error saving T-shirt sizes");
+                        }
+                        setSavingTshirts(false);
+                      }}
+                      disabled={savingTshirts || teamInfo?.members?.some(m => !tshirtSizes[m.email])}
+                      className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-sm transition disabled:opacity-50"
+                    >
+                      {savingTshirts ? "Saving..." : "Save T-Shirt Sizes"}
+                    </button>
+                    {tshirtsSaved && <span className="text-green-600 font-bold text-sm">✓ Saved</span>}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {(!isReopened) && (
+              <div className="mt-8 pt-6 border-t border-gray-100">
+                <h2 className="text-lg font-bold text-gray-800 mb-4 pb-2 border-b">4. Consent and Rules & Regulations</h2>
                 
                 <div className="mb-6">
                   <p className="text-sm text-gray-700 mb-3">Please download the consent letter, which has to be filled physically and brought on the grand finale date.</p>
@@ -606,7 +679,10 @@ export default function TeamHome() {
             <div className="mt-8 pt-4 border-t border-gray-100">
               <button 
                 onClick={handleSubmit}
-                disabled={submitting}
+                disabled={submitting || (
+                  !isReopened && 
+                  (!trackPrefChecked || !paymentChecked || !rulesChecked || !consentDownloaded || !tshirtsSaved)
+                )}
                 className="w-full py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl shadow transition disabled:opacity-50"
               >
                 {submitting ? "Submitting..." : (isReopened ? "Submit Correction" : "Submit Registration")}

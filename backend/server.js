@@ -2943,14 +2943,25 @@ app.post("/api/admin/team-leaders/send-mail", async (req, res) => {
                 <p>We encourage you to regularly check your dashboard for important updates and announcements.</p>
                 <p>Once again, congratulations on qualifying for the Grand Finale. We wish you and your team the very best and look forward to witnessing your innovative ideas at <strong>IKIGAI 2026</strong>.</p>
                 
+                <h2 style="color: #86198f; margin-top: 30px; margin-bottom: 15px; border-bottom: 2px solid #fdf4ff; padding-bottom: 5px;">Official WhatsApp Group</h2>
+                <p>To stay updated with the latest announcements, kindly join our official WhatsApp group for team leaders:</p>
+                <div style="margin: 20px 0;">
+                  <a href="https://chat.whatsapp.com/LpovcG41oI21iYYTdWNQIB?s=sw&p=a&ilr=0" style="background: #25D366; color: #ffffff !important; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-weight: bold; display: inline-block; box-shadow: 0 4px 10px rgba(37, 211, 102, 0.3);">Join WhatsApp Group</a>
+                </div>
+
                 <div style="margin-top: 40px; font-style: italic;">
                   <p style="margin-bottom: 5px;">Warm regards,</p>
                   <p style="margin: 0; font-weight: bold; color: #86198f;">Organizing Team – IKIGAI 2026</p>
                   <p style="margin: 0; font-size: 14px;">Department of Computer Science & Information Technology<br>Acropolis Institute of Technology and Research (AITR), Indore</p>
                 </div>
               </div>
-              <div style="background: #faf5ff; padding: 20px 30px; text-align: center; font-size: 13px; color: #64748b; border-top: 1px solid #f3e8ff;">
-                <em>For any queries, please contact the Organizing Team through the details available on the application portal.</em>
+              <div style="background: #faf5ff; padding: 20px 30px; text-align: left; font-size: 14px; color: #64748b; border-top: 1px solid #f3e8ff;">
+                <p style="margin-top: 0; margin-bottom: 10px; font-weight: bold; color: #86198f; font-size: 15px;">For any queries, please contact:</p>
+                <ul style="list-style-type: none; padding-left: 0; margin-bottom: 0;">
+                  <li style="margin-bottom: 8px;"><strong>Aarti Jaiswal</strong> (Faculty Coordinator) - <a href="tel:+918966883481" style="color: #db2777; text-decoration: none;">+91 89668 83481</a></li>
+                  <li style="margin-bottom: 8px;"><strong>Anjali Khandelwal</strong> (Student Coordinator) - <a href="tel:+919406920845" style="color: #db2777; text-decoration: none;">9406920845</a></li>
+                  <li><strong>Haripriya Gupta</strong> (Student Coordinator) - <a href="tel:+918839117054" style="color: #db2777; text-decoration: none;">8839117054</a></li>
+                </ul>
               </div>
             </div>
           </div>

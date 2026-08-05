@@ -23,6 +23,7 @@ const TeamSchema = new mongoose.Schema(
     eventId: { type: String, required: true },
     members: { type: Array, default: [] },
     trackPreferences: { type: [String], required: true },
+    tshirtSizes: { type: Object, default: {} },
     transactionId: { type: String, default: "" },
     receiptUrl: { type: String, default: "" },
     status: { type: String, default: "Pending" }, // Pending, Approved, Contact
@@ -233,7 +234,9 @@ router.get("/my-status", async (req, res) => {
       success: true,
       registered: true,
       status: registration.status,
-      reopenAccess: registration.reopenAccess
+      reopenAccess: registration.reopenAccess,
+      trackPreferences: registration.trackPreferences,
+      tshirtSizes: registration.tshirtSizes
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -282,6 +285,27 @@ router.post("/save-sequence", async (req, res) => {
     res.json({ success: true, registration });
   } catch (err) {
     console.error("Save Sequence Error:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Save t-shirt sizes
+router.post("/save-tshirts", async (req, res) => {
+  try {
+    const { participantId, leaderEmail, tshirtSizes } = req.body;
+    if (!participantId || !tshirtSizes) {
+      return res.status(400).json({ success: false, message: "Missing required fields" });
+    }
+
+    const registration = await TeamModel.findOneAndUpdate(
+      { participantId },
+      { tshirtSizes },
+      { new: true }
+    );
+
+    res.json({ success: true, registration });
+  } catch (err) {
+    console.error("Save T-Shirts Error:", err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
