@@ -231,7 +231,12 @@ router.get("/my-status", async (req, res) => {
     // Registration is only complete if a transactionId exists (meaning the final form was submitted).
     // If they only saved the sequence, transactionId will be missing.
     if (!registration || !registration.transactionId) {
-      return res.json({ success: true, registered: false });
+      return res.json({ 
+        success: true, 
+        registered: false,
+        trackPreferences: registration ? registration.trackPreferences : null,
+        tshirtSizes: registration ? registration.tshirtSizes : null
+      });
     }
 
     return res.json({
