@@ -2877,16 +2877,82 @@ app.post("/api/admin/team-leaders/send-mail", async (req, res) => {
         to: tl.email,
         subject: "Congratulations! You are shortlisted for Round 2",
         html: `
-          <p>Hello <b>${tl.name}</b>,</p>
-          <p>Congratulations! Your team <b>${tl.teamName}</b> has been shortlisted for Round 2.</p>
-          <p>Kindly complete the steps for registration in round 2.</p>
-          <p>To continue, you are required to pay the registration fees and select your preferred track for Round 2.</p>
-          <p>Please login as a Team Leader to your dashboard to complete your registration:</p>
-          <p><b>Application Link:</b> <a href="https://ikigai-csit.up.railway.app/">https://ikigai-csit.up.railway.app/</a></p>
-          <p><b>Login Email:</b> ${tl.email}</p>
-          <p><b>Temporary Password:</b> ${tempPass}</p>
-          <p>We recommend changing your password after your first login.</p>
-          <p>Please keep checking the application for the latest updates.</p>
+          <div style="background-color: #fdf4ff; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #334155; margin: 0; padding: 20px; line-height: 1.6;">
+            <div style="max-width: 650px; margin: 0 auto; background: #ffffff; border-radius: 12px; box-shadow: 0 4px 15px rgba(168, 85, 247, 0.1); overflow: hidden;">
+              <div style="background: linear-gradient(135deg, #a855f7 0%, #db2777 100%); padding: 30px 20px; text-align: center; color: #ffffff;">
+                <h1 style="margin: 0; font-size: 28px; letter-spacing: 1px; font-weight: 700;">Congratulations!</h1>
+                <p style="margin-top: 10px; font-size: 18px;">You've made it to the Grand Finale of IKIGAI 2026</p>
+              </div>
+              <div style="padding: 40px 30px;">
+                <p>Dear <span style="color: #9d174d; font-weight: 600;">${tl.name}</span>,</p>
+                <p>We are delighted to inform you that your team, <span style="color: #9d174d; font-weight: 600;">${tl.teamName}</span>, has successfully qualified for the <strong>Grand Finale (Offline Round 2)</strong> of <strong>IKIGAI 2026 – Intelligent Knowledge Integration for Global AI Innovation</strong>, a <strong>36-hour National-Level Hackathon</strong> organized by the <strong>Department of Computer Science & Information Technology, Acropolis Institute of Technology and Research (AITR), Indore</strong>.</p>
+                <p>Your selection reflects your team's innovation, technical skills, and outstanding performance in Round 1. We look forward to welcoming you to the Grand Finale for an exciting journey of collaboration, creativity, and problem-solving.</p>
+                
+                <h2 style="color: #86198f; margin-top: 30px; margin-bottom: 15px; border-bottom: 2px solid #fdf4ff; padding-bottom: 5px;">Complete Your Grand Finale Registration</h2>
+                <p>To confirm your participation, please complete the registration process <strong style="color: #d946ef;">on or before 6 August 2026, 5:00 PM</strong>.</p>
+                <ul style="padding-left: 20px;">
+                  <li style="margin-bottom: 8px;">Pay the <strong>registration fee of ₹500 per team</strong></li>
+                  <li style="margin-bottom: 8px;">Select your preferred <strong>problem domain (track)</strong> in order of preference</li>
+                </ul>
+                <p><em><strong>Please Note:</strong> The specific problem statement for your allotted domain will be revealed on <strong>15 August 2026</strong>.</em></p>
+                
+                <h3 style="color: #86198f; margin-top: 30px; margin-bottom: 15px; border-bottom: 2px solid #fdf4ff; padding-bottom: 5px;">Login Details</h3>
+                <div style="background: #fdf4ff; border-left: 4px solid #a855f7; padding: 15px 20px; margin: 20px 0; border-radius: 0 8px 8px 0;">
+                  <p style="margin: 8px 0;"><strong>Application Portal:</strong> <a href="https://ikigai-csit.up.railway.app/" style="color: #db2777;">https://ikigai-csit.up.railway.app/</a></p>
+                  <p style="margin: 8px 0;"><strong>Login as:</strong> Team Leader</p>
+                  <p style="margin: 8px 0;"><strong>Email:</strong> ${tl.email}</p>
+                  <p style="margin: 8px 0;"><strong>Temporary Password:</strong> <span style="background: #f3e8ff; padding: 4px 8px; border-radius: 4px; font-weight: bold; color: #86198f;">${tempPass}</span></p>
+                </div>
+                <p style="font-size: 14px; color: #ef4444;"><em>For security reasons, we strongly recommend changing your password immediately after your first login.</em></p>
+                <div style="text-align: center; margin: 30px 0;">
+                  <a href="https://ikigai-csit.up.railway.app/" style="background: linear-gradient(135deg, #a855f7 0%, #db2777 100%); color: #ffffff !important; text-decoration: none; padding: 14px 28px; border-radius: 8px; font-weight: bold; display: inline-block; box-shadow: 0 4px 10px rgba(168, 85, 247, 0.3);">Login to Dashboard</a>
+                </div>
+                <p>Your participation will be confirmed only after successful payment and completion of the registration process.</p>
+                
+                <h2 style="color: #86198f; margin-top: 30px; margin-bottom: 15px; border-bottom: 2px solid #fdf4ff; padding-bottom: 5px;">Grand Finale Schedule</h2>
+                <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+                  <tr>
+                    <td style="padding: 10px; border-bottom: 1px solid #f3e8ff; font-weight: bold; color: #86198f; width: 35%;">Reporting Date</td>
+                    <td style="padding: 10px; border-bottom: 1px solid #f3e8ff;">21 August 2026</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 10px; border-bottom: 1px solid #f3e8ff; font-weight: bold; color: #86198f; width: 35%;">Reporting Time</td>
+                    <td style="padding: 10px; border-bottom: 1px solid #f3e8ff;">4:00 PM</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 10px; border-bottom: 1px solid #f3e8ff; font-weight: bold; color: #86198f; width: 35%;">Hackathon Duration</td>
+                    <td style="padding: 10px; border-bottom: 1px solid #f3e8ff;">36 Hours (Non-Stop)</td>
+                  </tr>
+                </table>
+                
+                <h2 style="color: #86198f; margin-top: 30px; margin-bottom: 15px; border-bottom: 2px solid #fdf4ff; padding-bottom: 5px;">Venue</h2>
+                <p><strong>Acropolis Institute of Technology and Research (AITR)</strong><br>Bypass Road (Dewas Road), Mangliya Square, Before Toll Tax, Indore, Madhya Pradesh<br>📍 <a href="https://tinyurl.com/LocationAcropolis" style="color: #db2777;">Google Maps</a> | 🌐 <a href="http://www.aitr.ac.in" style="color: #db2777;">www.aitr.ac.in</a></p>
+                
+                <h2 style="color: #86198f; margin-top: 30px; margin-bottom: 15px; border-bottom: 2px solid #fdf4ff; padding-bottom: 5px;">Travel Advisory</h2>
+                <p>Participants travelling from outside Indore are advised to book their travel tickets as early as possible and ensure they arrive at the venue before the reporting time.</p>
+                
+                <h2 style="color: #86198f; margin-top: 30px; margin-bottom: 15px; border-bottom: 2px solid #fdf4ff; padding-bottom: 5px;">Hospitality</h2>
+                <p>All registered participants will receive complimentary:</p>
+                <ul style="padding-left: 20px;">
+                  <li style="margin-bottom: 8px;">Breakfast</li>
+                  <li style="margin-bottom: 8px;">Lunch</li>
+                  <li style="margin-bottom: 8px;">Dinner</li>
+                </ul>
+                <p>throughout the hackathon. Additional event guidelines, reporting instructions, and important announcements will be shared through the application portal and registered email before the event.</p>
+                <p>We encourage you to regularly check your dashboard for important updates and announcements.</p>
+                <p>Once again, congratulations on qualifying for the Grand Finale. We wish you and your team the very best and look forward to witnessing your innovative ideas at <strong>IKIGAI 2026</strong>.</p>
+                
+                <div style="margin-top: 40px; font-style: italic;">
+                  <p style="margin-bottom: 5px;">Warm regards,</p>
+                  <p style="margin: 0; font-weight: bold; color: #86198f;">Organizing Team – IKIGAI 2026</p>
+                  <p style="margin: 0; font-size: 14px;">Department of Computer Science & Information Technology<br>Acropolis Institute of Technology and Research (AITR), Indore</p>
+                </div>
+              </div>
+              <div style="background: #faf5ff; padding: 20px 30px; text-align: center; font-size: 13px; color: #64748b; border-top: 1px solid #f3e8ff;">
+                <em>For any queries, please contact the Organizing Team through the details available on the application portal.</em>
+              </div>
+            </div>
+          </div>
         `
       });
       successCount++;
