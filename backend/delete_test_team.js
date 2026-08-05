@@ -29,15 +29,13 @@ async function run() {
     const deletedLeader = await TeamLeader.findOneAndDelete({ email: email.toLowerCase() });
     if (deletedLeader) {
        console.log("✅ Deleted TeamLeader!");
-       
-       // 2. Delete the associated Participant
-       if (deletedLeader.participantId) {
-         await Participant.findByIdAndDelete(deletedLeader.participantId);
-         console.log("✅ Deleted associated Participant!");
-       }
     } else {
        console.log("⚠️ TeamLeader not found.");
     }
+    
+    // 2. Force delete Participant by teamId
+    await Participant.deleteMany({ teamId: "TEST_TEAM_ALPHA" });
+    console.log("✅ Deleted Participant by teamId!");
     
     // 3. Delete any notifications for this email
     const deletedNotifs = await Notification.deleteMany({ recipientEmail: email.toLowerCase() });

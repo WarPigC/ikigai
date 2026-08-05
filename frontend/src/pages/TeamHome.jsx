@@ -3,6 +3,7 @@ import { DndContext, closestCenter } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, arrayMove, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Calendar, AlignJustify, IndianRupee, QrCode, Upload } from "lucide-react";
+import QRCode from "react-qr-code";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
 
@@ -382,19 +383,45 @@ export default function TeamHome() {
         )}
 
         {(!isReopened || reopenAccess.fields.includes("transactionId") || reopenAccess.fields.includes("uploadReceipt")) && (
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex flex-col">
-            <h2 className="text-lg font-bold text-gray-800 mb-4 border-b pb-2">2. Fees Payment</h2>
-            <div className="flex items-start gap-6 mb-6">
-              <div className="bg-gray-100 w-32 h-32 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-300">
-                <QrCode size={48} className="text-gray-400" />
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex flex-col h-full">
+            <h2 className="text-lg font-bold text-gray-800 mb-6 border-b pb-2">2. Fees Payment</h2>
+            
+            <div className="flex flex-col items-center justify-center flex-1">
+              <div className="text-center mb-4">
+                <h3 className="text-sm font-bold text-gray-800 uppercase tracking-widest mt-1">Ikigai 2026 Event Registration</h3>
               </div>
-              <div className="flex-1 space-y-4">
+              
+              <div className="flex flex-col items-center justify-center mb-5">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="font-extrabold text-gray-900 text-lg">Scan</span>
+                  <QrCode size={20} className="text-blue-500" />
+                  <span className="font-extrabold text-gray-900 text-lg">& pay</span>
+                </div>
+                <p className="text-[10px] font-bold text-gray-500 tracking-wide">VIA UPI / RUPAY / VISA / PAYTM</p>
+              </div>
+              
+              <div className="w-56 h-56 mx-auto bg-white rounded-lg border-2 border-dashed border-gray-200 p-2 flex items-center justify-center shadow-sm mb-8">
+                <QRCode value="https://pay.jodo.in/pages/eXYpWC8NcCEZm6ZA" size={180} />
+              </div>
+              
+              <div className="w-full mb-8">
+                <h4 className="font-bold text-gray-800 text-sm mb-3">Payment Instructions:</h4>
+                <ol className="space-y-3 text-xs text-gray-600 list-decimal pl-5 marker:font-bold marker:text-gray-400">
+                  <li className="pl-1 leading-relaxed">Finalize your Problem Domain (Track) preferences before proceeding to payment. Changes may not be allowed after registration is submitted.</li>
+                  <li className="pl-1 leading-relaxed">On the Jodo payment page, enter the Team Leader's email address. The payment receipt will be sent to this email.</li>
+                  <li className="pl-1 leading-relaxed">From the Event dropdown, select <strong className="font-bold text-gray-900">"IKIGAI"</strong>.</li>
+                  <li className="pl-1 leading-relaxed">Enter the registration amount as <strong className="font-bold text-green-700 text-sm">₹501</strong> <span className="text-red-500 ml-1 font-medium">(Do NOT change this amount)</span>.</li>
+                  <li className="pl-1 leading-relaxed">After successful payment, download the payment receipt immediately or retrieve it later from the Team Leader's registered email. You will be required to upload this receipt in the registration portal.</li>
+                </ol>
+              </div>
+              
+              <div className="w-full space-y-5 pt-6 border-t border-gray-100">
                 {(!isReopened || reopenAccess.fields.includes("transactionId")) && (
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">Transaction ID</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">Transaction ID</label>
                     <input 
                       type="text" 
-                      className="w-full px-3 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-green-500"
+                      className="w-full px-4 py-2.5 border rounded-lg outline-none focus:ring-2 focus:ring-green-500 bg-gray-50/50"
                       placeholder="e.g. UTR1234567890"
                       value={transactionId}
                       onChange={e => setTransactionId(e.target.value)}
@@ -403,10 +430,10 @@ export default function TeamHome() {
                 )}
                 {(!isReopened || reopenAccess.fields.includes("uploadReceipt")) && (
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">Upload Receipt</label>
-                    <label className="flex items-center gap-2 px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-100 transition">
-                      <Upload size={16} />
-                      <span className="text-sm text-gray-600 truncate max-w-[150px]">{receiptFile ? receiptFile.name : "Choose File"}</span>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">Upload Receipt</label>
+                    <label className="flex items-center gap-3 px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-100 transition">
+                      <Upload size={18} className="text-gray-500" />
+                      <span className="text-sm text-gray-600 truncate max-w-[200px]">{receiptFile ? receiptFile.name : "Choose File"}</span>
                       <input type="file" className="hidden" onChange={e => setReceiptFile(e.target.files[0])} accept="image/*,.pdf" />
                     </label>
                   </div>
@@ -414,7 +441,7 @@ export default function TeamHome() {
               </div>
             </div>
             
-            <div className="mt-auto pt-4">
+            <div className="mt-8 pt-4 border-t border-gray-100">
               <button 
                 onClick={handleSubmit}
                 disabled={submitting}
