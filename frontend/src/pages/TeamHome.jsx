@@ -1,23 +1,23 @@
 import React, { useState, useEffect } from "react";
-import { DndContext, closestCenter } from "@dnd-kit/core";
-import { SortableContext, verticalListSortingStrategy, arrayMove, useSortable } from "@dnd-kit/sortable";
+import { DndContext, closestCenter, PointerSensor, TouchSensor, KeyboardSensor, useSensor, useSensors } from "@dnd-kit/core";
+import { SortableContext, verticalListSortingStrategy, arrayMove, useSortable, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Calendar, AlignJustify, IndianRupee, QrCode, Upload } from "lucide-react";
 import QRCode from "react-qr-code";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
 
-function SortableTrackItem({ id, track, index }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+function SortableTrackItem({ id, track, index, disabled }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id, disabled });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
 
   return (
     <div 
       ref={setNodeRef} 
       style={style} 
-      {...attributes} 
-      {...listeners} 
-      className="bg-white border border-gray-200 rounded-lg p-4 flex gap-4 items-center shadow-sm mb-3 z-50 relative hover:shadow-md transition-shadow cursor-grab active:cursor-grabbing select-none"
+      {...(disabled ? {} : attributes)} 
+      {...(disabled ? {} : listeners)} 
+      className={`bg-white border border-gray-200 rounded-lg p-4 flex gap-4 items-center shadow-sm mb-3 z-50 relative ${disabled ? '' : 'hover:shadow-md transition-shadow cursor-grab active:cursor-grabbing select-none touch-none'}`}
     >
       <div className="w-10 h-10 rounded-full bg-green-600 text-white font-black text-lg flex items-center justify-center shrink-0 shadow-sm">
         {index + 1}
@@ -34,6 +34,23 @@ function SortableTrackItem({ id, track, index }) {
 }
 
 export default function TeamHome() {
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5,
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 250,
+        tolerance: 5,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
   const [event, setEvent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [tracks, setTracks] = useState([]);
@@ -138,13 +155,43 @@ export default function TeamHome() {
           
           const myRes = await fetch(`${API_BASE}/api/round2/my-status?email=${encodeURIComponent(email)}`);
           const myData = await myRes.json();
-          if (myRes.ok && myData.registered) {
-            setRegStatus(myData.status);
-            setReopenAccess(myData.reopenAccess);
-            if (myData.tshirtSizes) {
-              setTshirtSizes(myData.tshirtSizes);
+          if (myRes.ok) {
+            if (myData.trackPreferences && myData.trackPreferences.length > 0 && data && data.success) {
+              const round2 = data.events.find(e => {
+                const t = (e.title || e.name || "").toLowerCase();
+                return t.includes("round 2") || t.includes("round-2");
+              });
+              if (round2) {
+                const savedPrefs = myData.trackPreferences;
+                const defaultTracks = round2.tracks || [];
+                
+                const orderedTracks = [];
+                savedPrefs.forEach(prefName => {
+                  const found = defaultTracks.find(t => (t.title || t.name) === prefName);
+                  if (found) orderedTracks.push(found);
+                });
+                
+                defaultTracks.forEach(t => {
+                  if (!savedPrefs.includes(t.title || t.name)) {
+                    orderedTracks.push(t);
+                  }
+                });
+                
+                setTracks(orderedTracks);
+                setIsSequenceSaved(true);
+                setSequenceMessage("✅ Sequence Saved.");
+                setTrackPrefChecked(true);
+              }
             }
-            setSubmitted(true);
+
+            if (myData.registered) {
+              setRegStatus(myData.status);
+              setReopenAccess(myData.reopenAccess);
+              if (myData.tshirtSizes) {
+                setTshirtSizes(myData.tshirtSizes);
+              }
+              setSubmitted(true);
+            }
           }
         }
       } catch (err) {
@@ -378,10 +425,10 @@ export default function TeamHome() {
             </div>
             
             {tracks.length > 0 ? (
-              <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                 <SortableContext items={tracks.map(t => t.id || t._id)} strategy={verticalListSortingStrategy}>
                   {tracks.map((track, index) => (
-                    <SortableTrackItem key={track.id || track._id} id={track.id || track._id} track={{name: track.title || track.name, location: track.description}} index={index} />
+                    <SortableTrackItem key={track.id || track._id} id={track.id || track._id} track={{name: track.title || track.name, location: track.description}} index={index} disabled={isSequenceSaved} />
                   ))}
                 </SortableContext>
               </DndContext>
@@ -398,13 +445,25 @@ export default function TeamHome() {
                     <span>Okay, I understand</span>
                   </label>
                 </div>
-                <button 
-                  onClick={handleSaveSequence}
-                  disabled={savingSequence || !trackPrefChecked}
-                  className="w-full py-3 bg-green-50 text-green-700 font-bold rounded-lg border border-green-200 hover:bg-green-100 transition disabled:opacity-50"
-                >
-                  {savingSequence ? "Saving..." : "Save Sequence"}
-                </button>
+                {isSequenceSaved ? (
+                  <button 
+                    onClick={() => {
+                      setIsSequenceSaved(false);
+                      setSequenceMessage("");
+                    }}
+                    className="w-full py-3 bg-blue-50 text-blue-700 font-bold rounded-lg border border-blue-200 hover:bg-blue-100 transition mt-2"
+                  >
+                    Edit Sequence
+                  </button>
+                ) : (
+                  <button 
+                    onClick={handleSaveSequence}
+                    disabled={savingSequence || !trackPrefChecked}
+                    className="w-full py-3 bg-green-50 text-green-700 font-bold rounded-lg border border-green-200 hover:bg-green-100 transition disabled:opacity-50"
+                  >
+                    {savingSequence ? "Saving..." : "Save Sequence"}
+                  </button>
+                )}
                 {sequenceMessage && (
                   <p className="text-center text-green-600 font-bold mt-2 text-sm animate-pulse">{sequenceMessage}</p>
                 )}
