@@ -228,7 +228,11 @@ router.get("/my-status", async (req, res) => {
     if (!email) return res.status(400).json({ success: false });
 
     const registration = await TeamModel.findOne({ leaderEmail: email });
-    if (!registration) return res.json({ success: true, registered: false });
+    // Registration is only complete if a transactionId exists (meaning the final form was submitted).
+    // If they only saved the sequence, transactionId will be missing.
+    if (!registration || !registration.transactionId) {
+      return res.json({ success: true, registered: false });
+    }
 
     return res.json({
       success: true,
