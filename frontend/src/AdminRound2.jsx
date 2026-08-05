@@ -1,7 +1,54 @@
-import React, { useState, useEffect, useMemo } from "react";
-import { ExternalLink, Check, Mail, Eye, X, Unlock, Copy, Filter, Phone, MapPin, Building2 } from "lucide-react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
+import { ExternalLink, Check, Mail, Eye, X, Unlock, Copy, Filter, Phone, MapPin, Building2, ChevronDown } from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
+
+const cleanLocation = (loc) => {
+  if (!loc) return "";
+  const parts = loc.split(',').map(p => p.trim());
+  if (parts.length > 2) {
+    return `${parts[0]}, ${parts[1]}`;
+  }
+  return loc.trim();
+};
+
+const CustomSelect = ({ value, onChange, options, placeholder, width = "200px" }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClick = (e) => { if (dropdownRef.current && !dropdownRef.current.contains(e.target)) setIsOpen(false); };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  return (
+    <div className="relative" ref={dropdownRef} style={{ width }}>
+      <button 
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full h-11 flex items-center justify-between bg-white border border-gray-300 hover:border-purple-400 px-4 rounded-xl text-sm font-medium text-gray-700 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-purple-500/20 text-left"
+      >
+        <span className="truncate pr-4">{value === "All" ? placeholder : (options.find(o => o.value === value)?.label || value)}</span>
+        <ChevronDown size={16} className={`text-gray-400 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+      
+      {isOpen && (
+        <div className="absolute z-50 mt-1 min-w-full w-max max-w-[250px] sm:max-w-[400px] right-0 md:right-auto bg-white border border-gray-100 rounded-xl shadow-lg max-h-60 overflow-y-auto overflow-x-hidden py-1">
+          {options.map((opt, idx) => (
+            <button
+              key={idx}
+              onClick={() => { onChange(opt.value); setIsOpen(false); }}
+              className={`w-full text-left px-4 py-2.5 text-sm transition flex items-start justify-between gap-2 ${value === opt.value ? 'bg-purple-50 text-purple-700 font-bold' : 'text-gray-700 hover:bg-gray-50'}`}
+            >
+              <span className="whitespace-normal break-words">{opt.label}</span>
+              {value === opt.value && <Check size={14} className="text-purple-600 shrink-0 mt-0.5" />}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const TeamCard = ({ team, isExpanded, onToggleExpand, handleUpdateStatus, handleToggleReopen, handleCopy, copiedId }) => {
   const displayStatus = (team.status === "Pending" && (!team.transactionId || !team.receiptUrl)) ? "Payment Pending" : team.status;
@@ -274,7 +321,7 @@ export default function AdminRound2() {
       // Find the leader's data, or the first member's data
       const leader = team.members?.find(m => m.isLeader) || team.members?.[0];
       if (leader?.organisation) colleges.add(leader.organisation);
-      if (leader?.location) locations.add(leader.location);
+      if (leader?.location) locations.add(cleanLocation(leader.location));
     });
 
     if (filterCollege !== "All") {
@@ -287,7 +334,7 @@ export default function AdminRound2() {
     if (filterLocation !== "All") {
       list = list.filter(team => {
         const leader = team.members?.find(m => m.isLeader) || team.members?.[0];
-        return leader?.location === filterLocation;
+        return leader?.location && cleanLocation(leader.location) === filterLocation;
       });
     }
     
@@ -340,35 +387,41 @@ export default function AdminRound2() {
           <Filter size={18} /> Filters
         </div>
         <div className="flex flex-wrap gap-4 flex-1 justify-end">
-          <select 
+          <CustomSelect 
             value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="border-gray-300 rounded-lg text-sm focus:ring-purple-500 focus:border-purple-500"
-          >
-            <option value="All">All Statuses</option>
-            <option value="Approved">Approved</option>
-            <option value="Pending">Pending Verification</option>
-            <option value="Payment Pending">Payment Pending</option>
-            <option value="Contact">Contact</option>
-          </select>
+            onChange={setFilterStatus}
+            options={[
+              { label: "All Statuses", value: "All" },
+              { label: "Approved", value: "Approved" },
+              { label: "Pending Verification", value: "Pending" },
+              { label: "Payment Pending", value: "Payment Pending" },
+              { label: "Contact", value: "Contact" }
+            ]}
+            placeholder="All Statuses"
+            width="200px"
+          />
 
-          <select 
+          <CustomSelect 
             value={filterCollege}
-            onChange={(e) => setFilterCollege(e.target.value)}
-            className="border-gray-300 rounded-lg text-sm focus:ring-purple-500 focus:border-purple-500 max-w-[250px]"
-          >
-            <option value="All">All Colleges</option>
-            {uniqueColleges.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
+            onChange={setFilterCollege}
+            options={[
+              { label: "All Colleges", value: "All" },
+              ...uniqueColleges.map(c => ({ label: c, value: c }))
+            ]}
+            placeholder="All Colleges"
+            width="220px"
+          />
 
-          <select 
+          <CustomSelect 
             value={filterLocation}
-            onChange={(e) => setFilterLocation(e.target.value)}
-            className="border-gray-300 rounded-lg text-sm focus:ring-purple-500 focus:border-purple-500 max-w-[200px]"
-          >
-            <option value="All">All Locations</option>
-            {uniqueLocations.map(l => <option key={l} value={l}>{l}</option>)}
-          </select>
+            onChange={setFilterLocation}
+            options={[
+              { label: "All Locations", value: "All" },
+              ...uniqueLocations.map(l => ({ label: l, value: l }))
+            ]}
+            placeholder="All Locations"
+            width="200px"
+          />
         </div>
       </div>
 
