@@ -124,11 +124,11 @@ const TeamLeader = mongoose.model("TeamLeader", TeamLeaderSchema);
 const StudentCoordinatorSchema = new mongoose.Schema(
   {
     name: String,
-   email: {
-  type: String,
-  lowercase: true,
-  trim: true,
-},
+    email: {
+      type: String,
+      lowercase: true,
+      trim: true,
+    },
 
     phone: String,
     passwordHash: String,
@@ -352,7 +352,7 @@ const generateSimplePassword = (name) => {
     name
       .toLowerCase()
       .replace(/[^a-z0-9]/g, "") // remove spaces & symbols
-      + "123"
+    + "123"
   );
 };
 
@@ -367,7 +367,7 @@ const checkEmailUnique = async (email, excludeId = null, excludeRole = null) => 
   if (!email) return true;
   const normEmail = email.trim().toLowerCase();
   if (process.env.ADMIN_EMAIL && normEmail === process.env.ADMIN_EMAIL.trim().toLowerCase()) return false;
-  
+
   const chairQuery = { email: normEmail };
   if (excludeId && excludeRole === 'sessionChair') chairQuery._id = { $ne: excludeId };
   if (await SessionChair.findOne(chairQuery).lean()) return false;
@@ -466,7 +466,7 @@ app.post("/api/admin/events", async (req, res) => {
     for (const sc of eventData.studentCoordinators || []) {
       const email = sc.email?.trim().toLowerCase();
       if (!email) continue;
-      
+
       const isUnique = await checkEmailUnique(email);
       if (!isUnique) continue;
 
@@ -654,43 +654,43 @@ app.post("/api/auth/send-otp", async (req, res) => {
 
 
   if (!chair && !student) {
-  console.log("OTP failed for email:", email);
-  return res.status(404).json({
-    success: false,
-    message: "Email not registered",
-  });
-}
+    console.log("OTP failed for email:", email);
+    return res.status(404).json({
+      success: false,
+      message: "Email not registered",
+    });
+  }
 
   const otp = generateOTP();
   const expiresAt = Date.now() + 5 * 60 * 1000; // 5 minutes
-console.log("MAIL_USER =", process.env.MAIL_USER);
+  console.log("MAIL_USER =", process.env.MAIL_USER);
 
   otpStore.set(email, { otp, expiresAt });
   try {
 
-  await sendMail({
-    from: `"HackEval" <${process.env.MAIL_USER}>`,
-    to: email,
-    subject: "HackEval review platform Login OTP",
-    html: `
+    await sendMail({
+      from: `"HackEval" <${process.env.MAIL_USER}>`,
+      to: email,
+      subject: "HackEval review platform Login OTP",
+      html: `
       <p>Hello,</p>
       <p>Your <b>HackEval login OTP</b> is:</p>
       <h2 style="letter-spacing:4px">${otp}</h2>
       <p>This OTP is valid for <b>5 minutes</b>.</p>
     `,
-  });
+    });
 
-  res.json({ success: true, message: "OTP sent to email" });
-} catch (mailErr) {
-  console.error("❌ OTP MAIL ERROR:", mailErr.message);
-  res.status(500).json({
-    success: false,
-    message: "Failed to send OTP email",
-  });
-}
-  });
+    res.json({ success: true, message: "OTP sent to email" });
+  } catch (mailErr) {
+    console.error("❌ OTP MAIL ERROR:", mailErr.message);
+    res.status(500).json({
+      success: false,
+      message: "Failed to send OTP email",
+    });
+  }
+});
 
-  app.get("/api/test-mail", async (_req, res) => {
+app.get("/api/test-mail", async (_req, res) => {
   try {
 
     await sendMail({
@@ -846,8 +846,8 @@ app.put("/api/admin/events/:id", async (req, res) => {
     const eventData = req.body;
     const incoming = req.body;
     const incomingChairs = Array.isArray(incoming.sessionChairs)
-  ? incoming.sessionChairs
-  : [];
+      ? incoming.sessionChairs
+      : [];
 
     const oldEvent = await Event.findById(eventId);
     if (!oldEvent) {
@@ -862,37 +862,37 @@ app.put("/api/admin/events/:id", async (req, res) => {
 
     console.log("🔥 ADMIN EVENT UPDATE API HIT 🔥");
 
-for (const chair of eventData.sessionChairs || []) {
-  const email = chair.email?.trim().toLowerCase();
-  if (!email) continue;
+    for (const chair of eventData.sessionChairs || []) {
+      const email = chair.email?.trim().toLowerCase();
+      if (!email) continue;
 
-  const exists = await SessionChair.findOne({
-    email,
-    eventId: req.params.id,
-  });
+      const exists = await SessionChair.findOne({
+        email,
+        eventId: req.params.id,
+      });
 
-  if (exists) continue;
+      if (exists) continue;
 
-  const tempPassword =
-    chair.password || Math.random().toString(36).slice(-8);
+      const tempPassword =
+        chair.password || Math.random().toString(36).slice(-8);
 
-  await SessionChair.create({
-    name: chair.name,
-    email,
-    phone: chair.phone,
-    type: chair.type,
-    passwordHash: hashPassword(tempPassword),
-    trackId: chair.trackId,
-    eventId: req.params.id,
-  });
+      await SessionChair.create({
+        name: chair.name,
+        email,
+        phone: chair.phone,
+        type: chair.type,
+        passwordHash: hashPassword(tempPassword),
+        trackId: chair.trackId,
+        eventId: req.params.id,
+      });
 
-  try {
+      try {
 
-    await sendMail({
-      from: `"CARE System" <${process.env.MAIL_USER}>`,
-      to: email,
-      subject: "CARE – Session Chair Invitation",
-      html: `
+        await sendMail({
+          from: `"CARE System" <${process.env.MAIL_USER}>`,
+          to: email,
+          subject: "CARE – Session Chair Invitation",
+          html: `
         <p>Hello <b>${chair.name}</b>,</p>
         <p>You have been assigned as a <b>${chair.type}</b> Session Chair.</p>
         <p><b>Track:</b> ${chair.trackId}</p>
@@ -900,116 +900,116 @@ for (const chair of eventData.sessionChairs || []) {
         <p><b>Temporary Password:</b> ${tempPassword}</p>
         <p>Please login to CARE.</p>
       `,
-    });
+        });
 
-    console.log("✅ Session chair invitation sent to:", email);
-  } catch (err) {
-    console.error("❌ Session chair mail failed:", err.message);
-  }
-}
+        console.log("✅ Session chair invitation sent to:", email);
+      } catch (err) {
+        console.error("❌ Session chair mail failed:", err.message);
+      }
+    }
 
 
-const hasSessionChairUpdate = Array.isArray(incoming.sessionChairs);
+    const hasSessionChairUpdate = Array.isArray(incoming.sessionChairs);
 
-if (hasSessionChairUpdate) {
-  const incomingChairs = incoming.sessionChairs;
-  const normalizedChairs = incomingChairs.map(c => ({
-    ...c,
-    email: c.email.toLowerCase().trim(),
-  }));
+    if (hasSessionChairUpdate) {
+      const incomingChairs = incoming.sessionChairs;
+      const normalizedChairs = incomingChairs.map(c => ({
+        ...c,
+        email: c.email.toLowerCase().trim(),
+      }));
 
-  const dbChairs = await SessionChair.find({ eventId });
-  const dbChairMap = new Map(
-    dbChairs.map(c => [`${c.email}-${c.trackId}`, c])
-  );
+      const dbChairs = await SessionChair.find({ eventId });
+      const dbChairMap = new Map(
+        dbChairs.map(c => [`${c.email}-${c.trackId}`, c])
+      );
 
-  const incomingChairKeys = new Set(
-    normalizedChairs.map(c => `${c.email}-${c.trackId}`)
-  );
+      const incomingChairKeys = new Set(
+        normalizedChairs.map(c => `${c.email}-${c.trackId}`)
+      );
 
-  // UPSERT CHAIRS
-  for (const c of normalizedChairs) {
-    const key = `${c.email}-${c.trackId}`;
+      // UPSERT CHAIRS
+      for (const c of normalizedChairs) {
+        const key = `${c.email}-${c.trackId}`;
 
-    if (!dbChairMap.has(key)) {
-      const isUnique = await checkEmailUnique(c.email);
-      if (!isUnique) continue;
-      
-      await SessionChair.create({
-        name: c.name,
-        email: c.email,
-        phone: c.phone,
-        type: c.type,
-        passwordHash: hashPassword(c.password),
-        trackId: c.trackId,
-        eventId,
-      });
-    } else {
-      const dbChair = dbChairMap.get(key);
-      const isUnique = await checkEmailUnique(c.email, dbChair._id, "sessionChair");
-      if (!isUnique) continue;
+        if (!dbChairMap.has(key)) {
+          const isUnique = await checkEmailUnique(c.email);
+          if (!isUnique) continue;
 
-      await SessionChair.updateOne(
-        { email: c.email, trackId: c.trackId, eventId },
-        {
-          $set: {
+          await SessionChair.create({
             name: c.name,
+            email: c.email,
             phone: c.phone,
             type: c.type,
-          },
-        }
-      );
-    }
-  }
+            passwordHash: hashPassword(c.password),
+            trackId: c.trackId,
+            eventId,
+          });
+        } else {
+          const dbChair = dbChairMap.get(key);
+          const isUnique = await checkEmailUnique(c.email, dbChair._id, "sessionChair");
+          if (!isUnique) continue;
 
-  // DELETE REMOVED CHAIRS
-  for (const db of dbChairs) {
-    const key = `${db.email}-${db.trackId}`;
-    if (!incomingChairKeys.has(key)) {
-      await SessionChair.deleteOne({ _id: db._id });
+          await SessionChair.updateOne(
+            { email: c.email, trackId: c.trackId, eventId },
+            {
+              $set: {
+                name: c.name,
+                phone: c.phone,
+                type: c.type,
+              },
+            }
+          );
+        }
+      }
+
+      // DELETE REMOVED CHAIRS
+      for (const db of dbChairs) {
+        const key = `${db.email}-${db.trackId}`;
+        if (!incomingChairKeys.has(key)) {
+          await SessionChair.deleteOne({ _id: db._id });
+        }
+      }
     }
-  }
-}
 
     /* ===================== EVENT UPDATE ===================== */
 
-  const updatePayload = {};
+    const updatePayload = {};
 
-// update basic fields ONLY if present
-if (typeof incoming.title === "string")
-  updatePayload.title = incoming.title;
+    // update basic fields ONLY if present
+    if (typeof incoming.title === "string")
+      updatePayload.title = incoming.title;
 
-if (typeof incoming.description === "string")
-  updatePayload.description = incoming.description;
+    if (typeof incoming.description === "string")
+      updatePayload.description = incoming.description;
 
-if (typeof incoming.date === "string")
-  updatePayload.date = incoming.date;
+    if (typeof incoming.date === "string")
+      updatePayload.date = incoming.date;
 
-// update tracks ONLY if present
-if (Array.isArray(incoming.tracks)) {
-  updatePayload.tracks = incoming.tracks.map((t) => ({
-    ...t,
-    assessmentLocked:
-      typeof t.assessmentLocked === "boolean"
-        ? t.assessmentLocked
-        : true,
-  }));
-}
-
-
-
-const updatedEvent = await Event.findByIdAndUpdate(
-  eventId,
-  { $set: updatePayload },
-  { new: true }
-);
-console.log("🧪 UPDATE TARGET", eventId);
+    // update tracks ONLY if present
+    if (Array.isArray(incoming.tracks)) {
+      updatePayload.tracks = incoming.tracks.map((t) => ({
+        ...t,
+        assessmentLocked:
+          typeof t.assessmentLocked === "boolean"
+            ? t.assessmentLocked
+            : true,
+      }));
+    }
 
 
 
-if (!updatedEvent) {
-  console.error("❌ UPDATE FAILED — NO DOCUMENT MATCHED", eventId);
-}
+    const updatedEvent = await Event.findByIdAndUpdate(
+      eventId,
+      { $set: updatePayload },
+      { new: true }
+    );
+    console.log("🧪 UPDATE TARGET", eventId);
+
+
+
+    if (!updatedEvent) {
+      console.error("❌ UPDATE FAILED — NO DOCUMENT MATCHED", eventId);
+    }
 
 
     res.json({
@@ -1233,7 +1233,7 @@ app.get("/api/participants/by-track", async (req, res) => {
 app.patch("/api/admin/participants/bulk-assign", async (req, res) => {
   try {
     const { participantIds, evaluatorId } = req.body;
-    
+
     if (!Array.isArray(participantIds)) {
       return res.status(400).json({ success: false, message: "participantIds must be an array" });
     }
@@ -1307,7 +1307,7 @@ app.patch("/api/admin/participants/:id/assign", async (req, res) => {
 
     // Validate: evaluator must belong to the same track as the participant
     if (String(evaluator.trackId) !== String(participant.trackId) ||
-        String(evaluator.eventId) !== String(participant.eventId)) {
+      String(evaluator.eventId) !== String(participant.eventId)) {
       return res.status(400).json({
         success: false,
         message: "Evaluator does not belong to the same event/track as this team",
@@ -1322,7 +1322,7 @@ app.patch("/api/admin/participants/:id/assign", async (req, res) => {
         participant.assignedEvaluators.push(evaluatorId);
       }
     }
-    
+
     await participant.save();
 
     res.json({ success: true, participant });
@@ -1895,11 +1895,11 @@ app.get("/api/admin/participants/stats", async (req, res) => {
     // ✅ Build query safely
     const query = mongoose.Types.ObjectId.isValid(eventId)
       ? {
-          $or: [
-            { eventId: eventId },
-            { eventId: new mongoose.Types.ObjectId(eventId) },
-          ],
-        }
+        $or: [
+          { eventId: eventId },
+          { eventId: new mongoose.Types.ObjectId(eventId) },
+        ],
+      }
       : { eventId: eventId };
 
     const participants = await Participant.find(query);
@@ -1945,9 +1945,9 @@ app.post("/api/admin/events/:eventId/shortlisted", async (req, res) => {
   try {
     const { eventId } = req.params;
     const { participants } = req.body;
-    
+
     await Shortlisted.deleteMany({ eventId });
-    
+
     const docs = participants.map(p => {
       const doc = { ...p };
       delete doc._id; // avoid duplicate _id issues
@@ -1957,42 +1957,42 @@ app.post("/api/admin/events/:eventId/shortlisted", async (req, res) => {
         ...doc
       };
     });
-    
+
     if (docs.length > 0) {
       await Shortlisted.insertMany(docs);
     }
-    
+
     // Create/update TeamLeader docs for shortlisted
     const teamLeaderOps = [];
     for (const p of participants) {
-       const leader = p.members?.find((m) => m.isLeader || m.candidateRole === "Team Leader") || p.members?.[0];
-       if (!leader || !leader.email) continue;
-       teamLeaderOps.push({
-         updateOne: {
-           filter: { eventId, participantId: p._id },
-           update: {
-             $set: {
-               name: leader.name,
-               email: leader.email.trim().toLowerCase(),
-               phone: leader.mobile,
-               teamName: p.teamName
-             },
-             $setOnInsert: {
-                inviteSent: false
-             }
-           },
-           upsert: true
-         }
-       });
+      const leader = p.members?.find((m) => m.isLeader || m.candidateRole === "Team Leader") || p.members?.[0];
+      if (!leader || !leader.email) continue;
+      teamLeaderOps.push({
+        updateOne: {
+          filter: { eventId, participantId: p._id },
+          update: {
+            $set: {
+              name: leader.name,
+              email: leader.email.trim().toLowerCase(),
+              phone: leader.mobile,
+              teamName: p.teamName
+            },
+            $setOnInsert: {
+              inviteSent: false
+            }
+          },
+          upsert: true
+        }
+      });
     }
-    
+
     const currentParticipantIds = participants.map(p => p._id);
     await TeamLeader.deleteMany({ eventId, participantId: { $nin: currentParticipantIds } });
 
     if (teamLeaderOps.length > 0) {
       await TeamLeader.bulkWrite(teamLeaderOps);
     }
-    
+
     res.json({ success: true, message: "Shortlist updated" });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -2167,7 +2167,7 @@ app.put("/api/admin/student-coordinator", async (req, res) => {
   if (!id) {
     return res.status(400).json({ success: false });
   }
-  
+
   const isUnique = await checkEmailUnique(email, id, "studentCoordinator");
   if (!isUnique) {
     return res.status(400).json({ success: false, message: "This email is already in use by another user." });
@@ -2227,7 +2227,7 @@ app.put(
       const { meetingLink } = req.body;
 
       // 🔐 ROLE GUARD
-      
+
 
       if (!meetingLink || typeof meetingLink !== "string") {
         return res.status(400).json({
@@ -2421,136 +2421,136 @@ const PORT = process.env.PORT || 5000;
 
 
 
-  // Event DELETE
-  app.delete("/api/admin/events/:id", async (req, res) => {
-    try {
-      const eventId = req.params.id;
-      await Event.findByIdAndDelete(eventId);
-      await SessionChair.deleteMany({ eventId });
-      await Participant.deleteMany({ eventId });
-      res.json({ success: true, message: "Event deleted" });
-    } catch (error) {
-      res.status(500).json({ success: false, message: error.message });
+// Event DELETE
+app.delete("/api/admin/events/:id", async (req, res) => {
+  try {
+    const eventId = req.params.id;
+    await Event.findByIdAndDelete(eventId);
+    await SessionChair.deleteMany({ eventId });
+    await Participant.deleteMany({ eventId });
+    res.json({ success: true, message: "Event deleted" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Track POST
+app.post("/api/admin/events/:id/tracks", async (req, res) => {
+  try {
+    const event = await Event.findById(req.params.id);
+    if (!event) return res.status(404).json({ success: false });
+
+    const existingIds = event.tracks.map(t => parseInt(t.id, 10)).filter(n => !isNaN(n));
+    const nextId = existingIds.length > 0 ? Math.max(...existingIds) + 1 : 1;
+    const trackId = nextId.toString().padStart(3, "0");
+
+    const newTrack = {
+      id: trackId,
+      title: req.body.title,
+      description: req.body.description,
+      assessmentLocked: true,
+      meetingLink: ""
+    };
+
+    event.tracks.push(newTrack);
+    await event.save();
+    res.json({ success: true, track: newTrack });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Track PUT
+app.put("/api/admin/events/:id/tracks/:trackId", async (req, res) => {
+  try {
+    const event = await Event.findById(req.params.id);
+    if (!event) return res.status(404).json({ success: false });
+
+    const track = event.tracks.find(t => t.id === req.params.trackId);
+    if (!track) return res.status(404).json({ success: false });
+
+    track.title = req.body.title;
+    track.description = req.body.description;
+    await event.save();
+    res.json({ success: true, track });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Track DELETE
+app.delete("/api/admin/events/:id/tracks/:trackId", async (req, res) => {
+  try {
+    const event = await Event.findById(req.params.id);
+    if (!event) return res.status(404).json({ success: false });
+
+    event.tracks = event.tracks.filter(t => t.id !== req.params.trackId);
+    await event.save();
+
+    // Also delete related evaluators and participants
+    await SessionChair.deleteMany({ eventId: req.params.id, trackId: req.params.trackId });
+    await Participant.deleteMany({ eventId: req.params.id, trackId: req.params.trackId });
+
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+const generateTempPassword = (fullName) => {
+  if (!fullName) return "evaluator123";
+  const cleanName = fullName.replace(/^(mr\.|mrs\.|ms\.|dr\.|prof\.)\s*/i, "").trim();
+  const firstName = cleanName.split(" ")[0].toLowerCase().replace(/[^a-z0-9]/g, "") || "evaluator";
+  return `${firstName}123`;
+};
+
+// Evaluator POST
+app.post("/api/admin/evaluators", async (req, res) => {
+  try {
+    const { eventId, trackId, name, email, phone } = req.body;
+
+    const isUnique = await checkEmailUnique(email);
+    if (!isUnique) {
+      return res.status(400).json({ success: false, message: "This email is already in use by another role in the system." });
     }
-  });
 
-  // Track POST
-  app.post("/api/admin/events/:id/tracks", async (req, res) => {
+    const exists = await SessionChair.findOne({ email, eventId, trackId });
+    if (exists) return res.status(400).json({ success: false, message: "Evaluator with this email already exists in this track." });
+
+    const tempPassword = generateTempPassword(name);
+    const evaluator = await SessionChair.create({
+      name,
+      email: email.trim().toLowerCase(),
+      phone,
+      type: "Evaluator", // Default for legacy compatibility
+      passwordHash: hashPassword(tempPassword),
+      trackId,
+      eventId
+    });
+
+    // Attempt to send email but don't fail if it doesn't work
     try {
-      const event = await Event.findById(req.params.id);
-      if (!event) return res.status(404).json({ success: false });
-      
-      const existingIds = event.tracks.map(t => parseInt(t.id, 10)).filter(n => !isNaN(n));
-      const nextId = existingIds.length > 0 ? Math.max(...existingIds) + 1 : 1;
-      const trackId = nextId.toString().padStart(3, "0");
-
-      const newTrack = {
-        id: trackId,
-        title: req.body.title,
-        description: req.body.description,
-        assessmentLocked: true,
-        meetingLink: ""
-      };
-      
-      event.tracks.push(newTrack);
-      await event.save();
-      res.json({ success: true, track: newTrack });
-    } catch (error) {
-      res.status(500).json({ success: false, message: error.message });
-    }
-  });
-
-  // Track PUT
-  app.put("/api/admin/events/:id/tracks/:trackId", async (req, res) => {
-    try {
-      const event = await Event.findById(req.params.id);
-      if (!event) return res.status(404).json({ success: false });
-      
-      const track = event.tracks.find(t => t.id === req.params.trackId);
-      if (!track) return res.status(404).json({ success: false });
-      
-      track.title = req.body.title;
-      track.description = req.body.description;
-      await event.save();
-      res.json({ success: true, track });
-    } catch (error) {
-      res.status(500).json({ success: false, message: error.message });
-    }
-  });
-
-  // Track DELETE
-  app.delete("/api/admin/events/:id/tracks/:trackId", async (req, res) => {
-    try {
-      const event = await Event.findById(req.params.id);
-      if (!event) return res.status(404).json({ success: false });
-      
-      event.tracks = event.tracks.filter(t => t.id !== req.params.trackId);
-      await event.save();
-      
-      // Also delete related evaluators and participants
-      await SessionChair.deleteMany({ eventId: req.params.id, trackId: req.params.trackId });
-      await Participant.deleteMany({ eventId: req.params.id, trackId: req.params.trackId });
-      
-      res.json({ success: true });
-    } catch (error) {
-      res.status(500).json({ success: false, message: error.message });
-    }
-  });
-
-  const generateTempPassword = (fullName) => {
-    if (!fullName) return "evaluator123";
-    const cleanName = fullName.replace(/^(mr\.|mrs\.|ms\.|dr\.|prof\.)\s*/i, "").trim();
-    const firstName = cleanName.split(" ")[0].toLowerCase().replace(/[^a-z0-9]/g, "") || "evaluator";
-    return `${firstName}123`;
-  };
-
-  // Evaluator POST
-  app.post("/api/admin/evaluators", async (req, res) => {
-    try {
-      const { eventId, trackId, name, email, phone } = req.body;
-      
-      const isUnique = await checkEmailUnique(email);
-      if (!isUnique) {
-        return res.status(400).json({ success: false, message: "This email is already in use by another role in the system." });
-      }
-      
-      const exists = await SessionChair.findOne({ email, eventId, trackId });
-      if (exists) return res.status(400).json({ success: false, message: "Evaluator with this email already exists in this track." });
-      
-      const tempPassword = generateTempPassword(name);
-      const evaluator = await SessionChair.create({
-        name,
-        email: email.trim().toLowerCase(),
-        phone,
-        type: "Evaluator", // Default for legacy compatibility
-        passwordHash: hashPassword(tempPassword),
-        trackId,
-        eventId
+      await sendMail({
+        from: `"HackEval" <${process.env.MAIL_USER}>`,
+        to: email,
+        subject: "IKIGAI 2026 - Evaluator Invitation",
+        html: `<p>Hello <b>${name}</b>,</p><p>You have been assigned as an Evaluator.</p><p><b>Track:</b> ${trackId}</p><p><b>Login Email:</b> ${email}</p><p><b>Temporary Password:</b> ${tempPassword}</p>`
       });
-
-      // Attempt to send email but don't fail if it doesn't work
-      try {
-        await sendMail({
-          from: `"HackEval" <${process.env.MAIL_USER}>`,
-          to: email,
-          subject: "IKIGAI 2026 - Evaluator Invitation",
-          html: `<p>Hello <b>${name}</b>,</p><p>You have been assigned as an Evaluator.</p><p><b>Track:</b> ${trackId}</p><p><b>Login Email:</b> ${email}</p><p><b>Temporary Password:</b> ${tempPassword}</p>`
-        });
-      } catch (e) {
-        console.error("Email failed", e);
-      }
-      
-      res.json({ success: true, evaluator });
-    } catch (error) {
-      res.status(500).json({ success: false, message: error.message });
+    } catch (e) {
+      console.error("Email failed", e);
     }
-  });
 
-  // --- New Routes for Evaluator Email Invitations & Password Update ---
+    res.json({ success: true, evaluator });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
 
-  const generateInviteEmailHtml = (name, email, tempPassword, updateToken) => {
-    const frontendUrl = process.env.FRONTEND_URL || "https://ikigai-csit.up.railway.app";
-    return `
+// --- New Routes for Evaluator Email Invitations & Password Update ---
+
+const generateInviteEmailHtml = (name, email, tempPassword, updateToken) => {
+  const frontendUrl = process.env.FRONTEND_URL || "https://ikigai-csit.up.railway.app";
+  return `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
         <div style="text-align: center; padding: 20px; background-color: #ffffff; border-radius: 8px;">
           <img src="https://res.cloudinary.com/dixdw1mus/image/upload/v1785233443/ikigai_fjnl8b.png" width="200" alt="IKIGAI 2026 Logo" style="background-color: #ffffff;" />
@@ -2575,198 +2575,198 @@ const PORT = process.env.PORT || 5000;
         </div>
       </div>
     `;
-  };
+};
 
-  app.post("/api/admin/evaluators/:id/send-invite", async (req, res) => {
-    try {
-      const evaluator = await SessionChair.findById(req.params.id);
-      if (!evaluator) return res.status(404).json({ success: false, message: "Evaluator not found" });
+app.post("/api/admin/evaluators/:id/send-invite", async (req, res) => {
+  try {
+    const evaluator = await SessionChair.findById(req.params.id);
+    if (!evaluator) return res.status(404).json({ success: false, message: "Evaluator not found" });
 
-      const tempPassword = generateTempPassword(evaluator.name);
-      const updateToken = crypto.randomBytes(32).toString("hex");
-      
-      evaluator.passwordHash = hashPassword(tempPassword);
-      evaluator.updateToken = updateToken;
-      evaluator.updateTokenExpiry = Date.now() + 15 * 60 * 1000; // 15 mins
-      evaluator.inviteSent = true;
-      await evaluator.save();
+    const tempPassword = generateTempPassword(evaluator.name);
+    const updateToken = crypto.randomBytes(32).toString("hex");
 
-      await sendMail({
-        to: evaluator.email,
-        subject: `IKIGAI 2026 - Evaluator Invitation [${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}]`,
-        html: generateInviteEmailHtml(evaluator.name, evaluator.email, tempPassword, updateToken)
-      });
+    evaluator.passwordHash = hashPassword(tempPassword);
+    evaluator.updateToken = updateToken;
+    evaluator.updateTokenExpiry = Date.now() + 15 * 60 * 1000; // 15 mins
+    evaluator.inviteSent = true;
+    await evaluator.save();
 
-      res.json({ success: true, message: "Invitation sent" });
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ success: false, message: error.message });
-    }
-  });
+    await sendMail({
+      to: evaluator.email,
+      subject: `IKIGAI 2026 - Evaluator Invitation [${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}]`,
+      html: generateInviteEmailHtml(evaluator.name, evaluator.email, tempPassword, updateToken)
+    });
 
-  app.post("/api/admin/evaluators/send-invites-bulk", async (req, res) => {
-    try {
-      const evaluators = await SessionChair.find({ type: "Evaluator" });
-      let sent = 0;
-      let failed = 0;
+    res.json({ success: true, message: "Invitation sent" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
 
-      for (let evaluator of evaluators) {
-        try {
-          const tempPassword = generateTempPassword(evaluator.name);
-          const updateToken = crypto.randomBytes(32).toString("hex");
-          
-          evaluator.passwordHash = hashPassword(tempPassword);
-          evaluator.updateToken = updateToken;
-          evaluator.updateTokenExpiry = Date.now() + 15 * 60 * 1000;
-          evaluator.inviteSent = true;
-          await evaluator.save();
+app.post("/api/admin/evaluators/send-invites-bulk", async (req, res) => {
+  try {
+    const evaluators = await SessionChair.find({ type: "Evaluator" });
+    let sent = 0;
+    let failed = 0;
 
-          await sendMail({
-            to: evaluator.email,
-            subject: `IKIGAI 2026 - Evaluator Invitation [${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}]`,
-            html: generateInviteEmailHtml(evaluator.name, evaluator.email, tempPassword, updateToken)
-          });
-          sent++;
-        } catch (e) {
-          console.error("Failed to send to", evaluator.email, e);
-          failed++;
-        }
+    for (let evaluator of evaluators) {
+      try {
+        const tempPassword = generateTempPassword(evaluator.name);
+        const updateToken = crypto.randomBytes(32).toString("hex");
+
+        evaluator.passwordHash = hashPassword(tempPassword);
+        evaluator.updateToken = updateToken;
+        evaluator.updateTokenExpiry = Date.now() + 15 * 60 * 1000;
+        evaluator.inviteSent = true;
+        await evaluator.save();
+
+        await sendMail({
+          to: evaluator.email,
+          subject: `IKIGAI 2026 - Evaluator Invitation [${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}]`,
+          html: generateInviteEmailHtml(evaluator.name, evaluator.email, tempPassword, updateToken)
+        });
+        sent++;
+      } catch (e) {
+        console.error("Failed to send to", evaluator.email, e);
+        failed++;
       }
-
-      res.json({ success: true, message: `Sent ${sent} invitations, ${failed} failed.` });
-    } catch (error) {
-      res.status(500).json({ success: false, message: error.message });
     }
-  });
 
-  app.post("/api/admin/evaluators/send-invites-selected", async (req, res) => {
-    try {
-      const { evaluatorIds } = req.body;
-      if (!evaluatorIds || !Array.isArray(evaluatorIds)) {
-        return res.status(400).json({ success: false, message: "No evaluators selected" });
-      }
+    res.json({ success: true, message: `Sent ${sent} invitations, ${failed} failed.` });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
 
-      const evaluators = await SessionChair.find({ _id: { $in: evaluatorIds } });
-      let sent = 0;
-      let failed = 0;
-
-      for (let evaluator of evaluators) {
-        try {
-          const tempPassword = generateTempPassword(evaluator.name);
-          const updateToken = crypto.randomBytes(32).toString("hex");
-          
-          evaluator.passwordHash = hashPassword(tempPassword);
-          evaluator.updateToken = updateToken;
-          evaluator.updateTokenExpiry = Date.now() + 15 * 60 * 1000;
-          evaluator.inviteSent = true;
-          await evaluator.save();
-
-          await sendMail({
-            to: evaluator.email,
-            subject: `IKIGAI 2026 - Evaluator Invitation [${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}]`,
-            html: generateInviteEmailHtml(evaluator.name, evaluator.email, tempPassword, updateToken)
-          });
-          sent++;
-        } catch (e) {
-          console.error("Failed to send to", evaluator.email, e);
-          failed++;
-        }
-      }
-
-      res.json({ success: true, message: `Sent ${sent} invitations, ${failed} failed.` });
-    } catch (error) {
-      res.status(500).json({ success: false, message: error.message });
+app.post("/api/admin/evaluators/send-invites-selected", async (req, res) => {
+  try {
+    const { evaluatorIds } = req.body;
+    if (!evaluatorIds || !Array.isArray(evaluatorIds)) {
+      return res.status(400).json({ success: false, message: "No evaluators selected" });
     }
-  });
 
-  app.post("/api/auth/update-password", async (req, res) => {
-    try {
-      const { token, newPassword } = req.body;
-      if (!token || !newPassword) return res.status(400).json({ success: false, message: "Token and new password required" });
+    const evaluators = await SessionChair.find({ _id: { $in: evaluatorIds } });
+    let sent = 0;
+    let failed = 0;
 
-      const evaluator = await SessionChair.findOne({
-        updateToken: token,
-        updateTokenExpiry: { $gt: Date.now() }
-      });
+    for (let evaluator of evaluators) {
+      try {
+        const tempPassword = generateTempPassword(evaluator.name);
+        const updateToken = crypto.randomBytes(32).toString("hex");
 
-      if (!evaluator) {
-        return res.status(400).json({ success: false, message: "This password reset link has expired or is invalid." });
+        evaluator.passwordHash = hashPassword(tempPassword);
+        evaluator.updateToken = updateToken;
+        evaluator.updateTokenExpiry = Date.now() + 15 * 60 * 1000;
+        evaluator.inviteSent = true;
+        await evaluator.save();
+
+        await sendMail({
+          to: evaluator.email,
+          subject: `IKIGAI 2026 - Evaluator Invitation [${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}]`,
+          html: generateInviteEmailHtml(evaluator.name, evaluator.email, tempPassword, updateToken)
+        });
+        sent++;
+      } catch (e) {
+        console.error("Failed to send to", evaluator.email, e);
+        failed++;
       }
-
-      evaluator.passwordHash = hashPassword(newPassword);
-      evaluator.updateToken = undefined;
-      evaluator.updateTokenExpiry = undefined;
-      await evaluator.save();
-
-      res.json({ success: true, message: "Password updated successfully" });
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ success: false, message: error.message });
     }
-  });
-  // Direct change password (for logged in users)
-  app.post("/api/auth/change-password-direct", async (req, res) => {
-    try {
-      const { email, role, newPassword } = req.body;
-      if (!email || !role || !newPassword) {
-        return res.status(400).json({ success: false, message: "Missing required fields" });
-      }
 
-      const normalizedEmail = email.trim().toLowerCase();
-      const hashed = hashPassword(newPassword);
+    res.json({ success: true, message: `Sent ${sent} invitations, ${failed} failed.` });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
 
-      if (role === "studentCoordinator") {
-        const student = await StudentCoordinator.findOne({ email: normalizedEmail });
-        if (!student) return res.status(404).json({ success: false, message: "User not found" });
-        student.passwordHash = hashed;
-        await student.save();
-        return res.json({ success: true, message: "Password updated successfully" });
-      } 
-      else if (role === "sessionChair") {
-        const chair = await SessionChair.findOne({ email: normalizedEmail });
-        if (!chair) return res.status(404).json({ success: false, message: "User not found" });
-        chair.passwordHash = hashed;
-        await chair.save();
-        return res.json({ success: true, message: "Password updated successfully" });
-      } 
-      else {
-        return res.status(400).json({ success: false, message: "Invalid role or operation not supported for this role" });
-      }
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ success: false, message: error.message });
+app.post("/api/auth/update-password", async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+    if (!token || !newPassword) return res.status(400).json({ success: false, message: "Token and new password required" });
+
+    const evaluator = await SessionChair.findOne({
+      updateToken: token,
+      updateTokenExpiry: { $gt: Date.now() }
+    });
+
+    if (!evaluator) {
+      return res.status(400).json({ success: false, message: "This password reset link has expired or is invalid." });
     }
-  });
-  // --- End New Routes ---
 
-  // Evaluator PUT
-  app.put("/api/admin/evaluators/:id", async (req, res) => {
-    try {
-      const { name, email, phone } = req.body;
-      
-      const isUnique = await checkEmailUnique(email, req.params.id, "sessionChair");
-      if (!isUnique) {
-        return res.status(400).json({ success: false, message: "This email is already in use by another user." });
-      }
+    evaluator.passwordHash = hashPassword(newPassword);
+    evaluator.updateToken = undefined;
+    evaluator.updateTokenExpiry = undefined;
+    await evaluator.save();
 
-      const evaluator = await SessionChair.findByIdAndUpdate(req.params.id, {
-        name, email: email.trim().toLowerCase(), phone
-      }, { new: true });
-      res.json({ success: true, evaluator });
-    } catch (error) {
-      res.status(500).json({ success: false, message: error.message });
+    res.json({ success: true, message: "Password updated successfully" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+// Direct change password (for logged in users)
+app.post("/api/auth/change-password-direct", async (req, res) => {
+  try {
+    const { email, role, newPassword } = req.body;
+    if (!email || !role || !newPassword) {
+      return res.status(400).json({ success: false, message: "Missing required fields" });
     }
-  });
 
-  // Evaluator DELETE
-  app.delete("/api/admin/evaluators/:id", async (req, res) => {
-    try {
-      await SessionChair.findByIdAndDelete(req.params.id);
-      res.json({ success: true });
-    } catch (error) {
-      res.status(500).json({ success: false, message: error.message });
+    const normalizedEmail = email.trim().toLowerCase();
+    const hashed = hashPassword(newPassword);
+
+    if (role === "studentCoordinator") {
+      const student = await StudentCoordinator.findOne({ email: normalizedEmail });
+      if (!student) return res.status(404).json({ success: false, message: "User not found" });
+      student.passwordHash = hashed;
+      await student.save();
+      return res.json({ success: true, message: "Password updated successfully" });
     }
-  });
+    else if (role === "sessionChair") {
+      const chair = await SessionChair.findOne({ email: normalizedEmail });
+      if (!chair) return res.status(404).json({ success: false, message: "User not found" });
+      chair.passwordHash = hashed;
+      await chair.save();
+      return res.json({ success: true, message: "Password updated successfully" });
+    }
+    else {
+      return res.status(400).json({ success: false, message: "Invalid role or operation not supported for this role" });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+// --- End New Routes ---
+
+// Evaluator PUT
+app.put("/api/admin/evaluators/:id", async (req, res) => {
+  try {
+    const { name, email, phone } = req.body;
+
+    const isUnique = await checkEmailUnique(email, req.params.id, "sessionChair");
+    if (!isUnique) {
+      return res.status(400).json({ success: false, message: "This email is already in use by another user." });
+    }
+
+    const evaluator = await SessionChair.findByIdAndUpdate(req.params.id, {
+      name, email: email.trim().toLowerCase(), phone
+    }, { new: true });
+    res.json({ success: true, evaluator });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Evaluator DELETE
+app.delete("/api/admin/evaluators/:id", async (req, res) => {
+  try {
+    await SessionChair.findByIdAndDelete(req.params.id);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
 
 
 
@@ -2784,7 +2784,7 @@ app.get('/api/admin/evaluators/all', async (req, res) => {
 app.post("/api/admin/student-coordinators/global", async (req, res) => {
   try {
     const { name, firstName, email, phone } = req.body;
-    
+
     // Check if exists globally
     const isUnique = await checkEmailUnique(email);
     if (!isUnique) {
@@ -2856,15 +2856,15 @@ app.post("/api/admin/team-leaders/send-mail", async (req, res) => {
     for (const tl of leaders) {
       const p = tl.participantId;
       if (!p) continue;
-      
+
       const randomWord = UNIVERSE_WORDS[Math.floor(Math.random() * UNIVERSE_WORDS.length)];
       const tempPass = `${randomWord}123`;
       const hashed = hashPassword(tempPass);
-      
+
       tl.passwordHash = hashed;
       tl.inviteSent = true;
       await tl.save();
-      
+
       // Generate Welcome Notification
       await NotificationModel.create({
         recipientEmail: tl.email,
@@ -2872,7 +2872,7 @@ app.post("/api/admin/team-leaders/send-mail", async (req, res) => {
         message: "Welcome to the iKIGAI Team Leader Portal. Please change your default password to secure your account.",
         type: "Welcome"
       });
-      
+
       await sendMail({
         to: tl.email,
         subject: "Congratulations! You are shortlisted for Round 2",
@@ -2891,10 +2891,11 @@ app.post("/api/admin/team-leaders/send-mail", async (req, res) => {
                 <h2 style="color: #86198f; margin-top: 30px; margin-bottom: 15px; border-bottom: 2px solid #fdf4ff; padding-bottom: 5px;">Complete Your Grand Finale Registration</h2>
                 <p>To confirm your participation, please complete the registration process <strong style="color: #d946ef;">on or before 6 August 2026, 5:00 PM</strong>.</p>
                 <ul style="padding-left: 20px;">
-                  <li style="margin-bottom: 8px;">Pay the <strong>registration fee of ₹500 per team</strong></li>
+                  <li style="margin-bottom: 8px;">Pay the <strong>registration fee of ₹501 per team</strong></li>
                   <li style="margin-bottom: 8px;">Select your preferred <strong>problem domain (track)</strong> in order of preference</li>
                 </ul>
                 <p><em><strong>Please Note:</strong> The specific problem statement for your allotted domain will be revealed on <strong>15 August 2026</strong>.</em></p>
+                <p><em><strong>Selecting a preferred domain during registration does not guarantee its allocation. Domain allotment will be based on first-come, first-registration and successful Round 1 solution submission, subject to availability.</strong>.</em></p>
                 
                 <h3 style="color: #86198f; margin-top: 30px; margin-bottom: 15px; border-bottom: 2px solid #fdf4ff; padding-bottom: 5px;">Login Details</h3>
                 <div style="background: #fdf4ff; border-left: 4px solid #a855f7; padding: 15px 20px; margin: 20px 0; border-radius: 0 8px 8px 0;">
@@ -2973,7 +2974,7 @@ app.get("/api/team/my-details", async (req, res) => {
       return res.status(404).json({ success: false, message: "Team not found" });
     }
 
-    const shortlistedTeam = await Shortlisted.findOne({ 
+    const shortlistedTeam = await Shortlisted.findOne({
       $or: [
         { participantId: tl.participantId },
         { participantId: String(tl.participantId) },

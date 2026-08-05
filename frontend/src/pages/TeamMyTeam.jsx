@@ -5,6 +5,7 @@ const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
 
 export default function TeamMyTeam() {
   const [team, setTeam] = useState(null);
+  const [round2Status, setRound2Status] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -18,8 +19,14 @@ export default function TeamMyTeam() {
         if (data.success) {
           setTeam(data.team);
         }
+
+        const r2Res = await fetch(`${API_BASE}/api/round2/my-status?email=${encodeURIComponent(email)}`);
+        const r2Data = await r2Res.json();
+        if (r2Res.ok && r2Data.registered) {
+          setRound2Status(r2Data);
+        }
       } catch (err) {
-        console.error("Error fetching team", err);
+        console.error("Error fetching team data", err);
       }
       setLoading(false);
     };
@@ -60,6 +67,25 @@ export default function TeamMyTeam() {
           </div>
         </div>
       </div>
+
+      {round2Status && round2Status.trackPreferences && round2Status.trackPreferences.length > 0 && (
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+          <h2 className="text-xl font-bold text-gray-800 mb-4">Saved Track Preferences</h2>
+          <div className="mb-4 text-red-600 font-semibold text-sm">
+            <p>Note: Selecting a preferred domain during registration does not guarantee its allocation. Domain allotment will be based on first-come, first-registration and successful Round 1 solution submission, subject to availability.</p>
+          </div>
+          <div className="space-y-2.5">
+            {round2Status.trackPreferences.map((track, idx) => (
+              <div key={idx} className="flex items-center gap-3 p-3 bg-gray-50 border border-gray-100 rounded-lg">
+                <div className="w-8 h-8 rounded-full bg-green-100 text-green-700 font-bold flex items-center justify-center shrink-0">
+                  {idx + 1}
+                </div>
+                <span className="font-semibold text-gray-800">{track}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="space-y-4">
         <h2 className="text-xl font-bold text-gray-800 px-2">Team Members</h2>

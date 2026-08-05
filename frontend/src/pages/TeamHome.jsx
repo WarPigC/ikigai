@@ -47,6 +47,11 @@ export default function TeamHome() {
   const [savingSequence, setSavingSequence] = useState(false);
   const [sequenceMessage, setSequenceMessage] = useState("");
   const [isSequenceSaved, setIsSequenceSaved] = useState(false);
+  const [trackPrefChecked, setTrackPrefChecked] = useState(false);
+  const [paymentChecked, setPaymentChecked] = useState(false);
+  const [rulesScrolled, setRulesScrolled] = useState(false);
+  const [rulesChecked, setRulesChecked] = useState(false);
+  const [consentDownloaded, setConsentDownloaded] = useState(false);
 
   const handleSaveSequence = async () => {
     if (!teamInfo) {
@@ -164,6 +169,18 @@ export default function TeamHome() {
 
     if (!isReopened && (!transactionId || !receiptFile)) {
       alert("Please enter transaction ID and upload receipt");
+      return;
+    }
+    if (!isReopened && !paymentChecked) {
+      alert("Please confirm the payment instructions checkbox.");
+      return;
+    }
+    if (!isReopened && !consentDownloaded) {
+      alert("Please download the consent letter before submitting.");
+      return;
+    }
+    if (!isReopened && !rulesChecked) {
+      alert("Please accept the rules and regulations before submitting.");
       return;
     }
     if (isReopened) {
@@ -367,9 +384,16 @@ export default function TeamHome() {
             
             {!isReopened && (
               <div className="mt-4">
+                <div className="mb-4 text-red-600 font-semibold text-sm">
+                  <p className="mb-2">Note: Selecting a preferred domain during registration does not guarantee its allocation. Domain allotment will be based on first-come, first-registration and successful Round 1 solution submission, subject to availability.</p>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" className="w-4 h-4" checked={trackPrefChecked} onChange={e => setTrackPrefChecked(e.target.checked)} />
+                    <span>Okay, I understand</span>
+                  </label>
+                </div>
                 <button 
                   onClick={handleSaveSequence}
-                  disabled={savingSequence}
+                  disabled={savingSequence || !trackPrefChecked}
                   className="w-full py-3 bg-green-50 text-green-700 font-bold rounded-lg border border-green-200 hover:bg-green-100 transition disabled:opacity-50"
                 >
                   {savingSequence ? "Saving..." : "Save Sequence"}
@@ -440,6 +464,144 @@ export default function TeamHome() {
                 )}
               </div>
             </div>
+
+            {(!isReopened) && (
+              <div className="mt-4">
+                <label className="flex items-center gap-2 cursor-pointer text-sm font-semibold text-gray-700">
+                  <input type="checkbox" className="w-4 h-4" checked={paymentChecked} onChange={e => setPaymentChecked(e.target.checked)} />
+                  <span>I have read and followed the payment instructions.</span>
+                </label>
+              </div>
+            )}
+            
+            {(!isReopened) && (
+              <div className="mt-8 pt-6 border-t border-gray-100">
+                <h2 className="text-lg font-bold text-gray-800 mb-4 pb-2 border-b">3. Consent and Rules & Regulations</h2>
+                
+                <div className="mb-6">
+                  <p className="text-sm text-gray-700 mb-3">Please download the consent letter, which has to be filled physically and brought on the grand finale date.</p>
+                  <a 
+                    href="https://res.cloudinary.com/dixdw1mus/image/upload/v1785916471/IKIGAI_2026_Consent_Letter_jaz5tt.pdf" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    onClick={() => setConsentDownloaded(true)}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 font-semibold rounded-lg border border-blue-200 hover:bg-blue-100 transition"
+                  >
+                    Download Consent Letter
+                  </a>
+                  {consentDownloaded && <span className="ml-3 text-sm text-green-600 font-bold">✓ Downloaded</span>}
+                </div>
+
+                <div className="mb-4">
+                  <h3 className="font-bold text-gray-800 text-sm mb-2">Rules and Regulations</h3>
+                  <div 
+                    className="h-48 overflow-y-auto bg-gray-50 border border-gray-200 p-4 rounded-lg text-xs text-gray-700 mb-3"
+                    onScroll={(e) => {
+                      const bottom = e.target.scrollHeight - e.target.scrollTop <= e.target.clientHeight + 5;
+                      if (bottom) setRulesScrolled(true);
+                    }}
+                  >
+                    <p className="font-bold mb-2">36-Hour Hackathon – Team Participation Rules</p>
+                    <p className="font-bold mt-2">1. Eligibility</p>
+                    <ul className="list-disc pl-4 mb-2">
+                      <li>Only teams shortlisted from the preliminary round are eligible for pre-final round.</li>
+                      <li>All Team must complete registration before the deadline.</li>
+                      <li>All team members should be present physically to venue for Pre-final round.</li>
+                      <li>Each participant should be member of only one team.</li>
+                    </ul>
+                    <p className="font-bold mt-2">2. Team Size</p>
+                    <ul className="list-disc pl-4 mb-2">
+                      <li>Each team must consist of 2–4 members.</li>
+                      <li>Team composition cannot be changed after registration closes unless approved by the organizers.</li>
+                      <li>Bring a hard copy of the Team Leader’s bank account details (with College ID, cancelled cheque).</li>
+                      <li>Govt. Id (such as Aadhar Card / PAN card/ Driving License etc.) of all members is required.</li>
+                    </ul>
+                    <p className="font-bold mt-2">3. Travel and Registration</p>
+                    <ul className="list-disc pl-4 mb-2">
+                      <li>Travel arrangements (to and fro) must be made by participants. Any kind of travelling allowance will not be provided by host institute.</li>
+                      <li>Registration fees are non-refundable under any circumstances.</li>
+                      <li>Registration Fee includes registration kit to team, Free meals will be provided: Day 1: Early Dinner, Day 2: Breakfast, Lunch, Dinner, Day 3: Breakfast/Lunch.</li>
+                      <li>Free Accommodation 21 and 22 August.</li>
+                    </ul>
+                    <p className="font-bold mt-2">4. Accommodation & Facilities</p>
+                    <ul className="list-disc pl-4 mb-2">
+                      <li>Free common hall accommodation will be provided from Day 1 evening (5:00 PM) until the formal conclusion of Day 3, with separate arrangements for boys and girls.</li>
+                      <li>Participants are advised to carry light luggage and bring seasonal essentials.</li>
+                      <li>Locker facility is available—bring your own lock.</li>
+                      <li>(Optional) Paid food stalls may also be available for 24*7.</li>
+                      <li>First aid facilities will be available on-site.</li>
+                    </ul>
+                    <p className="font-bold mt-2">5. Attendance</p>
+                    <ul className="list-disc pl-4 mb-2">
+                      <li>All team members must be present during registration process, check-in, check-out, mentoring and judgment session till completion of event.</li>
+                      <li>At least one team member must be present at allotted desk for during the hackathon.</li>
+                      <li>Teams are expected to participate throughout the full 36-hour duration.</li>
+                    </ul>
+                    <p className="font-bold mt-2">6. Code of Conduct</p>
+                    <ul className="list-disc pl-4 mb-2">
+                      <li>Treat all participants, mentors, judges, volunteers, and organizers with respect.</li>
+                      <li>Unauthorized exit from the venue will lead to immediate disqualification.</li>
+                      <li>Harassment, discrimination, or disruptive behavior will not be tolerated.</li>
+                    </ul>
+                    <p className="font-bold mt-2">7. Project Development</p>
+                    <ul className="list-disc pl-4 mb-2">
+                      <li>Projects must be developed primarily during the hackathon.</li>
+                      <li>Existing open-source libraries, frameworks, and APIs may be used with proper attribution.</li>
+                      <li>Pre-built templates or boilerplate code are allowed only if disclosed.</li>
+                      <li>Students need to bring necessary hardware required for the hackathon.</li>
+                      <li>No hardware / laptops/ desktops shall be issued from host institute in any case.</li>
+                    </ul>
+                    <p className="font-bold mt-2">8. Resource Usage</p>
+                    <ul className="list-disc pl-4 mb-2">
+                      <li>Participants may use their own laptops chargers, extension cords, converters, and approved hardware.</li>
+                      <li>Any specialized hardware must comply with event guidelines.</li>
+                      <li>Any coding environment is allowed.</li>
+                      <li>Wi-Fi will be provided, but participants are advised to keep offline backups.</li>
+                    </ul>
+                    <p className="font-bold mt-2">9. Internet & AI Tools</p>
+                    <ul className="list-disc pl-4 mb-2">
+                      <li>Internet access is permitted at the venue.</li>
+                      <li>AI tools may be used unless otherwise restricted. Teams should disclose significant AI-generated content if required.</li>
+                    </ul>
+                    <p className="font-bold mt-2">10. Submission Requirements</p>
+                    <ul className="list-disc pl-4 mb-2">
+                      <li>Submit the project before the stated deadline.</li>
+                      <li>Required deliverables may include: GitHub repository, Presentation, Demo video, Project description.</li>
+                    </ul>
+                    <p className="font-bold mt-2">11. Originality</p>
+                    <ul className="list-disc pl-4 mb-2">
+                      <li>Submissions must be original work.</li>
+                      <li>Previously completed projects are not eligible unless significant new features are built.</li>
+                    </ul>
+                    <p className="font-bold mt-2">12. Fair Play</p>
+                    <ul className="list-disc pl-4 mb-2">
+                      <li>Cheating, plagiarism, or violating rules may result in immediate disqualification.</li>
+                    </ul>
+                    <p className="font-bold mt-2">13. Safety & Venue</p>
+                    <ul className="list-disc pl-4 mb-2">
+                      <li>Participants must follow venue safety guidelines.</li>
+                      <li>Keep workspaces clean and respect event facilities.</li>
+                    </ul>
+                    <p className="font-bold mt-2">14. Organizer Decisions</p>
+                    <ul className="list-disc pl-4 mb-2">
+                      <li>The organizers reserve the right to modify schedules or rules if necessary.</li>
+                      <li>All decisions made by the organizers and judges are final.</li>
+                    </ul>
+                  </div>
+                  
+                  <label className={`flex items-center gap-2 text-sm font-semibold ${rulesScrolled ? 'text-gray-700 cursor-pointer' : 'text-gray-400 cursor-not-allowed'}`}>
+                    <input 
+                      type="checkbox" 
+                      className="w-4 h-4" 
+                      checked={rulesChecked} 
+                      onChange={e => setRulesChecked(e.target.checked)}
+                      disabled={!rulesScrolled}
+                    />
+                    <span>I have gone through the rules and regulations. (Scroll to bottom to enable)</span>
+                  </label>
+                </div>
+              </div>
+            )}
             
             <div className="mt-8 pt-4 border-t border-gray-100">
               <button 
