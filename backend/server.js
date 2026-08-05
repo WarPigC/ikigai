@@ -8,6 +8,7 @@ import proofRoutes from "./proof.routes.js";
 import pptRoutes from "./ppt.routes.js";
 import aiRoutes from "./ai.routes.js";
 import round2Routes, { TeamModel } from "./round2.routes.js";
+import notificationRoutes, { NotificationModel } from "./notification.routes.js";
 import { sendMail } from "./mailer.js";
 
 
@@ -40,6 +41,7 @@ app.use("/api/proof", proofRoutes);
 app.use("/api/upload-ppt", pptRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/round2", round2Routes);
+app.use("/api/notifications", notificationRoutes);
 
 app.use(express.urlencoded({ extended: true }));
 
@@ -597,6 +599,7 @@ app.post("/api/login", async (req, res) => {
         success: true,
         role: "studentCoordinator",
         email: normalizedEmail,
+        name: student.name,
       });
     }
 
@@ -606,6 +609,7 @@ app.post("/api/login", async (req, res) => {
         success: true,
         role: "sessionChair",
         email: normalizedEmail,
+        name: chair.name,
       });
     }
 
@@ -760,6 +764,7 @@ app.post("/api/auth/verify-otp", async (req, res) => {
     return res.json({
       success: true,
       role: "studentCoordinator",
+      name: student.name,
     });
   }
 
@@ -772,6 +777,7 @@ app.post("/api/auth/verify-otp", async (req, res) => {
   res.json({
     success: true,
     role: "sessionChair",
+    name: chair.name,
     chair: {
       email: chair.email,
       eventId: chair.eventId,
@@ -2858,6 +2864,14 @@ app.post("/api/admin/team-leaders/send-mail", async (req, res) => {
       tl.passwordHash = hashed;
       tl.inviteSent = true;
       await tl.save();
+      
+      // Generate Welcome Notification
+      await NotificationModel.create({
+        recipientEmail: tl.email,
+        title: "Welcome to iKIGAI",
+        message: "Welcome to the iKIGAI Team Leader Portal. Please change your default password to secure your account.",
+        type: "Welcome"
+      });
       
       await sendMail({
         to: tl.email,

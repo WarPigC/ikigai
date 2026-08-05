@@ -87,7 +87,7 @@ const handleLogin = async (e) => {
     // ✅ SUCCESS
     sessionStorage.setItem("care_role", data.role);
     sessionStorage.setItem("care_email", data.email);
-    
+    sessionStorage.setItem("care_name", data.name || data.teamName || "");
 
     if (data.role === "admin") navigate("/dashboard", { replace: true });
     else if (data.role === "sessionChair") navigate("/session", { replace: true });
@@ -128,6 +128,7 @@ body: JSON.stringify({
     setOtpVerified(true);
     sessionStorage.setItem("care_role", data.role);
     sessionStorage.setItem("care_email", normalizeEmail(email));
+    sessionStorage.setItem("care_name", data.name || "");
 
 
     setTimeout(() => {

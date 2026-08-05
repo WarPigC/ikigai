@@ -6,15 +6,24 @@ import { Calendar, AlignJustify, IndianRupee, QrCode, Upload } from "lucide-reac
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
 
-function SortableTrackItem({ id, track }) {
+function SortableTrackItem({ id, track, index }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
 
   return (
-    <div ref={setNodeRef} style={style} className="bg-white border border-gray-200 rounded-lg p-4 flex gap-3 shadow-sm mb-3 z-50 relative hover:shadow-md transition-shadow">
-      <button {...attributes} {...listeners} className="mt-1 text-gray-400 hover:text-purple-600 cursor-grab active:cursor-grabbing shrink-0 transition-colors">
+    <div 
+      ref={setNodeRef} 
+      style={style} 
+      {...attributes} 
+      {...listeners} 
+      className="bg-white border border-gray-200 rounded-lg p-4 flex gap-4 items-center shadow-sm mb-3 z-50 relative hover:shadow-md transition-shadow cursor-grab active:cursor-grabbing select-none"
+    >
+      <div className="w-10 h-10 rounded-full bg-green-600 text-white font-black text-lg flex items-center justify-center shrink-0 shadow-sm">
+        {index + 1}
+      </div>
+      <div className="text-gray-400 shrink-0">
         <AlignJustify size={20} />
-      </button>
+      </div>
       <div className="flex-1 text-left">
         <h3 className="font-bold text-gray-900 mb-1.5 leading-tight">{track.name}</h3>
         <p className="text-sm text-gray-600 leading-relaxed text-justify">{track.location}</p>
@@ -34,6 +43,45 @@ export default function TeamHome() {
   const [regStatus, setRegStatus] = useState("Pending");
   const [reopenAccess, setReopenAccess] = useState(null);
   const [timeLeft, setTimeLeft] = useState("");
+  const [savingSequence, setSavingSequence] = useState(false);
+  const [sequenceMessage, setSequenceMessage] = useState("");
+  const [isSequenceSaved, setIsSequenceSaved] = useState(false);
+
+  const handleSaveSequence = async () => {
+    if (!teamInfo) {
+      alert("Team info not found. Please log in again.");
+      return;
+    }
+    setSavingSequence(true);
+    try {
+      const payload = {
+        participantId: teamInfo.participantId,
+        teamName: teamInfo.teamName,
+        leaderEmail: sessionStorage.getItem("care_email"),
+        eventId: event._id,
+        trackPreferences: tracks.map(t => t.title || t.name)
+      };
+
+      const res = await fetch(`${API_BASE}/api/round2/save-sequence`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      
+      const data = await res.json();
+      if (data.success) {
+        setSequenceMessage("✅ Sequence Saved.");
+        setIsSequenceSaved(true);
+      } else {
+        alert(data.message || "Failed to save sequence.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("An error occurred while saving the sequence.");
+    } finally {
+      setSavingSequence(false);
+    }
+  };
 
   const isReopened = submitted && reopenAccess && new Date(reopenAccess.expiresAt) > new Date();
 
@@ -102,10 +150,17 @@ export default function TeamHome() {
         const newIndex = items.findIndex((item) => item.id === over.id || item._id === over.id);
         return arrayMove(items, oldIndex, newIndex);
       });
+      setIsSequenceSaved(false);
+      setSequenceMessage("");
     }
   };
 
   const handleSubmit = async () => {
+    if (!isSequenceSaved) {
+      alert("Please save your track sequence before submitting the registration form.");
+      return;
+    }
+
     if (!isReopened && (!transactionId || !receiptFile)) {
       alert("Please enter transaction ID and upload receipt");
       return;
@@ -177,10 +232,10 @@ export default function TeamHome() {
         <h2 className="text-xl font-bold text-gray-800 mb-6">Your Progress</h2>
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center relative pt-4 pb-2">
           {/* Connecting Line */}
-          <div className="hidden md:block absolute top-[28px] left-[12.5%] right-[12.5%] h-1.5 bg-gray-200 z-0 rounded-full overflow-hidden">
+          <div className="hidden md:block absolute top-[28px] left-[10%] right-[10%] h-1.5 bg-gray-200 z-0 rounded-full overflow-hidden">
             <div 
               className="h-full bg-green-500 transition-all duration-500 ease-in-out" 
-              style={{ width: regStatus === 'Approved' ? '66.66%' : (submitted && !isReopened ? '33.33%' : '0%') }}
+              style={{ width: regStatus === 'Approved' ? '50%' : (submitted && !isReopened ? '25%' : '0%') }}
             ></div>
           </div>
           
@@ -221,13 +276,22 @@ export default function TeamHome() {
             </p>
           </div>
 
-          {/* Step 4: Round 2 */}
+          {/* Step 4: Problem Statement */}
           <div className="flex flex-col items-center flex-1 text-center z-10 px-2 relative">
             <div className={`w-14 h-14 rounded-full flex items-center justify-center font-bold text-lg mb-3 ring-4 ring-white transition-all ${
               regStatus === 'Approved' 
                 ? 'bg-purple-600 text-white shadow-[0_0_15px_rgba(147,51,234,0.6)] scale-110' 
                 : 'bg-gray-100 text-gray-400 border-2 border-gray-200'
             }`}>4</div>
+            <p className="text-sm font-extrabold text-gray-900">Problem Statement</p>
+            <p className={`text-xs font-bold mt-1 ${regStatus === 'Approved' ? 'text-purple-600' : 'text-gray-400'}`}>
+              {regStatus === 'Approved' ? 'Available' : 'Awaiting Release'}
+            </p>
+          </div>
+
+          {/* Step 5: Round 2 */}
+          <div className="flex flex-col items-center flex-1 text-center z-10 px-2 relative">
+            <div className="w-14 h-14 rounded-full flex items-center justify-center font-bold text-lg mb-3 ring-4 ring-white transition-all bg-gray-100 text-gray-400 border-2 border-gray-200">5</div>
             <p className="text-sm font-extrabold text-gray-900">Round 2</p>
             <p className="text-xs text-gray-500 font-bold mt-1">Hackathon (Aug 21)</p>
           </div>
@@ -280,13 +344,17 @@ export default function TeamHome() {
         {(!isReopened || reopenAccess.fields.includes("choiceFilling")) && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
             <h2 className="text-lg font-bold text-gray-800 mb-4 border-b pb-2">1. Choose Track Preference</h2>
-            <p className="text-sm text-gray-500 mb-4">Drag and drop the tracks below to rank them in your order of preference. The top track is your 1st choice.</p>
+            
+            <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-lg mb-4 text-sm font-semibold flex flex-col gap-1">
+              <span>⚠️ Please do the sequencing properly before submitting the registration form.</span>
+              <span className="text-yellow-700">👉 Use drag and drop for the sequencing (click anywhere on the card to drag).</span>
+            </div>
             
             {tracks.length > 0 ? (
               <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                 <SortableContext items={tracks.map(t => t.id || t._id)} strategy={verticalListSortingStrategy}>
-                  {tracks.map((track) => (
-                    <SortableTrackItem key={track.id || track._id} id={track.id || track._id} track={{name: track.title || track.name, location: track.description}} />
+                  {tracks.map((track, index) => (
+                    <SortableTrackItem key={track.id || track._id} id={track.id || track._id} track={{name: track.title || track.name, location: track.description}} index={index} />
                   ))}
                 </SortableContext>
               </DndContext>
@@ -295,9 +363,18 @@ export default function TeamHome() {
             )}
             
             {!isReopened && (
-              <button className="mt-4 w-full py-2 bg-green-50 text-green-700 font-bold rounded-lg border border-green-200 hover:bg-green-100 transition">
-                Save Sequence
-              </button>
+              <div className="mt-4">
+                <button 
+                  onClick={handleSaveSequence}
+                  disabled={savingSequence}
+                  className="w-full py-3 bg-green-50 text-green-700 font-bold rounded-lg border border-green-200 hover:bg-green-100 transition disabled:opacity-50"
+                >
+                  {savingSequence ? "Saving..." : "Save Sequence"}
+                </button>
+                {sequenceMessage && (
+                  <p className="text-center text-green-600 font-bold mt-2 text-sm animate-pulse">{sequenceMessage}</p>
+                )}
+              </div>
             )}
           </div>
         )}

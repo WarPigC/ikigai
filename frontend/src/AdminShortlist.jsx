@@ -55,9 +55,8 @@ export default function AdminShortlist({ events }) {
           };
         });
         
-        // ONLY assessed participants
-        const assessed = mapped.filter(p => p.status === "EVALUATED");
-        setParticipants(assessed);
+        // DO NOT filter by EVALUATED here, allow all teams to populate the main state
+        setParticipants(mapped);
       }
       
       if (shortData.success && shortData.shortlisted) {
@@ -168,6 +167,9 @@ export default function AdminShortlist({ events }) {
   // Group by Evaluator (using evaluatedBy or evaluatorId)
   const groupedByEvaluator = {};
   filteredLHS.forEach(p => {
+    // Skip non-evaluated teams for the Evaluator-Wise view
+    if (p.status !== "EVALUATED") return;
+
     if (p.assessments && p.assessments.length > 0) {
       p.assessments.forEach(assessment => {
         let evName = "Unknown Evaluator";
@@ -271,7 +273,12 @@ export default function AdminShortlist({ events }) {
           </div>
           <div className="text-xs text-gray-600 mt-1 truncate">Leader: {p.leaderName}</div>
           <div className="text-xs text-gray-500 mt-0.5 truncate">{p.institute} {p.branch ? `• ${p.branch}` : ''}</div>
-          <div className="text-xs text-purple-600 font-medium mt-1">Marks: {marksToDisplay}</div>
+          <div className="flex items-center gap-2 mt-1">
+            <div className="text-xs text-purple-600 font-medium">Marks: {marksToDisplay}</div>
+            <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${p.status === 'EVALUATED' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+              {p.status === 'EVALUATED' ? 'EVALUATED' : 'PENDING'}
+            </span>
+          </div>
         </div>
       </div>
       {from === "rhs" && (

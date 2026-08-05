@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import ErrorBoundary from "./ErrorBoundary";
 import UpdatePassword from "./UpdatePassword";
 import SlideViewer from "./components/evaluator/SlideViewer";
+import NotificationCenter from "./components/student/NotificationCenter";
 import {
   BrowserRouter,
   Routes,
@@ -144,7 +145,25 @@ function Header({ user, onLogout }) {
   const [notifOpen, setNotifOpen] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   
-  const displayRole = user.role === "sessionChair" ? "Evaluator" : user.role === "studentCoordinator" ? "Student Coordinator" : "Admin";
+  const profileMenuRef = useRef(null);
+  const notifMenuRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target)) {
+        setOpen(false);
+      }
+      if (notifMenuRef.current && !notifMenuRef.current.contains(event.target)) {
+        setNotifOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+  
+  const displayRole = user.role === "sessionChair" ? "Evaluator" : user.role === "studentCoordinator" ? "Student Coordinator" : user.role === "teamLeader" ? "Team Leader" : "Admin";
 
   return (
     <>
@@ -163,73 +182,63 @@ function Header({ user, onLogout }) {
 
         <div className="flex items-center gap-2 relative">
           {user.role !== "admin" && (
-            <div className="relative">
-              <button 
-                onClick={() => setNotifOpen((v) => !v)}
-                className="relative p-2 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-full transition-colors mr-2">
-                <Bell size={22} />
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border border-white"></span>
-              </button>
-              {notifOpen && (
-                <div className="absolute right-0 top-12 w-64 bg-white border border-gray-100 rounded-lg shadow-xl z-50 overflow-hidden p-4">
-                  <h4 className="text-sm font-bold text-gray-800 mb-2">Welcome, {user.name}!</h4>
-                  <p className="text-xs text-gray-600 mb-4">Please change your default password to secure your account.</p>
-                  <button 
-                    onClick={() => { setNotifOpen(false); setShowPasswordModal(true); }}
-                    className="w-full bg-green-600 text-white text-xs font-bold py-2 rounded hover:bg-green-700 transition"
-                  >
-                    Change Password
-                  </button>
-                </div>
-              )}
-            </div>
+            <NotificationCenter 
+              userEmail={user.email} 
+              onOpenPasswordModal={() => setShowPasswordModal(true)} 
+            />
           )}
-          <button
-            onClick={() => setOpen((v) => !v)}
-            className="flex items-center gap-2 rounded-full px-3 py-2 hover:bg-green-50"
-            aria-haspopup="true"
-            aria-expanded={open}
-          >
-            <div className="w-10 h-10 bg-green-600 text-white flex items-center justify-center rounded-full font-semibold">
-              {user.name[0]?.toUpperCase() || "U"}
-            </div>
-            <div className="hidden sm:flex flex-col text-left">
-              <span className="text-sm font-semibold">{user.name}</span>
-              <span className="text-xs text-green-700 capitalize">{displayRole}</span>
-            </div>
-          </button>
-
-          {open && (
-            <div className="absolute right-0 top-14 w-64 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden">
-              <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
-                <p className="text-sm font-bold text-gray-800 truncate">{user.name}</p>
-                <p className="text-xs text-gray-500 truncate">{user.email || "No email"}</p>
-                <p className="text-xs font-semibold text-green-600 mt-1 capitalize">{displayRole}</p>
+          <div className="relative" ref={profileMenuRef}>
+            <button
+              onClick={() => setOpen((v) => !v)}
+              className="flex items-center gap-2 rounded-full px-3 py-2 hover:bg-green-50"
+              aria-haspopup="true"
+              aria-expanded={open}
+            >
+              <div className="w-10 h-10 bg-green-600 text-white flex items-center justify-center rounded-full font-semibold">
+                {user.name[0]?.toUpperCase() || "U"}
               </div>
-              <div className="py-1">
+              <div className="hidden sm:flex flex-col text-left">
+                <span className="text-sm font-semibold">{user.name}</span>
                 {user.role !== "admin" && (
+                  <span className="text-xs text-green-700 capitalize">{displayRole}</span>
+                )}
+              </div>
+            </button>
+  
+            {open && (
+              <div className="absolute right-0 top-14 w-64 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden">
+                <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
+                  <p className="text-sm font-bold text-gray-800 truncate">{user.name}</p>
+                  <p className="text-xs text-gray-500 truncate">{user.email || "No email"}</p>
+                  {user.role !== "admin" && (
+                    <p className="text-xs font-semibold text-green-600 mt-1 capitalize">{displayRole}</p>
+                  )}
+                </div>
+                <div className="py-1">
+                  {user.role !== "admin" && (
+                    <button
+                      onClick={() => {
+                        setOpen(false);
+                        setShowPasswordModal(true);
+                      }}
+                      className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100 font-medium"
+                    >
+                      Change Password
+                    </button>
+                  )}
                   <button
                     onClick={() => {
                       setOpen(false);
-                      setShowPasswordModal(true);
+                      onLogout();
                     }}
-                    className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100 font-medium"
+                    className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 font-medium"
                   >
-                    Change Password
+                    Logout
                   </button>
-                )}
-                <button
-                  onClick={() => {
-                    setOpen(false);
-                    onLogout();
-                  }}
-                  className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 font-medium"
-                >
-                  Logout
-                </button>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
     </header>
@@ -4996,13 +5005,14 @@ function AppRoutes({ events, setEvents, refreshEvents }) {
   useEffect(() => {
   const role = sessionStorage.getItem("care_role");
   const email = sessionStorage.getItem("care_email");
+  const careName = sessionStorage.getItem("care_name");
 
   if (role === "sessionChair") {
-    setUser({ name: email.split("@")[0], role, email });
+    setUser({ name: careName || (email ? email.split("@")[0] : "Evaluator"), role, email });
   } else if (role === "studentCoordinator") {
-    setUser({ name: "Student Coordinator", role, email });
+    setUser({ name: careName || "Student Coordinator", role, email });
   } else if (role === "teamLeader") {
-    setUser({ name: "Team Leader", role, email });
+    setUser({ name: careName || "Team Leader", role, email });
   } else {
     setUser({ name: "Admin", role: "admin", email });
   }

@@ -2,6 +2,7 @@ import express from "express";
 import mongoose from "mongoose";
 import multer from "multer";
 import cloudinary from "cloudinary";
+import { NotificationModel } from "./notification.routes.js";
 
 const router = express.Router();
 
@@ -22,8 +23,8 @@ const TeamSchema = new mongoose.Schema(
     eventId: { type: String, required: true },
     members: { type: Array, default: [] },
     trackPreferences: { type: [String], required: true },
-    transactionId: { type: String, required: true },
-    receiptUrl: { type: String, required: true },
+    transactionId: { type: String, default: "" },
+    receiptUrl: { type: String, default: "" },
     status: { type: String, default: "Pending" }, // Pending, Approved, Contact
     reopenAccess: {
       fields: { type: [String], default: [] },
@@ -35,8 +36,8 @@ const TeamSchema = new mongoose.Schema(
 
 // We define the model on the ikigai2 connection.
 // If ikigai2Db is not initialized, fallback to standard mongoose connection (for local tests if needed)
-const TeamModel = ikigai2Db 
-  ? ikigai2Db.model("Team", TeamSchema, "teams") 
+const TeamModel = ikigai2Db
+  ? ikigai2Db.model("Team", TeamSchema, "teams")
   : mongoose.model("Team", TeamSchema, "teams");
 
 // Need access to Shortlisted to pull members
@@ -51,7 +52,7 @@ const getCloudinaryConfig = () => {
   const name = process.env.CLOUDINARY_CLOUD_NAME?.trim();
   const key = process.env.CLOUDINARY_API_KEY?.trim();
   const secret = process.env.CLOUDINARY_API_SECRET?.trim();
-  
+
   if (name && key && secret) {
     cloudinary.v2.config({
       cloud_name: name,
@@ -172,6 +173,17 @@ router.put("/admin/:id/status", async (req, res) => {
       { status },
       { new: true }
     );
+    
+    // Generate Notification if Approved
+    if (status === "Approved" && registration) {
+      await NotificationModel.create({
+        recipientEmail: registration.leaderEmail,
+        title: "Registration Approved",
+        message: "Your registration has been approved successfully.",
+        type: "Approval"
+      });
+    }
+
     res.json({ success: true, registration });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -183,15 +195,25 @@ router.put("/admin/:id/reopen", async (req, res) => {
   try {
     const { fields, durationMinutes } = req.body; // array of fields, duration
     const expiresAt = new Date(Date.now() + durationMinutes * 60000);
-    
+
     const registration = await TeamModel.findByIdAndUpdate(
       req.params.id,
-      { 
+      {
         status: "Contact", // Keeps them in Contact status until resubmission
         reopenAccess: { fields, expiresAt }
       },
       { new: true }
     );
+
+    if (registration) {
+      await NotificationModel.create({
+        recipientEmail: registration.leaderEmail,
+        title: "Registration Requires Changes",
+        message: "Your registration requires modifications. Please review the comments and resubmit.",
+        type: "Rejection"
+      });
+    }
+
     res.json({ success: true, registration });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -206,14 +228,60 @@ router.get("/my-status", async (req, res) => {
 
     const registration = await TeamModel.findOne({ leaderEmail: email });
     if (!registration) return res.json({ success: true, registered: false });
-    
-    return res.json({ 
-      success: true, 
-      registered: true, 
+
+    return res.json({
+      success: true,
+      registered: true,
       status: registration.status,
       reopenAccess: registration.reopenAccess
     });
   } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Save track sequence directly
+router.post("/save-sequence", async (req, res) => {
+  try {
+    const { participantId, teamName, leaderEmail, eventId, trackPreferences } = req.body;
+    if (!participantId || !trackPreferences) {
+      return res.status(400).json({ success: false, message: "Missing required fields" });
+    }
+
+    const prefs = typeof trackPreferences === "string" ? JSON.parse(trackPreferences) : trackPreferences;
+
+    // Fetch members from Shortlisted to ensure they are populated on upsert
+    let members = [];
+    const shortlisted = await Shortlisted.findOne({
+      $or: [
+        { participantId: participantId },
+        { participantId: String(participantId) },
+        { participantId: mongoose.Types.ObjectId.isValid(participantId) ? new mongoose.Types.ObjectId(participantId) : null }
+      ]
+    });
+    if (shortlisted && shortlisted.members) {
+      members = shortlisted.members;
+    }
+
+    const registration = await TeamModel.findOneAndUpdate(
+      { participantId },
+      {
+        participantId,
+        teamName,
+        leaderEmail,
+        eventId,
+        trackPreferences: prefs,
+        $setOnInsert: {
+          members,
+          status: "Pending"
+        }
+      },
+      { upsert: true, new: true }
+    );
+
+    res.json({ success: true, registration });
+  } catch (err) {
+    console.error("Save Sequence Error:", err);
     res.status(500).json({ success: false, message: err.message });
   }
 });

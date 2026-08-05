@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 
@@ -13,6 +13,20 @@ export default function ProfileMenu({ student }) {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
   const navigate = useNavigate();
   
   const handleLogout = () => {
@@ -54,7 +68,7 @@ export default function ProfileMenu({ student }) {
   const initial = (student?.name || "S").charAt(0).toUpperCase();
 
   return (
-    <div className="relative">
+    <div className="relative" ref={menuRef}>
       <div
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-3 cursor-pointer select-none"
