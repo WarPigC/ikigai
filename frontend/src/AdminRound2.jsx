@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { ExternalLink, Check, Mail, Eye, X, Unlock, Copy, Filter, Phone, MapPin, Building2, ChevronDown } from "lucide-react";
+import { ExternalLink, Check, Mail, Eye, X, Unlock, Copy, Filter, Phone, MapPin, Building2, ChevronDown, FileText, Download } from "lucide-react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import ikigaiLogo from "./assets/ikigai.png";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
 
@@ -54,6 +57,14 @@ const TeamCard = ({ team, isExpanded, onToggleExpand, handleUpdateStatus, handle
   const displayStatus = (team.status === "Pending" && (!team.transactionId || !team.receiptUrl)) ? "Payment Pending" : team.status;
   const open = isExpanded;
 
+  const leader = team.members?.find(m => m.isLeader) || team.members?.[0];
+  const allMembers = team.members || [];
+  
+  const trackSaved = team.trackPreferences && team.trackPreferences.length > 0;
+  const paymentDone = !!(team.transactionId && team.receiptUrl);
+  const tshirtSaved = team.tshirtSizes && Object.keys(team.tshirtSizes).length > 0 && allMembers.every(m => team.tshirtSizes[m.email]);
+  const imagesUploaded = allMembers.length > 0 && allMembers.every(m => m.photoUrl);
+
   return (
     <div className="relative w-full h-full min-h-[300px]">
       <div 
@@ -68,7 +79,10 @@ const TeamCard = ({ team, isExpanded, onToggleExpand, handleUpdateStatus, handle
           onClick={onToggleExpand}
         >
           <div className="flex justify-between items-start mb-2">
-            <h3 className="text-lg font-bold text-gray-900">{team.teamName}</h3>
+            <div>
+              <h3 className="text-lg font-bold text-gray-900">{team.teamName}</h3>
+              {team.updatedAt && <p className="text-[10px] text-gray-500 mt-0.5 font-medium">Submitted: {new Date(team.updatedAt).toLocaleString()}</p>}
+            </div>
             <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${
               displayStatus === "Approved" ? "bg-green-100 text-green-700" :
               displayStatus === "Payment Pending" ? "bg-blue-100 text-blue-700" :
@@ -77,19 +91,39 @@ const TeamCard = ({ team, isExpanded, onToggleExpand, handleUpdateStatus, handle
             }`}>{displayStatus}</span>
           </div>
           
-          <div className="flex items-center gap-2 text-sm text-gray-600 mb-4">
-            <Mail size={14} className="text-gray-400" />
-            <a href={`mailto:${team.leaderEmail}`} className="hover:text-purple-600" onClick={(e) => e.stopPropagation()}>{team.leaderEmail}</a>
+          <div className="flex flex-col gap-1.5 text-sm text-gray-600 mb-4">
+            <div className="font-semibold text-gray-800">{leader ? leader.name : "N/A"} <span className="text-xs font-normal text-gray-500">(Leader)</span></div>
+            <div className="flex items-center gap-2"><Mail size={14} className="text-gray-400 shrink-0" /> <a href={`mailto:${team.leaderEmail}`} className="hover:text-purple-600 truncate" onClick={(e) => e.stopPropagation()}>{team.leaderEmail}</a></div>
+            {leader?.organisation && <div className="flex items-center gap-2"><Building2 size={14} className="text-gray-400 shrink-0" /> <span className="truncate">{leader.organisation}</span></div>}
+            {leader?.location && <div className="flex items-center gap-2"><MapPin size={14} className="text-gray-400 shrink-0" /> <span className="truncate">{cleanLocation(leader.location)}</span></div>}
           </div>
           
-          <div className="space-y-3 mt-4">
-            <div>
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Top Track Preference</p>
-              <p className="text-sm font-medium text-gray-800">{team.trackPreferences?.[0] || "N/A"}</p>
+          <div className="mt-4 pt-4 border-t border-gray-100">
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Registration Checkpoints</p>
+            <div className="grid grid-cols-2 gap-3 text-xs font-medium">
+              <div className="flex items-center gap-2">
+                {trackSaved ? <Check size={16} className="text-green-600 bg-green-100 p-0.5 rounded-full" /> : <X size={16} className="text-red-500 bg-red-100 p-0.5 rounded-full" />}
+                <span className={trackSaved ? "text-gray-700" : "text-gray-500"}>Track Preference</span>
+              </div>
+              <div className="flex items-center gap-2">
+                {paymentDone ? <Check size={16} className="text-green-600 bg-green-100 p-0.5 rounded-full" /> : <X size={16} className="text-red-500 bg-red-100 p-0.5 rounded-full" />}
+                <span className={paymentDone ? "text-gray-700" : "text-gray-500"}>Payment Done</span>
+              </div>
+              <div className="flex items-center gap-2">
+                {tshirtSaved ? <Check size={16} className="text-green-600 bg-green-100 p-0.5 rounded-full" /> : <X size={16} className="text-red-500 bg-red-100 p-0.5 rounded-full" />}
+                <span className={tshirtSaved ? "text-gray-700" : "text-gray-500"}>T-Shirt Sizes</span>
+              </div>
+              <div className="flex items-center gap-2">
+                {imagesUploaded ? <Check size={16} className="text-green-600 bg-green-100 p-0.5 rounded-full" /> : <X size={16} className="text-red-500 bg-red-100 p-0.5 rounded-full" />}
+                <span className={imagesUploaded ? "text-gray-700" : "text-gray-500"}>Member Photos</span>
+              </div>
             </div>
-            <div>
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Transaction ID</p>
-              <div className="flex items-center gap-2 mt-1">
+          </div>
+          
+          <div className="mt-4 pt-4 border-t border-gray-100">
+            <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Payment Details</h4>
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
                 <p className="text-sm font-medium text-gray-800 font-mono bg-gray-50 px-2 py-1 rounded border border-gray-200">{team.transactionId || "None"}</p>
                 {team.transactionId && (
                   <button 
@@ -101,73 +135,65 @@ const TeamCard = ({ team, isExpanded, onToggleExpand, handleUpdateStatus, handle
                   </button>
                 )}
               </div>
+              {team.receiptUrl && (
+                <a 
+                  href={team.receiptUrl} 
+                  target="_blank" 
+                  rel="noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="flex items-center gap-1.5 text-xs font-bold text-purple-600 hover:text-purple-800 transition px-3 py-1.5 rounded-lg bg-purple-50 hover:bg-purple-100 border border-purple-200"
+                >
+                  <Eye size={14} /> Receipt
+                </a>
+              )}
             </div>
           </div>
         </div>
 
-        {open && (() => {
-          const leader = team.members?.find(m => m.isLeader) || team.members?.[0];
-          const otherMembers = team.members?.filter(m => m !== leader) || [];
-          return (
-            <div className="p-5 bg-gray-50/50 border-b border-gray-100">
-               <div className="flex justify-between items-center mb-3">
-                 <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Team Leader</h4>
-               </div>
-               {leader ? (
-                 <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm mb-3">
-                    <div className="flex items-center gap-2 mb-3">
-                      <span className="font-bold text-base text-gray-900">{leader.name}</span>
-                    </div>
-                    <div className="grid grid-cols-1 gap-y-2">
-                      <div className="text-sm text-gray-700 flex items-start gap-2 break-all"><Mail size={14} className="text-gray-400 shrink-0 mt-0.5"/> {leader.email}</div>
-                      <div className="text-sm text-gray-700 flex items-start gap-2 break-words"><Phone size={14} className="text-gray-400 shrink-0 mt-0.5"/> {leader.mobile || leader.phone || "N/A"}</div>
-                      {leader.organisation && (
-                        <div className="text-sm text-gray-700 flex items-start gap-2 break-words"><Building2 size={14} className="text-gray-400 shrink-0 mt-0.5"/> {leader.organisation}</div>
+        {open && (
+          <div className="p-5 bg-gray-50/50 border-b border-gray-100">
+             
+             {/* Preferences */}
+             <div className="mb-5">
+                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Track Preferences</h4>
+                {team.trackPreferences && team.trackPreferences.length > 0 ? (
+                  <div className="flex flex-col gap-1">
+                    {team.trackPreferences.map((pref, idx) => (
+                      <div key={idx} className="text-sm text-gray-700 flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center text-xs font-bold">{idx + 1}</span>
+                        {pref}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500">Not saved yet.</p>
+                )}
+             </div>
+
+             {/* Team Members */}
+             <div>
+                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Team Members</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {allMembers.map((m, i) => (
+                    <div key={i} className="bg-white p-3 rounded-xl border border-gray-200 flex items-center gap-3">
+                      {m.photoUrl ? (
+                        <img src={m.photoUrl} alt={m.name} className="w-12 h-12 rounded-full object-cover border border-gray-200" />
+                      ) : (
+                        <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 text-xs font-bold">No Pic</div>
                       )}
-                      {leader.location && (
-                        <div className="text-sm text-gray-700 flex items-start gap-2 break-words"><MapPin size={14} className="text-gray-400 shrink-0 mt-0.5"/> {leader.location}</div>
-                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-gray-800 truncate">{m.name} {m.isLeader && <span className="text-[10px] text-purple-600 bg-purple-50 px-1 py-0.5 rounded">(Leader)</span>}</p>
+                        <p className="text-xs text-gray-500 truncate">{m.email}</p>
+                        <p className="text-xs font-medium text-gray-600 mt-0.5">T-Shirt: <span className="text-gray-900 font-bold">{team.tshirtSizes?.[m.email] || "N/A"}</span></p>
+                      </div>
                     </div>
-                 </div>
-               ) : (
-                 <p className="text-sm text-gray-500 bg-white p-4 rounded-xl border border-gray-200 mb-3">No leader data available.</p>
-               )}
-               
-               {otherMembers.length > 0 && (
-                 <div>
-                   <h5 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Team Members</h5>
-                   <div className="flex flex-wrap gap-2">
-                     {otherMembers.map((m, i) => (
-                       <span key={i} className="text-xs font-semibold text-gray-700 bg-white px-2.5 py-1 rounded-lg border border-gray-200 shadow-sm">
-                         {m.name}
-                       </span>
-                     ))}
-                   </div>
-                 </div>
-               )}
-            </div>
-          );
-        })()}
+                  ))}
+                </div>
+             </div>
+          </div>
+        )}
         
-        <div className="bg-white p-4 flex items-center justify-between gap-2 border-t border-gray-100 rounded-b-2xl">
-          {team.receiptUrl ? (
-            <a 
-              href={team.receiptUrl} 
-              target="_blank" 
-              rel="noreferrer"
-              className="flex items-center gap-1.5 text-sm font-bold text-purple-600 hover:text-purple-800 transition px-3 py-1.5 rounded-lg hover:bg-purple-50"
-            >
-              <Eye size={16} /> View Receipt
-            </a>
-          ) : (
-            <button 
-              onClick={() => alert("No receipt uploaded by this team yet.")}
-              className="flex items-center gap-1.5 text-sm font-bold text-gray-400 cursor-not-allowed px-3 py-1.5"
-            >
-              <Eye size={16} /> No Receipt
-            </button>
-          )}
-          
+        <div className="bg-white p-4 flex items-center justify-end gap-2 border-t border-gray-100 rounded-b-2xl">
           <div className="flex items-center gap-2">
             {team.status === "Pending" && (
               <>
@@ -176,14 +202,14 @@ const TeamCard = ({ team, isExpanded, onToggleExpand, handleUpdateStatus, handle
                   className="flex items-center gap-1.5 text-sm font-bold bg-red-100 text-red-600 px-3 py-1.5 rounded-lg hover:bg-red-200 transition"
                   title="Contact Team / Action Required"
                 >
-                  <X size={16} />
+                  <X size={16} /> Contact
                 </button>
                 <button 
                   onClick={() => handleUpdateStatus(team._id, "Approved")}
                   className="flex items-center gap-1.5 text-sm font-bold bg-green-100 text-green-700 px-3 py-1.5 rounded-lg hover:bg-green-200 transition"
                   title="Verify Registration"
                 >
-                  <Check size={16} />
+                  <Check size={16} /> Approve
                 </button>
               </>
             )}
@@ -226,6 +252,130 @@ export default function AdminRound2() {
   const [filterCollege, setFilterCollege] = useState("All");
   const [filterLocation, setFilterLocation] = useState("All");
   const [filterStatus, setFilterStatus] = useState("All");
+  const [filterCheckpoint, setFilterCheckpoint] = useState("All");
+  const [filterSort, setFilterSort] = useState("Newest First");
+  
+  // Report Builder State
+  const [showReportBuilder, setShowReportBuilder] = useState(false);
+  const [reportConfig, setReportConfig] = useState({
+    onlyLeader: false,
+    memberPhoto: true,
+    memberInstitute: true,
+    memberLocation: true,
+    memberTshirt: true,
+    preferences: true,
+    transactionId: true,
+    receiptUrl: true,
+  });
+
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  const startPDFGeneration = () => {
+    setIsGenerating(true);
+    setTimeout(() => {
+      try {
+        generatePDF();
+      } catch (e) {
+        console.error("Error generating PDF:", e);
+        alert("Failed to generate PDF. Please try again.");
+      } finally {
+        setIsGenerating(false);
+      }
+    }, 100);
+  };
+
+  const generatePDF = () => {
+    const doc = new jsPDF("landscape");
+    
+    // Header
+    doc.addImage(ikigaiLogo, "PNG", 14, 10, 30, 15);
+    doc.setFontSize(16);
+    doc.setTextColor(40);
+    doc.text("Round 2 Registration Report", 50, 18);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    const timeStr = now.toLocaleTimeString('en-US');
+    doc.text(`Generated on: ${dateStr} at ${timeStr}`, 50, 24);
+
+    // Columns
+    const head = [["S. No.", "Team Name"]];
+    if (reportConfig.memberPhoto) head[0].push("Photo URL");
+    head[0].push("Member Name");
+    if (reportConfig.memberInstitute) head[0].push("Institute");
+    if (reportConfig.memberLocation) head[0].push("Location");
+    if (reportConfig.memberTshirt) head[0].push("T-Shirt");
+    if (reportConfig.preferences) head[0].push("Preferences");
+    if (reportConfig.transactionId) head[0].push("Txn ID");
+    if (reportConfig.receiptUrl) head[0].push("Receipt");
+
+    // Rows
+    const body = [];
+    filtered.forEach((team, tIdx) => {
+      let members = team.members || [];
+      if (reportConfig.onlyLeader) {
+        members = [members.find(m => m.isLeader) || members[0]].filter(Boolean);
+      }
+      
+      members.forEach((m, mIdx) => {
+        const row = [];
+        if (mIdx === 0) {
+          row.push(tIdx + 1);
+          row.push(team.teamName);
+        } else {
+          row.push("");
+          row.push("");
+        }
+
+        if (reportConfig.memberPhoto) {
+          row.push(m.photoUrl ? { content: 'View Photo', styles: { textColor: [0, 0, 255] }, url: m.photoUrl } : "N/A");
+        }
+        
+        row.push(m.name + (m.isLeader ? " (Leader)" : ""));
+        
+        if (reportConfig.memberInstitute) row.push(m.organisation || "");
+        if (reportConfig.memberLocation) row.push(cleanLocation(m.location) || "");
+        if (reportConfig.memberTshirt) row.push(team.tshirtSizes?.[m.email] || "N/A");
+        
+        if (mIdx === 0) {
+          if (reportConfig.preferences) row.push(team.trackPreferences?.join(", ") || "N/A");
+          if (reportConfig.transactionId) row.push(team.transactionId || "N/A");
+          if (reportConfig.receiptUrl) {
+            row.push(team.receiptUrl ? { content: 'View Receipt', styles: { textColor: [0, 0, 255] }, url: team.receiptUrl } : "N/A");
+          }
+        } else {
+          if (reportConfig.preferences) row.push("");
+          if (reportConfig.transactionId) row.push("");
+          if (reportConfig.receiptUrl) row.push("");
+        }
+
+        body.push(row);
+      });
+    });
+
+    autoTable(doc, {
+      startY: 35,
+      head: head,
+      body: body,
+      theme: 'grid',
+      headStyles: { fillColor: [147, 51, 234], textColor: [255, 255, 255], fontStyle: 'bold' },
+      styles: { fontSize: 8, cellPadding: 2, overflow: 'linebreak' },
+      didDrawCell: (data) => {
+        if (data.section === 'body') {
+          const colIndex = data.column.index;
+          const rawData = data.row.raw[colIndex];
+          if (rawData && typeof rawData === 'object' && rawData.url) {
+            doc.link(data.cell.x, data.cell.y, data.cell.width, data.cell.height, { url: rawData.url });
+          }
+        }
+      }
+    });
+
+    doc.save("Round2_Registration_Report.pdf");
+    setShowReportBuilder(false);
+  };
 
   const handleCopy = (id, text) => {
     if (!text) return;
@@ -345,12 +495,40 @@ export default function AdminRound2() {
       });
     }
 
+    if (filterCheckpoint !== "All") {
+      list = list.filter(team => {
+        const allMembers = team.members || [];
+        const trackSaved = team.trackPreferences && team.trackPreferences.length > 0;
+        const paymentDone = !!(team.transactionId && team.receiptUrl);
+        const tshirtSaved = team.tshirtSizes && Object.keys(team.tshirtSizes).length > 0 && allMembers.every(m => team.tshirtSizes[m.email]);
+        const imagesUploaded = allMembers.length > 0 && allMembers.every(m => m.photoUrl);
+
+        switch (filterCheckpoint) {
+          case "Completed All": return trackSaved && paymentDone && tshirtSaved && imagesUploaded;
+          case "Missing Track Preference": return !trackSaved;
+          case "Missing Payment": return !paymentDone;
+          case "Missing T-Shirt Sizes": return !tshirtSaved;
+          case "Missing Member Photos": return !imagesUploaded;
+          default: return true;
+        }
+      });
+    }
+
+    // Sorting
+    list = [...list].sort((a, b) => {
+      const dateA = new Date(a.updatedAt || a.createdAt || 0);
+      const dateB = new Date(b.updatedAt || b.createdAt || 0);
+      if (filterSort === "Newest First") return dateB - dateA;
+      if (filterSort === "Oldest First") return dateA - dateB;
+      return 0;
+    });
+
     return { 
       filtered: list, 
       uniqueColleges: Array.from(colleges).sort(), 
       uniqueLocations: Array.from(locations).sort() 
     };
-  }, [registrations, activeTrack, filterCollege, filterLocation, filterStatus]);
+  }, [registrations, activeTrack, filterCollege, filterLocation, filterStatus, filterCheckpoint, filterSort]);
 
   const allTracks = Object.keys(tracksCount);
 
@@ -382,6 +560,8 @@ export default function AdminRound2() {
               setFilterCollege("All");
               setFilterLocation("All");
               setFilterStatus("All");
+              setFilterCheckpoint("All");
+              setFilterSort("Newest First");
             }}
             className={`p-4 rounded-xl shadow-sm border cursor-pointer transition min-w-[150px] ${activeTrack === track ? 'bg-purple-100 border-purple-300' : 'bg-white border-gray-200 hover:bg-gray-50'}`}
           >
@@ -392,11 +572,37 @@ export default function AdminRound2() {
       </div>
 
       {/* FILTER HEADER */}
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mb-8 flex flex-col md:flex-row gap-4 items-center justify-between">
-        <div className="flex items-center gap-2 text-gray-600 font-semibold">
-          <Filter size={18} /> Filters
+      <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200 mb-4 flex flex-col gap-4">
+        <div className="flex items-center gap-2 text-gray-800 font-bold text-lg border-b border-gray-100 pb-3">
+          <Filter size={20} /> Filters & Sort
         </div>
-        <div className="flex flex-wrap gap-4 flex-1 justify-end">
+        <div className="flex flex-wrap gap-4">
+          <CustomSelect 
+            value={filterSort}
+            onChange={setFilterSort}
+            options={[
+              { label: "Newest First", value: "Newest First" },
+              { label: "Oldest First", value: "Oldest First" }
+            ]}
+            placeholder="Sort By"
+            width="160px"
+          />
+
+          <CustomSelect 
+            value={filterCheckpoint}
+            onChange={setFilterCheckpoint}
+            options={[
+              { label: "All Checkpoints", value: "All" },
+              { label: "Completed All", value: "Completed All" },
+              { label: "Missing Track Preference", value: "Missing Track Preference" },
+              { label: "Missing Payment", value: "Missing Payment" },
+              { label: "Missing T-Shirt Sizes", value: "Missing T-Shirt Sizes" },
+              { label: "Missing Member Photos", value: "Missing Member Photos" }
+            ]}
+            placeholder="All Checkpoints"
+            width="220px"
+          />
+
           <CustomSelect 
             value={filterStatus}
             onChange={setFilterStatus}
@@ -435,6 +641,16 @@ export default function AdminRound2() {
         </div>
       </div>
 
+      <div className="flex items-center justify-between mb-6">
+        <span className="text-sm font-bold text-purple-700 bg-purple-100 px-3 py-1.5 rounded-full shadow-sm whitespace-nowrap">{filtered.length} team{filtered.length !== 1 ? 's' : ''} found</span>
+        <button 
+          onClick={() => setShowReportBuilder(true)}
+          className="flex items-center gap-2 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white font-bold py-2 px-4 rounded-xl shadow transition"
+        >
+          <FileText size={18} /> Report Builder
+        </button>
+      </div>
+
       {loading ? (
         <p className="text-center text-gray-500 py-10">Loading registrations...</p>
       ) : filtered.length === 0 ? (
@@ -444,7 +660,7 @@ export default function AdminRound2() {
         </div>
       ) : (
         <div 
-          key={`${activeTrack}-${filterCollege}-${filterLocation}-${filterStatus}`}
+          key={`${activeTrack}-${filterCollege}-${filterLocation}-${filterStatus}-${filterCheckpoint}-${filterSort}`}
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-in-up"
         >
           {filtered.map(team => (
@@ -459,6 +675,98 @@ export default function AdminRound2() {
               copiedId={copiedId} 
             />
           ))}
+        </div>
+      )}
+
+      {/* Report Builder Modal */}
+      {showReportBuilder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 animate-fade-in">
+          <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col">
+            <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+              <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                <FileText size={20} className="text-purple-600" />
+                Custom Report Builder
+              </h3>
+              <button onClick={() => setShowReportBuilder(false)} className="text-gray-400 hover:text-red-500 transition p-1 rounded-md hover:bg-red-50">
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto flex-1 bg-white">
+              <p className="text-sm text-gray-500 mb-5">Select the fields you want to include in the generated PDF report. The team name and member name are always included.</p>
+              
+              <div className="space-y-4">
+                <label className="flex items-center gap-3 p-3 rounded-xl border border-purple-100 bg-purple-50 cursor-pointer hover:bg-purple-100 transition">
+                  <input 
+                    type="checkbox" 
+                    checked={reportConfig.onlyLeader} 
+                    onChange={e => setReportConfig(prev => ({ ...prev, onlyLeader: e.target.checked }))}
+                    className="w-4 h-4 text-purple-600 rounded focus:ring-purple-500"
+                  />
+                  <div>
+                    <div className="text-sm font-bold text-purple-900">Only Show Team Leader</div>
+                    <div className="text-xs text-purple-700 mt-0.5">Exclude all other team members from the report</div>
+                  </div>
+                </label>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                    <input type="checkbox" checked={reportConfig.memberPhoto} onChange={e => setReportConfig(prev => ({ ...prev, memberPhoto: e.target.checked }))} className="w-4 h-4 text-purple-600 rounded" />
+                    Member Photo
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                    <input type="checkbox" checked={reportConfig.memberInstitute} onChange={e => setReportConfig(prev => ({ ...prev, memberInstitute: e.target.checked }))} className="w-4 h-4 text-purple-600 rounded" />
+                    Member Institute
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                    <input type="checkbox" checked={reportConfig.memberLocation} onChange={e => setReportConfig(prev => ({ ...prev, memberLocation: e.target.checked }))} className="w-4 h-4 text-purple-600 rounded" />
+                    Member Location
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                    <input type="checkbox" checked={reportConfig.memberTshirt} onChange={e => setReportConfig(prev => ({ ...prev, memberTshirt: e.target.checked }))} className="w-4 h-4 text-purple-600 rounded" />
+                    T-Shirt Size
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                    <input type="checkbox" checked={reportConfig.preferences} onChange={e => setReportConfig(prev => ({ ...prev, preferences: e.target.checked }))} className="w-4 h-4 text-purple-600 rounded" />
+                    Track Preferences
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                    <input type="checkbox" checked={reportConfig.transactionId} onChange={e => setReportConfig(prev => ({ ...prev, transactionId: e.target.checked }))} className="w-4 h-4 text-purple-600 rounded" />
+                    Transaction ID
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                    <input type="checkbox" checked={reportConfig.receiptUrl} onChange={e => setReportConfig(prev => ({ ...prev, receiptUrl: e.target.checked }))} className="w-4 h-4 text-purple-600 rounded" />
+                    Receipt URL
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-5 border-t border-gray-100 bg-gray-50 flex justify-end gap-3">
+              <button 
+                onClick={() => setShowReportBuilder(false)}
+                className="px-4 py-2 text-sm font-bold text-gray-600 hover:bg-gray-200 rounded-lg transition"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={startPDFGeneration}
+                disabled={isGenerating}
+                className="px-4 py-2 text-sm font-bold text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition flex items-center gap-2 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed min-w-[140px] justify-center"
+              >
+                {isGenerating ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Download size={16} /> Generate PDF
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
